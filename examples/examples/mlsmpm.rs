@@ -1,4 +1,4 @@
-use mpm_rust::{Calculator, Settings, Space};
+use mlsmpm::{Calculator, Settings, Space};
 
 fn main() {
     let settings = Settings {
