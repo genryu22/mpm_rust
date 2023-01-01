@@ -11,7 +11,8 @@ fn main() {
         grid_width: 200,
     };
 
-    let calc = Calculator::new(&settings, Space::new_for_poiseuille(&settings));
-
     println!("{:?}", settings);
+
+    let mut calc = Calculator::new(&settings, Space::new_for_poiseuille(&settings));
+    calc.start(10);
 }

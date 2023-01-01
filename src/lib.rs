@@ -1,6 +1,12 @@
 extern crate nalgebra as na;
 
+use std::ops::Div;
+
+use na::vector;
 pub use na::{Matrix2, Vector2};
+
+type Vector2f = Vector2<f64>;
+type Vector2u = Vector2<u16>;
 
 #[derive(Debug)]
 pub struct Calculator<'a> {
@@ -11,6 +17,13 @@ pub struct Calculator<'a> {
 impl<'a> Calculator<'a> {
     pub fn new(settings: &'a Settings, space: Space) -> Calculator<'a> {
         Calculator { settings, space }
+    }
+
+    pub fn start(&mut self, count: u32) {
+        for i in 0..count {
+            self.space.clear_grid();
+            self.space.distribute_mass(self.settings);
+        }
     }
 }
 
@@ -25,6 +38,12 @@ pub struct Settings {
     pub grid_width: usize,
 }
 
+impl Settings {
+    pub fn cell_width(&self) -> f64 {
+        self.space_width / (self.grid_width as f64)
+    }
+}
+
 #[derive(Debug)]
 pub struct Space {
     grid: Vec<Node>,
@@ -35,7 +54,7 @@ impl Space {
     pub fn new_for_poiseuille(settings: &Settings) -> Space {
         let grid_width = settings.grid_width;
         let space_width = settings.space_width;
-        let cell_size = space_width / (grid_width as f64);
+        let cell_size = settings.cell_width();
 
         let p_dist = cell_size / 2.;
 
@@ -68,14 +87,43 @@ impl Space {
         }
     }
 
-    pub fn distribute_mass(&mut self) {}
+    pub fn distribute_mass(&mut self, settings: &Settings) {
+        for (i, p) in self.particles.iter_mut().enumerate() {
+            let base_pos = Self::calc_base_node_pos(settings, p.x);
+            let weights = Self::calc_weights(settings, p.x, base_pos);
+            for gx in 0..3 {
+                for gy in 0..3 {
+                    let weight = weights[gx][0] * weights[gy][1];
+                    let node_x = (base_pos.cast::<f64>() + vector![gx as f64, gy as f64])
+                        * settings.cell_width();
+                    let node_dist = node_x - p.x;
+                }
+            }
+        }
+    }
+
+    fn calc_base_node_pos(settings: &Settings, x: Vector2f) -> Vector2u {
+        (x / settings.cell_width()).map(|e| e as u16)
+    }
+
+    fn calc_weights(settings: &Settings, x: Vector2f, base: Vector2u) -> [Vector2f; 3] {
+        let fx = x / settings.cell_width() - base.cast::<f64>();
+        let w_0 = Self::pow2(Vector2f::repeat(1.5) - fx).component_mul(&Vector2f::repeat(0.5));
+        let w_1 = Vector2f::repeat(0.75) - Self::pow2(fx - Vector2f::repeat(1.0));
+        let w_2 = Self::pow2(fx - Vector2f::repeat(0.5)).component_mul(&Vector2f::repeat(0.5));
+        [w_0, w_1, w_2]
+    }
+
+    fn pow2(vec: Vector2f) -> Vector2f {
+        vec.component_div(&vec)
+    }
 }
 
 #[derive(Debug)]
 pub struct Node {
-    pub v: Vector2<f64>,
-    v_star: Vector2<f64>,
-    force: Vector2<f64>,
+    pub v: Vector2f,
+    v_star: Vector2f,
+    force: Vector2f,
     mass: f64,
 }
 
@@ -99,16 +147,16 @@ impl Node {
 
 #[derive(Debug)]
 pub struct Particle {
-    p: Vector2<f64>,
-    v: Vector2<f64>,
+    x: Vector2f,
+    v: Vector2f,
     c: Matrix2<f64>,
     mass: f64,
 }
 
 impl Particle {
-    pub fn new(pos: Vector2<f64>) -> Particle {
+    pub fn new(pos: Vector2f) -> Particle {
         Particle {
-            p: pos,
+            x: pos,
             v: Vector2::zeros(),
             c: Matrix2::zeros(),
             mass: 0.0,
