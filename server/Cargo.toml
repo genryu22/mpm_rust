@@ -1,10 +1,9 @@
 [package]
-name = "mpm_examples"
+name = "pic_server"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-mlsmpm = { path = "../mlsmpm" }
-pic_server = { path = "../server" }
+tungstenite = "0.18.0"
