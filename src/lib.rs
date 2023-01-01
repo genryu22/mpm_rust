@@ -1,6 +1,6 @@
 extern crate nalgebra as na;
 
-use na::vector;
+use na::{clamp, vector};
 pub use na::{Matrix2, Vector2};
 
 type U = usize;
@@ -73,7 +73,8 @@ impl Space {
                     (pos_x_max - pos_x_min) * (i_x as f64 + 0.5) / num_x as f64 + pos_x_min,
                     (pos_x_max - pos_x_min) * (i_y as f64 + 0.5) / num_x as f64 + pos_x_min,
                 ));
-                p.mass = (1. * (pos_x_max - pos_x_min) * (pos_x_max - pos_x_min)) / (num_x * num_x) as f64;
+                p.mass = (1. * (pos_x_max - pos_x_min) * (pos_x_max - pos_x_min))
+                    / (num_x * num_x) as f64;
                 particles.push(p);
             }
         }
@@ -105,7 +106,7 @@ impl Space {
                         let node_dist = node_ipos.cast::<f64>() * settings.cell_width() - p.x;
                         let q = match settings.affine {
                             true => p.c * node_dist,
-                            false => Vector2f::zeros()
+                            false => Vector2f::zeros(),
                         };
                         let mass_contrib = weight * p.mass;
                         node.mass += mass_contrib;
@@ -121,7 +122,8 @@ impl Space {
             let base_ipos = Self::calc_base_node_ipos(settings, p.x);
             let weights = Self::calc_weights(settings, p.x, base_ipos);
 
-            let (_density, volume) = Self::calc_density_and_volume(settings, p, &self.grid, &base_ipos, &weights);
+            let (_density, volume) =
+                Self::calc_density_and_volume(settings, p, &self.grid, &base_ipos, &weights);
 
             let dudv = p.c;
             let mut strain = dudv;
@@ -132,7 +134,8 @@ impl Space {
             strain[(1, 1)] *= 2.;
             let viscosity_term = settings.dynamic_viscosity * strain;
             let stress = viscosity_term;
-            let eq_16_term_0 = -volume * 4. / (settings.cell_width() * settings.cell_width()) * stress;
+            let eq_16_term_0 =
+                -volume * 4. / (settings.cell_width() * settings.cell_width()) * stress;
             for gx in 0..3 {
                 for gy in 0..3 {
                     let node_ipos = base_ipos + vector![gx as U, gy as U];
@@ -140,13 +143,12 @@ impl Space {
                     if let Some(node) = self.grid.get_mut(cell_index) {
                         let weight = weights[gx].x * weights[gy].y;
                         let node_dist = node_ipos.cast::<f64>() * settings.cell_width() - p.x;
-                        
+
                         node.force += eq_16_term_0 * weight * node_dist;
                     }
                 }
             }
         }
-
     }
 
     fn update_grid(&mut self, settings: &Settings) {
@@ -158,7 +160,7 @@ impl Space {
             n.v /= n.mass;
             n.v_star = n.v + settings.dt * (vector![0., settings.gravity] + n.force / n.mass);
 
-			// ポアズイユ流れ boundary conditions
+            // ポアズイユ流れ boundary conditions
             let node_pos = Self::calc_node_pos(settings, i);
             if node_pos.x <= 4.5 || node_pos.x >= 5.5 {
                 n.v = Vector2f::zeros();
@@ -182,7 +184,7 @@ impl Space {
                     if let Some(node) = self.grid.get_mut(cell_index) {
                         let weight = weights[gx].x * weights[gy].y;
                         let node_dist = node_ipos.cast::<f64>() * settings.cell_width() - p.x;
-                        
+
                         p.v += (node.v_star - settings.alpha * node.v) * weight;
                         p.x += node.v_star * weight * settings.dt;
 
@@ -194,17 +196,26 @@ impl Space {
 
             // flip
             p.v += settings.alpha * p_v_t;
-            
+
             p.c = p.c * 4. / (settings.cell_width() * settings.cell_width());
 
-			// ポアズイユ流れ
+            // ポアズイユ流れ
             if p.x.y < 4.5 {
                 p.x.y = 5.5 - (4.5 - p.x.y);
             }
+
+            p.x.x = clamp(p.x.x, 0., settings.space_width);
+            p.x.y = clamp(p.x.y, 0., settings.space_width);
         }
     }
 
-    fn calc_density_and_volume(settings: &Settings, p: &Particle, grid: &Vec<Node>, base_ipos: &Vector2u, weights: &[Vector2f; 3]) -> (f64, f64) {
+    fn calc_density_and_volume(
+        settings: &Settings,
+        p: &Particle,
+        grid: &Vec<Node>,
+        base_ipos: &Vector2u,
+        weights: &[Vector2f; 3],
+    ) -> (f64, f64) {
         let mut density = 0.;
         for gx in 0..3 {
             for gy in 0..3 {
@@ -249,7 +260,10 @@ impl Space {
         let x_index = index % (settings.grid_width + 1);
         let y_index = index / (settings.grid_width + 1);
 
-        vector![x_index as f64 * settings.cell_width(), y_index as f64 * settings.cell_width()]
+        vector![
+            x_index as f64 * settings.cell_width(),
+            y_index as f64 * settings.cell_width()
+        ]
     }
 
     fn pow2(vec: Vector2f) -> Vector2f {
