@@ -14,5 +14,7 @@ fn main() {
     println!("{:?}", settings);
 
     let mut calc = Calculator::new(&settings, Space::new_for_poiseuille(&settings));
-    calc.start(10);
+    calc.start(1);
+
+    println!("{:?}", calc);
 }
