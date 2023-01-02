@@ -5,6 +5,7 @@ import Head from "next/head";
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from 'socket.io-client';
 import { Box, ParticleData, Particles, Points } from "../components/particles";
+import { ParticlesRaw } from "../components/particles_raw";
 import styles from '../styles/mpm.module.css'
 
 export default function MPMHome() {
@@ -49,22 +50,22 @@ export default function MPMHome() {
 			<button onClick={() => {
 				socketRef.current?.emit('requestMPM', {
 					dt: 0.05,
-					gravity: 1e-2,
+					gravity: -1e-2,
 					dynamic_viscosity: 1e-2,
 					alpha: 0,
 					affine: true,
 					space_width: 10,
-					grid_width: 200,
-					step_count: 1
+					grid_width: 100,
+					step_count: 1000
 				});
 			}}>aaa</button>
 			{/* <Canvas camera={{ position: [100, 10, 0], fov: 75 }}>
 				<Points></Points>
 			</Canvas> */}
-			<Canvas>
+			{/* <Canvas>
 				<Particles particles={particles} />
-			</Canvas>
-
+			</Canvas> */}
+			<ParticlesRaw particles={particles}></ParticlesRaw>
 		</main>
 	</>)
 }

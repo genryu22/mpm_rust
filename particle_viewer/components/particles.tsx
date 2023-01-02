@@ -14,7 +14,7 @@ interface ParticleProps {
 }
 
 function flattenPositions(plist: ParticleData[]): number[] {
-	return plist.flatMap(p => [p.x[0] - 5, p.x[1] - 5, 0]);
+	return plist.flatMap(p => [(p.x[0] - 5) * 100, (p.x[1] - 5) * 100, 0]);
 }
 
 export function Points() {
@@ -56,7 +56,7 @@ export function Points() {
 }
 
 export function Particles(props: ParticleProps) {
-	const count = 100; // number point accross one axis ini akan generate point 10.00 dimana count hanya 100 karena multiply
+	const count = 1000; // number point accross one axis ini akan generate point 10.00 dimana count hanya 100 karena multiply
 	const sep = 3; //merupakan distance dari tiap point
 	let dummy = useMemo(() => {
 		let positions = [];
@@ -73,6 +73,7 @@ export function Particles(props: ParticleProps) {
 
 	const positions = useMemo(() => {
 		if (props.particles.length > 0) {
+			console.log(props.particles)
 			const flatten = flattenPositions(props.particles);
 			return new Float32Array(flatten);
 		} else {
@@ -80,24 +81,38 @@ export function Particles(props: ParticleProps) {
 		}
 	}, [count, sep, props.particles]);
 
-	// useThree(({ camera, size, gl }) => {
-	// 	gl.setSize(size.width, size.height);
-	// });
+
+	const SIZE = 1;
+	const size = useThree(({ size }) => size);
 
 	const camera = useRef<THREE.OrthographicCamera>(null);
-
 	useEffect(() => {
 		if (camera == null || camera.current == null) {
 			return;
 		}
+		const width = size.width;
+		const height = size.height;
+		let cameraSize;
+		if (width <= height) {
+			cameraSize = [SIZE, SIZE / width * height];
+		} else {
+			cameraSize = [SIZE / height * width, SIZE];
+		}
+
+		camera.current.left = -cameraSize[0] / 2;
+		camera.current.right = cameraSize[0] / 2;
+		camera.current.top = -cameraSize[1] / 2;
+		camera.current.bottom = cameraSize[1] / 2;
+
+		console.log(camera.current)
 
 		camera.current.up.set(0, -1, 0);
 		camera.current.position.set(0, 0, -10);
 		camera.current.lookAt(new THREE.Vector3(0, 0, 0));
-	}, [camera.current]);
+	}, [camera.current, size]);
 
 	return (
-		<OrthographicCamera ref={camera} makeDefault left={-1} right={1} top={-1} bottom={1}>
+		<OrthographicCamera ref={camera} makeDefault>
 			<points>
 				<bufferGeometry attach='geometry'>
 					<bufferAttribute
