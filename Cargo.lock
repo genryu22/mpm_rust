@@ -620,6 +620,7 @@ dependencies = [
 name = "pic_grpc_server"
 version = "0.1.0"
 dependencies = [
+ "mlsmpm",
  "prost",
  "tokio",
  "tokio-stream",

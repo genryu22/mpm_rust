@@ -10,5 +10,8 @@ message MPMRequest {
 }
 
 message Particles {
-    string message = 1;
+    repeated double x = 2;
+    repeated double y = 3;
+    repeated double vx = 5;
+    repeated double vy = 6;
 }

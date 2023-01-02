@@ -22,12 +22,20 @@ impl<'a> Calculator<'a> {
 
     pub fn start(&mut self, count: u32) {
         for _i in 0..count {
-            self.space.clear_grid();
-            self.space.distribute_mass(self.settings);
-            self.space.p2g(self.settings);
-            self.space.update_grid(self.settings);
-            self.space.g2p(self.settings);
+            self.update();
         }
+    }
+
+    pub fn update(&mut self) {
+        self.space.clear_grid();
+        self.space.distribute_mass(self.settings);
+        self.space.p2g(self.settings);
+        self.space.update_grid(self.settings);
+        self.space.g2p(self.settings);
+    }
+
+    pub fn get_particles(&self) -> &Vec<Particle> {
+        &self.space.particles
     }
 }
 
@@ -313,6 +321,14 @@ impl Particle {
             c: Matrix2f::zeros(),
             mass: 0.0,
         }
+    }
+
+    pub fn x(&self) -> &Vector2f {
+        &self.x
+    }
+
+    pub fn v(&self) -> &Vector2f {
+        &self.v
     }
 }
 
