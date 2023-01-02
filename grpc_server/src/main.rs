@@ -1,41 +1,36 @@
+use tokio_stream::wrappers::ReceiverStream;
 use tonic::{transport::Server, Request, Response, Status};
 
-use hello_world::greeter_server::{Greeter, GreeterServer};
-use hello_world::{HelloReply, HelloRequest};
+use particle::mpm_streamer_server::{MpmStreamer, MpmStreamerServer};
+use particle::{MpmRequest, Particles};
 
-pub mod hello_world {
-    tonic::include_proto!("helloworld"); // The string specified here must match the proto package name
+pub mod particle {
+    tonic::include_proto!("particle"); // The string specified here must match the proto package name
 }
 
 #[derive(Debug, Default)]
-pub struct MyGreeter {}
+pub struct MyParticleStreamer {}
 
 #[tonic::async_trait]
-impl Greeter for MyGreeter {
-    async fn say_hello(
+impl MpmStreamer for MyParticleStreamer {
+    type RequestMPMStream = ReceiverStream<Result<Particles, Status>>;
+    async fn request_mpm(
         &self,
-        request: Request<HelloRequest>, // Accept request of type HelloRequest
-    ) -> Result<Response<HelloReply>, Status> {
-        // Return an instance of type HelloReply
-        println!("Got a request: {:?}", request);
-
-        let reply = hello_world::HelloReply {
-            message: format!("Hello {}!", request.into_inner().name).into(), // We must use .into_inner() as the fields of gRPC requests and responses are private
-        };
-
-        Ok(Response::new(reply)) // Send back our formatted greeting
+        request: Request<MpmRequest>,
+    ) -> Result<Response<Self::RequestMPMStream>, Status> {
+        Err(Status::unavailable(""))
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "[::1]:50051".parse()?;
-    let greeter = MyGreeter::default();
+    // let addr = "[::1]:50051".parse()?;
+    // let greeter = MyGreeter::default();
 
-    Server::builder()
-        .add_service(GreeterServer::new(greeter))
-        .serve(addr)
-        .await?;
+    // Server::builder()
+    //     .add_service(GreeterServer::new(greeter))
+    //     .serve(addr)
+    //     .await?;
 
     Ok(())
 }
