@@ -6,7 +6,14 @@ service MPMStreamer {
 }
 
 message MPMRequest {
-    string name = 1;
+    double dt = 1;
+    double gravity = 2;
+    double dynamic_viscosity = 3;
+    double alpha = 4;
+    bool affine = 5;
+    double space_width = 6;
+    int32 grid_width = 7;
+    int32 step_count = 8;
 }
 
 message Particles {

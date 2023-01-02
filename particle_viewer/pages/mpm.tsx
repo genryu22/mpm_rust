@@ -1,17 +1,35 @@
+import { OrthographicCamera } from "@react-three/drei";
+import { Canvas } from "@react-three/fiber";
 import { DefaultEventsMap } from "@socket.io/component-emitter";
 import Head from "next/head";
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from 'socket.io-client';
+import { Box, ParticleData, Particles, Points } from "../components/particles";
+import styles from '../styles/mpm.module.css'
 
 export default function MPMHome() {
+	const [particles, setParticles] = useState<ParticleData[]>([]);
 	const socketRef = useRef<Socket<DefaultEventsMap, DefaultEventsMap> | null>(null);
 
 	useEffect(() => {
 		console.log('Connectinng..');
 		socketRef.current = io();
 
-		socketRef.current.on('particles-data', (particles) => {
-			console.log(particles);
+		socketRef.current.on('particles-data', (rawParticles) => {
+			setParticles(() => {
+				const res: ParticleData[] = [];
+				const xlist: number[] = rawParticles.x;
+				const ylist: number[] = rawParticles.y;
+				const vxlist: number[] = rawParticles.vx;
+				const vylist: number[] = rawParticles.vy;
+				for (let i = 0; i < Math.min(xlist.length, ylist.length, vxlist.length, vylist.length); ++i) {
+					res.push({
+						x: [xlist[i], ylist[i]],
+						v: [vxlist[i], vylist[i]],
+					})
+				}
+				return res;
+			});
 		});
 
 		return () => {
@@ -27,10 +45,26 @@ export default function MPMHome() {
 			<meta name="viewport" content="width=device-width, initial-scale=1" />
 			<link rel="icon" href="/favicon.ico" />
 		</Head>
-		<main>
+		<main className={styles.main}>
 			<button onClick={() => {
-				socketRef.current?.emit('requestMPM');
+				socketRef.current?.emit('requestMPM', {
+					dt: 0.05,
+					gravity: 1e-2,
+					dynamic_viscosity: 1e-2,
+					alpha: 0,
+					affine: true,
+					space_width: 10,
+					grid_width: 200,
+					step_count: 1
+				});
 			}}>aaa</button>
+			{/* <Canvas camera={{ position: [100, 10, 0], fov: 75 }}>
+				<Points></Points>
+			</Canvas> */}
+			<Canvas>
+				<Particles particles={particles} />
+			</Canvas>
+
 		</main>
 	</>)
 }

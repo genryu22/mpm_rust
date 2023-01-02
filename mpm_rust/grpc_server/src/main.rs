@@ -23,23 +23,24 @@ impl MpmStreamer for MyParticleStreamer {
         &self,
         request: Request<MpmRequest>,
     ) -> Result<Response<Self::RequestMPMStream>, Status> {
-        let (tx, rx) = mpsc::channel(128);
+        let mpm_request = request.into_inner();
+        let (tx, rx) = mpsc::channel(1);
         tokio::spawn(async move {
             let settings = Settings {
-                dt: 0.05,
-                gravity: -1e-2,
-                dynamic_viscosity: 1e-2,
-                alpha: 0.,
-                affine: true,
-                space_width: 10.,
-                grid_width: 10,
+                dt: mpm_request.dt,
+                gravity: mpm_request.gravity,
+                dynamic_viscosity: mpm_request.dynamic_viscosity,
+                alpha: mpm_request.alpha,
+                affine: mpm_request.affine,
+                space_width: mpm_request.space_width,
+                grid_width: mpm_request.grid_width as usize,
             };
 
             println!("{:?}", settings);
 
             let mut calc = Calculator::new(&settings, Space::new_for_poiseuille(&settings));
 
-            for _i in 0..100 {
+            for _i in 0..mpm_request.step_count {
                 calc.update();
                 tx.send(Ok(create_particles_packet(calc.get_particles())))
                     .await

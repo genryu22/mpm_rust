@@ -51,9 +51,7 @@ app.prepare().then(() => {
 	io.on('connection', (socket) => {
 		console.log('A client connected.');
 		socket.on('requestMPM', (payload) => {
-			console.log(payload);
-
-			const stream = client.RequestMPM({ name: 'test' });
+			const stream = client.RequestMPM(payload);
 			stream.on('data', (particles) => {
 				socket.emit('particles-data', particles);
 			})
