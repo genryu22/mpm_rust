@@ -1,5 +1,5 @@
 {
 	"rust-analyzer.linkedProjects": [
-		"/home/genryu/mpm_rust/mpm_rust/Cargo.toml"
+		"${workspaceFolder}/mpm_rust/Cargo.toml"
 	],
 }

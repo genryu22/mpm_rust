@@ -1,0 +1,17 @@
+syntax = "proto3";
+package particle;
+
+service MPMStreamer {
+    rpc RequestMPM (MPMRequest) returns (stream Particles);
+}
+
+message MPMRequest {
+    string name = 1;
+}
+
+message Particles {
+    repeated double x = 2;
+    repeated double y = 3;
+    repeated double vx = 5;
+    repeated double vy = 6;
+}

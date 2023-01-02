@@ -8,6 +8,9 @@ use particle::{MpmRequest, Particles};
 
 pub mod particle {
     tonic::include_proto!("particle"); // The string specified here must match the proto package name
+
+    pub(crate) const FILE_DESCRIPTOR_SET: &[u8] =
+        tonic::include_file_descriptor_set!("particle_descriptor");
 }
 
 #[derive(Debug, Default)]
@@ -24,12 +27,12 @@ impl MpmStreamer for MyParticleStreamer {
         tokio::spawn(async move {
             let settings = Settings {
                 dt: 0.05,
-                gravity: 1e-2,
+                gravity: -1e-2,
                 dynamic_viscosity: 1e-2,
                 alpha: 0.,
                 affine: true,
                 space_width: 10.,
-                grid_width: 200,
+                grid_width: 10,
             };
 
             println!("{:?}", settings);
@@ -71,7 +74,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse()?;
     let greeter = MyParticleStreamer::default();
 
+    let service = tonic_reflection::server::Builder::configure()
+        .register_encoded_file_descriptor_set(particle::FILE_DESCRIPTOR_SET)
+        .build()
+        .unwrap();
+
     Server::builder()
+        .add_service(service)
         .add_service(MpmStreamerServer::new(greeter))
         .serve(addr)
         .await?;
