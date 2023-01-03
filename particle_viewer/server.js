@@ -47,14 +47,18 @@ app.prepare().then(() => {
 	})
 
 	const io = require('socket.io')(server);
-
+	let previousStream;
 	io.on('connection', (socket) => {
 		console.log('A client connected.');
 		socket.on('requestMPM', (payload) => {
+			if (previousStream) {
+				previousStream.cancel();
+			}
 			const stream = client.RequestMPM(payload);
 			stream.on('data', (particles) => {
 				socket.emit('particles-data', particles);
 			})
+			previousStream = stream;
 		});
 		socket.on('disconnect', () => {
 			console.log('Conenction closed.');
