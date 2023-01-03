@@ -2,12 +2,15 @@ extern crate nalgebra as na;
 
 use na::{clamp, vector};
 pub use na::{Matrix2, Vector2};
+use util::*;
 
 type U = usize;
 
 type Vector2f = Vector2<f64>;
 type Vector2u = Vector2<U>;
 type Matrix2f = Matrix2<f64>;
+
+mod util;
 
 #[derive(Debug)]
 pub struct Calculator<'a> {
@@ -103,12 +106,12 @@ impl Space {
 
     pub fn distribute_mass(&mut self, settings: &Settings) {
         for p in self.particles.iter() {
-            let base_ipos = Self::calc_base_node_ipos(settings, p.x);
-            let weights = Self::calc_weights(settings, p.x, base_ipos);
+            let base_ipos = calc_base_node_ipos(settings, p.x);
+            let weights = calc_weights(settings, p.x, base_ipos);
             for gx in 0..3 {
                 for gy in 0..3 {
                     let node_ipos = base_ipos + vector![gx as U, gy as U];
-                    let cell_index = Self::calc_cell_index_for_poiseuille(settings, node_ipos);
+                    let cell_index = calc_cell_index_for_poiseuille(settings, node_ipos);
                     if let Some(node) = self.grid.get_mut(cell_index) {
                         let weight = weights[gx].x * weights[gy].y;
                         let node_dist = node_ipos.cast::<f64>() * settings.cell_width() - p.x;
@@ -127,11 +130,11 @@ impl Space {
 
     pub fn p2g(&mut self, settings: &Settings) {
         for p in self.particles.iter() {
-            let base_ipos = Self::calc_base_node_ipos(settings, p.x);
-            let weights = Self::calc_weights(settings, p.x, base_ipos);
+            let base_ipos = calc_base_node_ipos(settings, p.x);
+            let weights = calc_weights(settings, p.x, base_ipos);
 
             let (_density, volume) =
-                Self::calc_density_and_volume(settings, p, &self.grid, &base_ipos, &weights);
+                calc_density_and_volume(settings, p, &self.grid, &base_ipos, &weights);
 
             let dudv = p.c;
             let mut strain = dudv;
@@ -147,7 +150,7 @@ impl Space {
             for gx in 0..3 {
                 for gy in 0..3 {
                     let node_ipos = base_ipos + vector![gx as U, gy as U];
-                    let cell_index = Self::calc_cell_index_for_poiseuille(settings, node_ipos);
+                    let cell_index = calc_cell_index_for_poiseuille(settings, node_ipos);
                     if let Some(node) = self.grid.get_mut(cell_index) {
                         let weight = weights[gx].x * weights[gy].y;
                         let node_dist = node_ipos.cast::<f64>() * settings.cell_width() - p.x;
@@ -169,7 +172,7 @@ impl Space {
             n.v_star = n.v + settings.dt * (vector![0., settings.gravity] + n.force / n.mass);
 
             // ポアズイユ流れ boundary conditions
-            let node_pos = Self::calc_node_pos(settings, i);
+            let node_pos = calc_node_pos(settings, i);
             if node_pos.x <= 4.5 || node_pos.x >= 5.5 {
                 n.v = Vector2f::zeros();
                 n.v_star = Vector2f::zeros();
@@ -183,12 +186,12 @@ impl Space {
             p.v = Vector2f::zeros();
             p.c = Matrix2f::zeros();
 
-            let base_ipos = Self::calc_base_node_ipos(settings, p.x);
-            let weights = Self::calc_weights(settings, p.x, base_ipos);
+            let base_ipos = calc_base_node_ipos(settings, p.x);
+            let weights = calc_weights(settings, p.x, base_ipos);
             for gx in 0..3 {
                 for gy in 0..3 {
                     let node_ipos = base_ipos + vector![gx as U, gy as U];
-                    let cell_index = Self::calc_cell_index_for_poiseuille(settings, node_ipos);
+                    let cell_index = calc_cell_index_for_poiseuille(settings, node_ipos);
                     if let Some(node) = self.grid.get_mut(cell_index) {
                         let weight = weights[gx].x * weights[gy].y;
                         let node_dist = node_ipos.cast::<f64>() * settings.cell_width() - p.x;
@@ -215,67 +218,6 @@ impl Space {
             p.x.x = clamp(p.x.x, 0., settings.space_width);
             p.x.y = clamp(p.x.y, 0., settings.space_width);
         }
-    }
-
-    fn calc_density_and_volume(
-        settings: &Settings,
-        p: &Particle,
-        grid: &Vec<Node>,
-        base_ipos: &Vector2u,
-        weights: &[Vector2f; 3],
-    ) -> (f64, f64) {
-        let mut density = 0.;
-        for gx in 0..3 {
-            for gy in 0..3 {
-                let node_ipos = base_ipos + vector![gx as U, gy as U];
-                let cell_index = Self::calc_cell_index_for_poiseuille(settings, node_ipos);
-                if let Some(node) = grid.get(cell_index) {
-                    let weight = weights[gx].x * weights[gy].y;
-                    density += node.mass * weight / (settings.cell_width() * settings.cell_width());
-                }
-            }
-        }
-
-        (density, p.mass / density)
-    }
-
-    fn calc_base_node_ipos(settings: &Settings, x: Vector2f) -> Vector2u {
-        (x / settings.cell_width()).map(|e| e.round() as U)
-    }
-
-    fn calc_weights(settings: &Settings, x: Vector2f, ipos: Vector2u) -> [Vector2f; 3] {
-        let fx = x / settings.cell_width() - ipos.cast::<f64>();
-        let w_0 = Self::pow2(Vector2f::repeat(1.5) - fx).component_mul(&Vector2f::repeat(0.5));
-        let w_1 = Vector2f::repeat(0.75) - Self::pow2(fx - Vector2f::repeat(1.0));
-        let w_2 = Self::pow2(fx - Vector2f::repeat(0.5)).component_mul(&Vector2f::repeat(0.5));
-        [w_0, w_1, w_2]
-    }
-
-    fn calc_cell_index_for_poiseuille(settings: &Settings, mut node_ipos: Vector2u) -> U {
-        let min_y = (4.5 / settings.cell_width()).round() as U;
-        let max_y = (5.5 / settings.cell_width()).round() as U;
-
-        if node_ipos.y < min_y {
-            node_ipos.y = max_y - (min_y - node_ipos.y);
-        } else if max_y <= node_ipos.y {
-            node_ipos.y = min_y + (node_ipos.y - max_y);
-        }
-
-        node_ipos.x + node_ipos.y * (settings.grid_width + 1)
-    }
-
-    fn calc_node_pos(settings: &Settings, index: U) -> Vector2f {
-        let x_index = index % (settings.grid_width + 1);
-        let y_index = index / (settings.grid_width + 1);
-
-        vector![
-            x_index as f64 * settings.cell_width(),
-            y_index as f64 * settings.cell_width()
-        ]
-    }
-
-    fn pow2(vec: Vector2f) -> Vector2f {
-        vec.component_mul(&vec)
     }
 }
 
