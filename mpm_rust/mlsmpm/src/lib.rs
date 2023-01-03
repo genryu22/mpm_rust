@@ -26,6 +26,9 @@ impl<'a> Calculator<'a> {
     pub fn start(&mut self, count: u32) {
         for _i in 0..count {
             self.update();
+            if _i % (count / 10) == 0 {
+                println!("{} step", _i);
+            }
         }
     }
 
@@ -39,6 +42,15 @@ impl<'a> Calculator<'a> {
 
     pub fn get_particles(&self) -> &Vec<Particle> {
         &self.space.particles
+    }
+
+    pub fn get_min_velocity(&self) -> f64 {
+        self.space
+            .particles
+            .iter()
+            .map(|p| p.v.y)
+            .min_by(|x, y| x.partial_cmp(y).unwrap())
+            .unwrap()
     }
 }
 

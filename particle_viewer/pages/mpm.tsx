@@ -23,12 +23,17 @@ export default function MPMHome() {
 				const ylist: number[] = rawParticles.y;
 				const vxlist: number[] = rawParticles.vx;
 				const vylist: number[] = rawParticles.vy;
+				let min = Number.MAX_SAFE_INTEGER;
 				for (let i = 0; i < Math.min(xlist.length, ylist.length, vxlist.length, vylist.length); ++i) {
 					res.push({
 						x: [xlist[i], ylist[i]],
 						v: [vxlist[i], vylist[i]],
 					})
+					if (vylist[i] < min) {
+						min = vylist[i];
+					}
 				}
+				console.log(min);
 				return res;
 			});
 		});
