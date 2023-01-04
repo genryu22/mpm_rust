@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::*;
 
 pub fn calc_density_and_volume(
@@ -6,12 +8,13 @@ pub fn calc_density_and_volume(
     grid: &Vec<Node>,
     base_ipos: &Vector2u,
     weights: &[Vector2f; 3],
+    period_bounds: &Vec<PeriodicBoundary>,
 ) -> (f64, f64) {
     let mut density = 0.;
     for gx in 0..3 {
         for gy in 0..3 {
             let node_ipos = base_ipos + vector![gx as U, gy as U];
-            let cell_index = calc_cell_index_for_poiseuille(settings, node_ipos);
+            let cell_index = calc_cell_index_for_poiseuille(settings, period_bounds, node_ipos);
             if let Some(node) = grid.get(cell_index) {
                 let weight = weights[gx].x * weights[gy].y;
                 density += node.mass * weight / (settings.cell_width() * settings.cell_width());
@@ -34,14 +37,33 @@ pub fn calc_weights(settings: &Settings, x: Vector2f, ipos: Vector2u) -> [Vector
     [w_0, w_1, w_2]
 }
 
-pub fn calc_cell_index_for_poiseuille(settings: &Settings, mut node_ipos: Vector2u) -> U {
-    let min_y = (4.5 / settings.cell_width()).round() as U;
-    let max_y = (5.5 / settings.cell_width()).round() as U;
+pub fn calc_cell_index_for_poiseuille(
+    settings: &Settings,
+    period_bounds: &Vec<PeriodicBoundary>,
+    mut node_ipos: Vector2u,
+) -> U {
+    for boundary in period_bounds.iter() {
+        let line_a_ipos = BoundaryLine::<i64> {
+            value: (boundary.a.value as f64 / settings.cell_width()).round() as i64,
+            lower: boundary.a.lower,
+        };
+        let line_b_ipos = BoundaryLine::<i64> {
+            value: (boundary.b.value as f64 / settings.cell_width()).round() as i64,
+            lower: boundary.b.lower,
+        };
 
-    if node_ipos.y < min_y {
-        node_ipos.y = max_y - (min_y - node_ipos.y);
-    } else if max_y <= node_ipos.y {
-        node_ipos.y = min_y + (node_ipos.y - max_y);
+        let &mut i;
+        if let Direction::Y = boundary.direction {
+            i = &mut node_ipos.y;
+        } else {
+            i = &mut node_ipos.x;
+        }
+
+        if line_a_ipos.calc_excess(*i as i64) > 0 {
+            *i = line_b_ipos.plus_excess(line_a_ipos.calc_excess(*i as i64)) as usize;
+        } else if line_b_ipos.calc_excess(*i as i64) >= 0 {
+            *i = line_a_ipos.plus_excess(line_b_ipos.calc_excess(*i as i64)) as usize;
+        }
     }
 
     node_ipos.x + node_ipos.y * (settings.grid_width + 1)
@@ -100,22 +122,34 @@ mod tests {
             grid_width: 100,
         };
 
+        let period_bounds = vec![PeriodicBoundary::new(
+            BoundaryLine::new(4.5, true),
+            BoundaryLine::new(5.5, false),
+            Direction::Y,
+        )];
+
         let a = vector![0, 45];
-        let res_a = calc_cell_index_for_poiseuille(&settings, a);
+        let res_a = calc_cell_index_for_poiseuille(&settings, &period_bounds, a);
         assert_eq!(a, vector![0, 45]);
         assert_eq!(res_a, 45 * 101);
 
         let b = vector![0, 46];
         assert_eq!(
-            calc_cell_index_for_poiseuille(&settings, b),
+            calc_cell_index_for_poiseuille(&settings, &period_bounds, b),
             b.x + b.y * 101
         );
 
         let b = vector![0, 55];
-        assert_eq!(calc_cell_index_for_poiseuille(&settings, b), b.x + 45 * 101);
+        assert_eq!(
+            calc_cell_index_for_poiseuille(&settings, &period_bounds, b),
+            b.x + 45 * 101
+        );
 
         let b = vector![0, 56];
-        assert_eq!(calc_cell_index_for_poiseuille(&settings, b), b.x + 46 * 101);
+        assert_eq!(
+            calc_cell_index_for_poiseuille(&settings, &period_bounds, b),
+            b.x + 46 * 101
+        );
     }
 
     #[test]

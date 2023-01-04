@@ -9,12 +9,14 @@ type Vector2f = Vector2<f64>;
 type Vector2u = Vector2<U>;
 type Matrix2f = Matrix2<f64>;
 
+mod boundary;
 mod node;
 mod particle;
 mod settings;
 mod space;
 mod util;
 
+use boundary::*;
 use node::*;
 pub use particle::*;
 pub use settings::*;

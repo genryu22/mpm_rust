@@ -4,6 +4,9 @@ use crate::*;
 pub struct Space {
     pub(super) grid: Vec<Node>,
     pub(super) particles: Vec<Particle>,
+
+    pub(super) slip_bounds: Vec<SlipBoundary>,
+    pub(super) period_bounds: Vec<PeriodicBoundary>,
 }
 
 impl Space {
@@ -36,7 +39,19 @@ impl Space {
             grid.push(Node::new());
         }
 
-        Space { grid, particles }
+        Space {
+            grid,
+            particles,
+            slip_bounds: vec![
+                SlipBoundary::new(4.5, Direction::X, true),
+                SlipBoundary::new(5.5, Direction::X, false),
+            ],
+            period_bounds: vec![PeriodicBoundary::new(
+                BoundaryLine::new(4.5, true),
+                BoundaryLine::new(5.5, false),
+                Direction::Y,
+            )],
+        }
     }
 
     pub fn clear_grid(&mut self) {
@@ -52,7 +67,8 @@ impl Space {
             for gx in 0..3 {
                 for gy in 0..3 {
                     let node_ipos = base_ipos + vector![gx as U, gy as U];
-                    let cell_index = calc_cell_index_for_poiseuille(settings, node_ipos);
+                    let cell_index =
+                        calc_cell_index_for_poiseuille(settings, &self.period_bounds, node_ipos);
                     if let Some(node) = self.grid.get_mut(cell_index) {
                         let weight = weights[gx].x * weights[gy].y;
                         let node_dist = node_ipos.cast::<f64>() * settings.cell_width() - p.x;
@@ -74,8 +90,14 @@ impl Space {
             let base_ipos = calc_base_node_ipos(settings, p.x);
             let weights = calc_weights(settings, p.x, base_ipos);
 
-            let (_density, volume) =
-                calc_density_and_volume(settings, p, &self.grid, &base_ipos, &weights);
+            let (_density, volume) = calc_density_and_volume(
+                settings,
+                p,
+                &self.grid,
+                &base_ipos,
+                &weights,
+                &self.period_bounds,
+            );
 
             let dudv = p.c;
             let mut strain = dudv;
@@ -91,7 +113,8 @@ impl Space {
             for gx in 0..3 {
                 for gy in 0..3 {
                     let node_ipos = base_ipos + vector![gx as U, gy as U];
-                    let cell_index = calc_cell_index_for_poiseuille(settings, node_ipos);
+                    let cell_index =
+                        calc_cell_index_for_poiseuille(settings, &self.period_bounds, node_ipos);
                     if let Some(node) = self.grid.get_mut(cell_index) {
                         let weight = weights[gx].x * weights[gy].y;
                         let node_dist = node_ipos.cast::<f64>() * settings.cell_width() - p.x;
@@ -112,11 +135,20 @@ impl Space {
             n.v /= n.mass;
             n.v_star = n.v + settings.dt * (vector![0., settings.gravity] + n.force / n.mass);
 
-            // ポアズイユ流れ boundary conditions
             let node_pos = calc_node_pos(settings, i);
-            if node_pos.x <= 4.5 || node_pos.x >= 5.5 {
-                n.v = Vector2f::zeros();
-                n.v_star = Vector2f::zeros();
+            for b in self.slip_bounds.iter() {
+                let &i;
+
+                if let Direction::X = b.direction {
+                    i = &node_pos.x;
+                } else {
+                    i = &node_pos.y;
+                }
+
+                if b.line.calc_excess(*i) >= 0. {
+                    n.v = Vector2f::zeros();
+                    n.v_star = Vector2f::zeros();
+                }
             }
         }
     }
@@ -132,7 +164,8 @@ impl Space {
             for gx in 0..3 {
                 for gy in 0..3 {
                     let node_ipos = base_ipos + vector![gx as U, gy as U];
-                    let cell_index = calc_cell_index_for_poiseuille(settings, node_ipos);
+                    let cell_index =
+                        calc_cell_index_for_poiseuille(settings, &self.period_bounds, node_ipos);
                     if let Some(node) = self.grid.get_mut(cell_index) {
                         let weight = weights[gx].x * weights[gy].y;
                         let node_dist = node_ipos.cast::<f64>() * settings.cell_width() - p.x;
@@ -152,9 +185,22 @@ impl Space {
             p.c = p.c * 4. / (settings.cell_width() * settings.cell_width());
 
             // ポアズイユ流れ
-            p.v.x = 0.;
-            if p.x.y < 4.5 {
-                p.x.y = 5.5 - (4.5 - p.x.y);
+            //p.v.x = 0.;
+
+            for bound in self.period_bounds.iter() {
+                let &mut i;
+
+                if let Direction::Y = bound.direction {
+                    i = &mut p.x.y;
+                } else {
+                    i = &mut p.x.x;
+                }
+
+                if bound.a.calc_excess(*i) > 0. {
+                    *i = bound.b.plus_excess(bound.a.calc_excess(*i));
+                } else if bound.b.calc_excess(*i) >= 0. {
+                    *i = bound.a.plus_excess(bound.b.calc_excess(*i));
+                }
             }
 
             p.x.x = clamp(p.x.x, 0., settings.space_width);
