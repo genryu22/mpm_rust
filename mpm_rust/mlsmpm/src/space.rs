@@ -152,6 +152,7 @@ impl Space {
             p.c = p.c * 4. / (settings.cell_width() * settings.cell_width());
 
             // ポアズイユ流れ
+            p.v.x = 0.;
             if p.x.y < 4.5 {
                 p.x.y = 5.5 - (4.5 - p.x.y);
             }
