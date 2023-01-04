@@ -31,7 +31,7 @@ export function ParticlesRaw(props: ParticleProps) {
 
 		renderer.setSize(window.innerWidth, window.innerHeight);
 
-		const SIZE = 1;
+		const SIZE = 5;
 		let camera_width;
 		let camera_height;
 		if (window.innerWidth <= window.innerHeight) {
@@ -65,7 +65,7 @@ export function ParticlesRaw(props: ParticleProps) {
 		geometry.setAttribute('position', new THREE.Float32BufferAttribute(flattenPositions(props.particles), 3));
 
 		const material = new THREE.PointsMaterial({
-			size: 2,
+			size: 1,
 			color: 0xffffff,
 		});
 

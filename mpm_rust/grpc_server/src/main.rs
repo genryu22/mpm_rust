@@ -34,11 +34,13 @@ impl MpmStreamer for MyParticleStreamer {
                 affine: mpm_request.affine,
                 space_width: mpm_request.space_width,
                 grid_width: mpm_request.grid_width as usize,
+                c: mpm_request.c,
+                eos_power: mpm_request.eos_power,
             };
 
             println!("{:?}", settings);
 
-            let mut calc = Calculator::new(&settings, Space::new_for_poiseuille(&settings));
+            let mut calc = Calculator::new(&settings, Space::new_for_dambreak(&settings));
 
             for _i in 0..mpm_request.step_count {
                 calc.update();

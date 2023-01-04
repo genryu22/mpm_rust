@@ -9,6 +9,9 @@ pub struct Settings {
     pub affine: bool,
     pub space_width: f64,
     pub grid_width: U,
+
+    pub c: f64,
+    pub eos_power: f64,
 }
 
 impl Settings {

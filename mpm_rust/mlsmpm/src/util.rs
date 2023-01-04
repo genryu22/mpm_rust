@@ -103,6 +103,8 @@ mod tests {
             affine: true,
             space_width: 10.,
             grid_width: 200,
+            c: 0.,
+            eos_power: 0.,
         };
 
         assert_eq!(calc_node_pos(&settings, 0), vector![0., 0.]);
@@ -120,6 +122,8 @@ mod tests {
             affine: true,
             space_width: 10.,
             grid_width: 100,
+            c: 0.,
+            eos_power: 0.,
         };
 
         let period_bounds = vec![PeriodicBoundary::new(
@@ -162,6 +166,8 @@ mod tests {
             affine: true,
             space_width: 10.,
             grid_width: 100,
+            c: 0.,
+            eos_power: 0.,
         };
 
         let weights = calc_weights(&settings, vector![4.6, 5.], vector![46, 50]);
@@ -189,6 +195,8 @@ mod tests {
             affine: true,
             space_width: 10.,
             grid_width: 100,
+            c: 0.,
+            eos_power: 0.,
         };
 
         assert_eq!(

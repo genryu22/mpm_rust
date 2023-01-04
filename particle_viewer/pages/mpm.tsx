@@ -33,7 +33,7 @@ export default function MPMHome() {
 						min = vylist[i];
 					}
 				}
-				console.log(min);
+				//console.log(min);
 				return res;
 			});
 		});
@@ -54,14 +54,16 @@ export default function MPMHome() {
 		<main className={styles.main}>
 			<button onClick={() => {
 				socketRef.current?.emit('requestMPM', {
-					dt: 0.05,
-					gravity: -1e-2,
+					dt: 0.01,
+					gravity: -10,
 					dynamic_viscosity: 1e-2,
 					alpha: 0,
 					affine: true,
 					space_width: 10,
-					grid_width: 100,
-					step_count: 1000
+					grid_width: 200,
+					step_count: 10000,
+					c: 1,
+					eos_power: 2,
 				});
 			}}>aaa</button>
 			{/* <Canvas camera={{ position: [100, 10, 0], fov: 75 }}>

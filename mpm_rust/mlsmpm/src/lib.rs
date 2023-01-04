@@ -1,6 +1,6 @@
 extern crate nalgebra as na;
 
-use na::{clamp, vector};
+use na::{clamp, matrix, vector};
 pub use na::{Matrix2, Vector2};
 
 type U = usize;

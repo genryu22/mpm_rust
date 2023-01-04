@@ -54,6 +54,48 @@ impl Space {
         }
     }
 
+    pub fn new_for_dambreak(settings: &Settings) -> Space {
+        let grid_width = settings.grid_width;
+        let cell_size = settings.cell_width();
+
+        let p_dist = cell_size / 2.;
+
+        let pos_x_min = 3.5;
+        let pos_x_max = 6.5;
+        let num_x = ((pos_x_max - pos_x_min) / p_dist + 0.5) as usize;
+
+        let mut particles = Vec::<Particle>::with_capacity(num_x * num_x);
+
+        for i_y in 0..num_x {
+            for i_x in 0..num_x {
+                let mut p = Particle::new(Vector2::new(
+                    (pos_x_max - pos_x_min) * (i_x as f64 + 0.5) / num_x as f64 + pos_x_min,
+                    (pos_x_max - pos_x_min) * (i_y as f64 + 0.5) / num_x as f64 + pos_x_min,
+                ));
+                p.mass = (1. * (pos_x_max - pos_x_min) * (pos_x_max - pos_x_min))
+                    / (num_x * num_x) as f64;
+                particles.push(p);
+            }
+        }
+
+        let mut grid: Vec<Node> = Vec::with_capacity((grid_width + 1) * (grid_width + 1));
+        for _i in 0..(grid_width + 1) * (grid_width + 1) {
+            grid.push(Node::new());
+        }
+
+        Space {
+            grid,
+            particles,
+            slip_bounds: vec![
+                SlipBoundary::new(0., Direction::X, true),
+                SlipBoundary::new(10., Direction::X, false),
+                SlipBoundary::new(0., Direction::Y, true),
+                SlipBoundary::new(10., Direction::Y, false),
+            ],
+            period_bounds: vec![],
+        }
+    }
+
     pub fn clear_grid(&mut self) {
         for n in self.grid.iter_mut() {
             n.reset();
@@ -90,7 +132,7 @@ impl Space {
             let base_ipos = calc_base_node_ipos(settings, p.x);
             let weights = calc_weights(settings, p.x, base_ipos);
 
-            let (_density, volume) = calc_density_and_volume(
+            let (density, volume) = calc_density_and_volume(
                 settings,
                 p,
                 &self.grid,
@@ -98,6 +140,17 @@ impl Space {
                 &weights,
                 &self.period_bounds,
             );
+
+            let mut pressure = 0.;
+            if settings.c != 0. && settings.eos_power != 0. {
+                pressure = settings.c * settings.c / settings.eos_power
+                    * (density / 1.).powf(settings.eos_power)
+                    - 1.;
+                if pressure < 0. {
+                    pressure = 0.;
+                }
+            }
+            let pressure = pressure;
 
             let dudv = p.c;
             let mut strain = dudv;
@@ -107,7 +160,7 @@ impl Space {
             strain[(0, 0)] *= 2.;
             strain[(1, 1)] *= 2.;
             let viscosity_term = settings.dynamic_viscosity * strain;
-            let stress = viscosity_term;
+            let stress = matrix![-pressure, 0.; 0., -pressure] + viscosity_term;
             let eq_16_term_0 =
                 -volume * 4. / (settings.cell_width() * settings.cell_width()) * stress;
             for gx in 0..3 {
@@ -200,6 +253,24 @@ impl Space {
                     *i = bound.b.plus_excess(bound.a.calc_excess(*i));
                 } else if bound.b.calc_excess(*i) >= 0. {
                     *i = bound.a.plus_excess(bound.b.calc_excess(*i));
+                }
+            }
+
+            for bound in self.slip_bounds.iter() {
+                let &mut i;
+                let &mut v_i_n; // 法線方向の速度
+
+                if let Direction::Y = bound.direction {
+                    i = &mut p.x.y;
+                    v_i_n = &mut p.v.x;
+                } else {
+                    i = &mut p.x.x;
+                    v_i_n = &mut p.v.y;
+                }
+
+                if bound.line.calc_excess(*i) >= 0. {
+                    *i = bound.line.plus_excess(bound.line.calc_excess(*i));
+                    *v_i_n = 0.;
                 }
             }
 
