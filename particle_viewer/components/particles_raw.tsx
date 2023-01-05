@@ -1,8 +1,5 @@
 import * as THREE from 'three'
-import { createRoot } from 'react-dom/client'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Canvas, useFrame, ThreeElements, useThree } from '@react-three/fiber'
-import { OrthographicCamera } from '@react-three/drei'
 
 export interface ParticleData {
 	x: number[],
@@ -10,7 +7,7 @@ export interface ParticleData {
 }
 
 interface ParticleProps {
-	particles: ParticleData[]
+	particles: ParticleData[][]
 }
 
 function flattenPositions(plist: ParticleData[]): number[] {
@@ -21,6 +18,9 @@ export function ParticlesRaw(props: ParticleProps) {
 	const rootRef = useRef<HTMLDivElement>(null);
 	const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
 	const cameraRef = useRef<THREE.OrthographicCamera | null>(null);
+
+	const particleList = useRef<ParticleData[][]>([]);
+	const particles = useRef<ParticleData[]>([]);
 
 	useEffect(() => {
 		const renderer = new THREE.WebGLRenderer();
@@ -62,7 +62,7 @@ export function ParticlesRaw(props: ParticleProps) {
 		const scene = new THREE.Scene();
 		sceneRef.current = scene;
 		const geometry = new THREE.BufferGeometry();
-		geometry.setAttribute('position', new THREE.Float32BufferAttribute(flattenPositions(props.particles), 3));
+		geometry.setAttribute('position', new THREE.Float32BufferAttribute(flattenPositions(particles.current), 3));
 
 		const material = new THREE.PointsMaterial({
 			size: 1,
@@ -71,13 +71,16 @@ export function ParticlesRaw(props: ParticleProps) {
 
 		const pointsMesh = new THREE.Points(geometry, material);
 		scene.add(pointsMesh);
-	}, [props.particles]);
+	});
 
 	useEffect(() => {
 		let canceled = false;
 		function animate() {
 			if (canceled) {
 				return;
+			}
+			if (props.particles.length > 0) {
+				particles.current = props.particles.pop()!;
 			}
 			rendererRef.current?.render(sceneRef.current!, cameraRef.current!);
 			requestAnimationFrame(animate);

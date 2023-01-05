@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Particle {
     pub(super) x: Vector2f,
     pub(super) v: Vector2f,

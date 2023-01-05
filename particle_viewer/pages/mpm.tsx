@@ -8,16 +8,20 @@ import { Box, ParticleData, Particles, Points } from "../components/particles";
 import { ParticlesRaw } from "../components/particles_raw";
 import styles from '../styles/mpm.module.css'
 
+const steps = 100;
+
 export default function MPMHome() {
-	const [particles, setParticles] = useState<ParticleData[]>([]);
+	const [finished, setFinished] = useState<boolean>(false);
 	const socketRef = useRef<Socket<DefaultEventsMap, DefaultEventsMap> | null>(null);
+
+	const bufferRef = useRef<ParticleData[][]>([]);
 
 	useEffect(() => {
 		console.log('Connectinng..');
 		socketRef.current = io();
 
 		socketRef.current.on('particles-data', (rawParticles) => {
-			setParticles(() => {
+			if (bufferRef.current) {
 				const res: ParticleData[] = [];
 				const xlist: number[] = rawParticles.x;
 				const ylist: number[] = rawParticles.y;
@@ -34,8 +38,13 @@ export default function MPMHome() {
 					}
 				}
 				//console.log(min);
-				return res;
-			});
+				bufferRef.current.push(res);
+				console.log(bufferRef.current.length);
+				if (bufferRef.current.length == steps) {
+					setFinished(true);
+					console.log('reveived all');
+				}
+			}
 		});
 
 		return () => {
@@ -61,10 +70,12 @@ export default function MPMHome() {
 					affine: true,
 					space_width: 10,
 					grid_width: 200,
-					step_count: 10000,
+					step_count: steps,
 					c: 1,
 					eos_power: 2,
 				});
+				setFinished(false);
+				console.log('requested');
 			}}>aaa</button>
 			{/* <Canvas camera={{ position: [100, 10, 0], fov: 75 }}>
 				<Points></Points>
@@ -72,7 +83,7 @@ export default function MPMHome() {
 			{/* <Canvas>
 				<Particles particles={particles} />
 			</Canvas> */}
-			<ParticlesRaw particles={particles}></ParticlesRaw>
+			{finished && <ParticlesRaw particles={bufferRef.current}></ParticlesRaw>}
 		</main>
 	</>)
 }
