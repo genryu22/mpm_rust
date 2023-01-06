@@ -2,7 +2,7 @@ use mlsmpm::{Calculator, Settings, Space};
 
 fn main() {
     let settings = Settings {
-        dt: 0.01,
+        dt: 1e-2,
         gravity: -1e-2,
         dynamic_viscosity: 1e-2,
         alpha: 0.,

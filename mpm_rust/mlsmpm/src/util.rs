@@ -26,14 +26,14 @@ pub fn calc_density_and_volume(
 }
 
 pub fn calc_base_node_ipos(settings: &Settings, x: Vector2f) -> Vector2u {
-    (x / settings.cell_width()).map(|e| e.floor() as U)
+    (x / settings.cell_width() - vector![0.5, 0.5]).map(|e| e.floor() as U)
 }
 
 pub fn calc_weights(settings: &Settings, x: Vector2f, ipos: Vector2u) -> [Vector2f; 3] {
     let fx = x / settings.cell_width() - ipos.cast::<f64>();
-    let w_0 = pow2(Vector2f::repeat(1.5) - fx).component_mul(&Vector2f::repeat(0.5));
-    let w_1 = Vector2f::repeat(0.75) - pow2(fx - Vector2f::repeat(1.0));
-    let w_2 = pow2(fx - Vector2f::repeat(0.5)).component_mul(&Vector2f::repeat(0.5));
+    let w_0 = pow2(vector![1.5, 1.5] - fx).component_mul(&Vector2f::repeat(0.5));
+    let w_1 = Vector2f::repeat(0.75) - pow2(fx - vector![1., 1.]);
+    let w_2 = pow2(fx - vector![0.5, 0.5]).component_mul(&Vector2f::repeat(0.5));
     [w_0, w_1, w_2]
 }
 
@@ -90,6 +90,9 @@ mod tests {
     #[test]
     fn test_pow2() {
         let a: Vector2f = vector![2., 5.];
+        assert_eq!(pow2(a), vector![4., 25.]);
+
+        let a: Vector2f = vector![-2., 5.];
         assert_eq!(pow2(a), vector![4., 25.]);
     }
 
@@ -157,35 +160,6 @@ mod tests {
     }
 
     #[test]
-    fn test_weights() {
-        let settings = Settings {
-            dt: 0.05,
-            gravity: 1e-2,
-            dynamic_viscosity: 1e-2,
-            alpha: 0.,
-            affine: true,
-            space_width: 10.,
-            grid_width: 100,
-            c: 0.,
-            eos_power: 0.,
-        };
-
-        let weights = calc_weights(&settings, vector![4.6, 5.], vector![46, 50]);
-        let mut sum = Vector2f::zeros();
-        for w in weights {
-            sum += w;
-        }
-        assert_eq!(sum, vector![1., 1.]);
-
-        let weights = calc_weights(&settings, vector![4.65, 5.4], vector![0, 0]);
-        let mut sum = Vector2f::zeros();
-        for w in weights {
-            sum += w;
-        }
-        assert_eq!(sum, vector![1., 1.]);
-    }
-
-    #[test]
     fn test_calc_base_node_ipos() {
         let settings = Settings {
             dt: 0.05,
@@ -200,18 +174,56 @@ mod tests {
         };
 
         assert_eq!(
-            calc_base_node_ipos(&settings, vector![4.55, 6.]),
-            vector![45, 60]
+            calc_base_node_ipos(&settings, vector![4.551, 6.]),
+            vector![45, 59]
         );
 
         assert_eq!(
             calc_base_node_ipos(&settings, vector![4.5, 6.]),
-            vector![45, 60]
+            vector![44, 59]
         );
 
         assert_eq!(
             calc_base_node_ipos(&settings, vector![1.26, 3.2]),
-            vector![12, 32]
+            vector![12, 31]
         );
+    }
+
+    #[test]
+    fn test_weights() {
+        let settings = Settings {
+            dt: 0.05,
+            gravity: 1e-2,
+            dynamic_viscosity: 1e-2,
+            alpha: 0.,
+            affine: true,
+            space_width: 10.,
+            grid_width: 100,
+            c: 0.,
+            eos_power: 0.,
+        };
+
+        let x = vector![4.6, 5.];
+        let weights = calc_weights(&settings, x, calc_base_node_ipos(&settings, x));
+        let mut sum = Vector2f::zeros();
+        for w in weights {
+            sum += w;
+        }
+        assert_eq!(sum, vector![1., 1.]);
+
+        let x = vector![4.65, 5.4];
+        let weights = calc_weights(&settings, x, calc_base_node_ipos(&settings, x));
+        let mut sum = Vector2f::zeros();
+        for w in weights {
+            sum += w;
+        }
+
+        let x = vector![4.75, 5.43];
+        let weights = calc_weights(&settings, x, calc_base_node_ipos(&settings, x));
+        let mut sum = Vector2f::zeros();
+        for w in weights {
+            sum += w;
+        }
+        assert_eq!(sum, vector![1., 1.]);
     }
 }

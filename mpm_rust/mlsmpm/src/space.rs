@@ -60,8 +60,8 @@ impl Space {
 
         let p_dist = cell_size / 2.;
 
-        let pos_x_min = 3.5;
-        let pos_x_max = 6.5;
+        let pos_x_min = 1.1;
+        let pos_x_max = 5.1;
         let num_x = ((pos_x_max - pos_x_min) / p_dist + 0.5) as usize;
 
         let mut particles = Vec::<Particle>::with_capacity(num_x * num_x);
@@ -104,10 +104,7 @@ impl Space {
 
     pub fn distribute_mass(&mut self, settings: &Settings) {
         for p in self.particles.iter() {
-            let base_ipos = calc_base_node_ipos(
-                settings,
-                p.x - vector![settings.cell_width() / 2., settings.cell_width() / 2.],
-            );
+            let base_ipos = calc_base_node_ipos(settings, p.x);
             let weights = calc_weights(settings, p.x, base_ipos);
             for gx in 0..3 {
                 for gy in 0..3 {
@@ -132,10 +129,7 @@ impl Space {
 
     pub fn p2g(&mut self, settings: &Settings) {
         for p in self.particles.iter() {
-            let base_ipos = calc_base_node_ipos(
-                settings,
-                p.x - vector![settings.cell_width() / 2., settings.cell_width() / 2.],
-            );
+            let base_ipos = calc_base_node_ipos(settings, p.x);
             let weights = calc_weights(settings, p.x, base_ipos);
 
             let (density, volume) = calc_density_and_volume(
@@ -149,7 +143,7 @@ impl Space {
 
             let mut pressure = 0.;
             if settings.c != 0. && settings.eos_power != 0. {
-                pressure = 1000. * settings.c * settings.c / settings.eos_power
+                pressure = settings.c / settings.eos_power
                     * ((density / 1000.).powf(settings.eos_power) - 1.);
                 if pressure < 0. {
                     pressure = 0.;
@@ -217,10 +211,7 @@ impl Space {
             p.v = Vector2f::zeros();
             p.c = Matrix2f::zeros();
 
-            let base_ipos = calc_base_node_ipos(
-                settings,
-                p.x - vector![settings.cell_width() / 2., settings.cell_width() / 2.],
-            );
+            let base_ipos = calc_base_node_ipos(settings, p.x);
             let weights = calc_weights(settings, p.x, base_ipos);
             for gx in 0..3 {
                 for gy in 0..3 {
@@ -244,9 +235,6 @@ impl Space {
             p.v += settings.alpha * p_v_t;
 
             p.c = p.c * 4. / (settings.cell_width() * settings.cell_width());
-
-            // ポアズイユ流れ
-            //p.v.x = 0.;
 
             for bound in self.period_bounds.iter() {
                 let &mut i;

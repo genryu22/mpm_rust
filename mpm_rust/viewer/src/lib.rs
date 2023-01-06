@@ -48,15 +48,15 @@ pub fn run_mlsmpm(tx: Arc<Mutex<Vec<Particle>>>, step_signal: Option<Receiver<bo
 
 pub fn run_dambreak(tx: Arc<Mutex<Vec<Particle>>>, step_signal: Option<Receiver<bool>>) {
     let settings = Settings {
-        dt: 1e-2,
-        gravity: -10.,
+        dt: 1e-4,
+        gravity: -100.,
         dynamic_viscosity: 1e-6,
         alpha: 0.,
         affine: true,
         space_width: 10.,
-        grid_width: 50,
-        c: 10.,
-        eos_power: 2.,
+        grid_width: 100,
+        c: 1e8,
+        eos_power: 4.,
     };
 
     println!("{:?}", settings);
