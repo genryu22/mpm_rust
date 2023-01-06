@@ -72,7 +72,7 @@ impl Space {
                     (pos_x_max - pos_x_min) * (i_x as f64 + 0.5) / num_x as f64 + pos_x_min,
                     (pos_x_max - pos_x_min) * (i_y as f64 + 0.5) / num_x as f64 + pos_x_min,
                 ));
-                p.mass = (1. * (pos_x_max - pos_x_min) * (pos_x_max - pos_x_min))
+                p.mass = (1000. * (pos_x_max - pos_x_min) * (pos_x_max - pos_x_min))
                     / (num_x * num_x) as f64;
                 particles.push(p);
             }
@@ -87,10 +87,10 @@ impl Space {
             grid,
             particles,
             slip_bounds: vec![
-                SlipBoundary::new(0., Direction::X, true),
-                SlipBoundary::new(10., Direction::X, false),
-                SlipBoundary::new(0., Direction::Y, true),
-                SlipBoundary::new(10., Direction::Y, false),
+                SlipBoundary::new(1., Direction::X, true),
+                SlipBoundary::new(9., Direction::X, false),
+                SlipBoundary::new(1., Direction::Y, true),
+                SlipBoundary::new(9., Direction::Y, false),
             ],
             period_bounds: vec![],
         }
@@ -143,9 +143,8 @@ impl Space {
 
             let mut pressure = 0.;
             if settings.c != 0. && settings.eos_power != 0. {
-                pressure = settings.c * settings.c / settings.eos_power
-                    * (density / 1.).powf(settings.eos_power)
-                    - 1.;
+                pressure = 1000. * settings.c * settings.c / settings.eos_power
+                    * ((density / 1000.).powf(settings.eos_power) - 1.);
                 if pressure < 0. {
                     pressure = 0.;
                 }
@@ -269,7 +268,7 @@ impl Space {
                 }
 
                 if bound.line.calc_excess(*i) >= 0. {
-                    *i = bound.line.plus_excess(bound.line.calc_excess(*i));
+                    //*i = bound.line.plus_excess(bound.line.calc_excess(*i));
                     *v_i_n = 0.;
                 }
             }

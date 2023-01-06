@@ -9,7 +9,7 @@ use std::{
 
 use mlsmpm::Particle;
 use piston_window::*;
-use viewer::run_mlsmpm;
+use viewer::{run_dambreak, run_mlsmpm};
 
 fn convert_for_viewport(
     size: (u32, u32),
@@ -27,36 +27,43 @@ fn convert_for_viewport(
 }
 
 fn main() {
+    let particles: Arc<Mutex<Vec<Particle>>> = Arc::new(Mutex::new(vec![]));
+
     let (tx, rx) = mpsc::channel();
-    let handle = thread::spawn(move || {
-        run_mlsmpm(tx);
-    });
+
+    {
+        let particles = Arc::clone(&particles);
+        let handle = thread::spawn(move || {
+            //run_dambreak(particles, Some(rx));
+            run_mlsmpm(particles);
+        });
+    }
 
     let (width, height) = (640, 480);
     let mut window: PistonWindow = WindowSettings::new("Hello Piston!", [width, height])
         .exit_on_esc(true)
         .build()
         .unwrap();
-    let particles: Rc<RefCell<Option<Vec<Particle>>>> = Rc::new(RefCell::new(Option::None));
-    let rx_ref = Rc::new(rx);
+    let radius = 5.;
+    let circle_rect = [-radius, -radius, radius, radius];
+    let color = [1.0, 0.0, 0.0, 1.0];
     while let Some(event) = window.next() {
-        let ps_ref = Rc::clone(&particles);
-        let rx_ref = Rc::clone(&rx_ref);
+        let particles = Arc::clone(&particles);
+        let tx = mpsc::Sender::clone(&tx);
+
+        if let Some(Button::Keyboard(key)) = event.press_args() {
+            if key == Key::Space {
+                tx.send(true).unwrap();
+            }
+        }
+
         window.draw_2d(&event, move |context, graphics, _device| {
             clear([1.0; 4], graphics);
-            if let Ok(ps) = rx_ref.try_recv() {
-                *ps_ref.borrow_mut() = Some(ps);
-            }
-            if let Some(ps) = &*ps_ref.borrow() {
-                for p in ps.iter() {
-                    let v_p = convert_for_viewport((width, height), 1., 5., (p.x().x, p.x().y));
-                    let radius = 10.;
-                    ellipse(
-                        [1.0, 0.0, 0.0, 1.0],
-                        [v_p.0, v_p.1, radius, radius],
-                        context.transform,
-                        graphics,
-                    );
+            if let Ok(ref mut particles) = particles.try_lock() {
+                for p in particles.iter() {
+                    let v_p = convert_for_viewport((width, height), 10., 5., (p.x().x, p.x().y));
+                    let transform = context.transform.trans(v_p.0, v_p.1);
+                    rectangle(color, circle_rect, transform, graphics);
                 }
             }
         });
