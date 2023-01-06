@@ -9,7 +9,7 @@ use std::{
 
 use mlsmpm::*;
 
-pub fn run_mlsmpm(tx: Arc<Mutex<Vec<Particle>>>) {
+pub fn run_mlsmpm(tx: Arc<Mutex<Vec<Particle>>>, step_signal: Option<Receiver<bool>>) {
     let settings = Settings {
         dt: 0.01,
         gravity: -1e-2,
@@ -38,6 +38,9 @@ pub fn run_mlsmpm(tx: Arc<Mutex<Vec<Particle>>>) {
     let mut calc = Calculator::new(&settings, Space::new_for_poiseuille(&settings));
 
     for _i in 0..v_time_steps {
+        if let Some(ref sig) = step_signal {
+            sig.recv().unwrap();
+        }
         calc.update();
         *tx.lock().unwrap() = calc.get_particles().to_vec();
     }

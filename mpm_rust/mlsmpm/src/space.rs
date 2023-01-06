@@ -104,7 +104,10 @@ impl Space {
 
     pub fn distribute_mass(&mut self, settings: &Settings) {
         for p in self.particles.iter() {
-            let base_ipos = calc_base_node_ipos(settings, p.x);
+            let base_ipos = calc_base_node_ipos(
+                settings,
+                p.x - vector![settings.cell_width() / 2., settings.cell_width() / 2.],
+            );
             let weights = calc_weights(settings, p.x, base_ipos);
             for gx in 0..3 {
                 for gy in 0..3 {
@@ -129,7 +132,10 @@ impl Space {
 
     pub fn p2g(&mut self, settings: &Settings) {
         for p in self.particles.iter() {
-            let base_ipos = calc_base_node_ipos(settings, p.x);
+            let base_ipos = calc_base_node_ipos(
+                settings,
+                p.x - vector![settings.cell_width() / 2., settings.cell_width() / 2.],
+            );
             let weights = calc_weights(settings, p.x, base_ipos);
 
             let (density, volume) = calc_density_and_volume(
@@ -211,7 +217,10 @@ impl Space {
             p.v = Vector2f::zeros();
             p.c = Matrix2f::zeros();
 
-            let base_ipos = calc_base_node_ipos(settings, p.x);
+            let base_ipos = calc_base_node_ipos(
+                settings,
+                p.x - vector![settings.cell_width() / 2., settings.cell_width() / 2.],
+            );
             let weights = calc_weights(settings, p.x, base_ipos);
             for gx in 0..3 {
                 for gy in 0..3 {

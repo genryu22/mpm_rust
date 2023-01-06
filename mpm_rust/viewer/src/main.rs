@@ -31,11 +31,14 @@ fn main() {
 
     let (tx, rx) = mpsc::channel();
 
+    let rx_op = Some(rx);
+    let rx_op = None;
+
     {
         let particles = Arc::clone(&particles);
         let handle = thread::spawn(move || {
             //run_dambreak(particles, Some(rx));
-            run_mlsmpm(particles);
+            run_mlsmpm(particles, rx_op);
         });
     }
 
@@ -61,7 +64,7 @@ fn main() {
             clear([1.0; 4], graphics);
             if let Ok(ref mut particles) = particles.try_lock() {
                 for p in particles.iter() {
-                    let v_p = convert_for_viewport((width, height), 10., 5., (p.x().x, p.x().y));
+                    let v_p = convert_for_viewport((width, height), 1., 5., (p.x().x, p.x().y));
                     let transform = context.transform.trans(v_p.0, v_p.1);
                     rectangle(color, circle_rect, transform, graphics);
                 }
