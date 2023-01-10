@@ -123,7 +123,7 @@ impl Space {
 
             let mut pressure = 0.;
             if settings.c != 0. && settings.eos_power != 0. {
-                pressure = settings.c / settings.eos_power
+                pressure = 1000. * settings.c * settings.c / settings.eos_power
                     * ((density / 1000.).powf(settings.eos_power) - 1.);
                 if pressure < 0. {
                     pressure = 0.;
@@ -229,8 +229,9 @@ impl Space {
                 }
             }
 
-            p.x.x = clamp(p.x.x, 0., settings.space_width);
-            p.x.y = clamp(p.x.y, 0., settings.space_width);
+            let dx = settings.cell_width();
+            p.x.x = clamp(p.x.x, 3. * dx, settings.space_width - 3. * dx);
+            p.x.y = clamp(p.x.y, 3. * dx, settings.space_width - 3. * dx);
         }
     }
 }

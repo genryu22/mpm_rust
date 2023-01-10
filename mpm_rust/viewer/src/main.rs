@@ -42,7 +42,7 @@ fn main() {
         });
     }
 
-    let (width, height) = (640, 480);
+    let (width, height) = (1280, 720);
     let mut window: PistonWindow = WindowSettings::new("Hello Piston!", [width, height])
         .exit_on_esc(true)
         .build()
