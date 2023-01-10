@@ -104,42 +104,22 @@ impl Space {
 
     pub fn distribute_mass(&mut self, settings: &Settings) {
         for p in self.particles.iter() {
-            let base_ipos = calc_base_node_ipos(settings, p.x);
-            let weights = calc_weights(settings, p.x, base_ipos);
-            for gx in 0..3 {
-                for gy in 0..3 {
-                    let node_ipos = base_ipos + vector![gx as U, gy as U];
-                    let cell_index =
-                        calc_cell_index_for_poiseuille(settings, &self.period_bounds, node_ipos);
-                    if let Some(node) = self.grid.get_mut(cell_index) {
-                        let weight = weights[gx].x * weights[gy].y;
-                        let node_dist = node_ipos.cast::<f64>() * settings.cell_width() - p.x;
-                        let q = match settings.affine {
-                            true => p.c * node_dist,
-                            false => Vector2f::zeros(),
-                        };
-                        let mass_contrib = weight * p.mass;
-                        node.mass += mass_contrib;
-                        node.v += mass_contrib * (p.v + q);
-                    }
-                }
+            for node in NodeMutIterator::new(settings, &mut self.grid, p, &self.period_bounds) {
+                let q = match settings.affine {
+                    true => p.c * node.dist,
+                    false => Vector2f::zeros(),
+                };
+                let mass_contrib = node.weight * p.mass;
+                node.node.mass += mass_contrib;
+                node.node.v += mass_contrib * (p.v + q);
             }
         }
     }
 
     pub fn p2g(&mut self, settings: &Settings) {
         for p in self.particles.iter() {
-            let base_ipos = calc_base_node_ipos(settings, p.x);
-            let weights = calc_weights(settings, p.x, base_ipos);
-
-            let (density, volume) = calc_density_and_volume(
-                settings,
-                p,
-                &self.grid,
-                &base_ipos,
-                &weights,
-                &self.period_bounds,
-            );
+            let (density, volume) =
+                calc_density_and_volume(settings, p, &self.grid, &self.period_bounds);
 
             let mut pressure = 0.;
             if settings.c != 0. && settings.eos_power != 0. {
@@ -162,18 +142,9 @@ impl Space {
             let stress = matrix![-pressure, 0.; 0., -pressure] + viscosity_term;
             let eq_16_term_0 =
                 -volume * 4. / (settings.cell_width() * settings.cell_width()) * stress;
-            for gx in 0..3 {
-                for gy in 0..3 {
-                    let node_ipos = base_ipos + vector![gx as U, gy as U];
-                    let cell_index =
-                        calc_cell_index_for_poiseuille(settings, &self.period_bounds, node_ipos);
-                    if let Some(node) = self.grid.get_mut(cell_index) {
-                        let weight = weights[gx].x * weights[gy].y;
-                        let node_dist = node_ipos.cast::<f64>() * settings.cell_width() - p.x;
 
-                        node.force += eq_16_term_0 * weight * node_dist;
-                    }
-                }
+            for n in NodeMutIterator::new(settings, &mut self.grid, p, &self.period_bounds) {
+                n.node.force += eq_16_term_0 * n.weight * n.dist;
             }
         }
     }
@@ -211,24 +182,12 @@ impl Space {
             p.v = Vector2f::zeros();
             p.c = Matrix2f::zeros();
 
-            let base_ipos = calc_base_node_ipos(settings, p.x);
-            let weights = calc_weights(settings, p.x, base_ipos);
-            for gx in 0..3 {
-                for gy in 0..3 {
-                    let node_ipos = base_ipos + vector![gx as U, gy as U];
-                    let cell_index =
-                        calc_cell_index_for_poiseuille(settings, &self.period_bounds, node_ipos);
-                    if let Some(node) = self.grid.get_mut(cell_index) {
-                        let weight = weights[gx].x * weights[gy].y;
-                        let node_dist = node_ipos.cast::<f64>() * settings.cell_width() - p.x;
+            for n in NodeIterator::new(settings, &self.grid, p, &self.period_bounds) {
+                p.v += (n.node.v_star - settings.alpha * n.node.v) * n.weight;
+                p.x += n.node.v_star * n.weight * settings.dt;
 
-                        p.v += (node.v_star - settings.alpha * node.v) * weight;
-                        p.x += node.v_star * weight * settings.dt;
-
-                        let weighted_velocity = node.v_star * weight;
-                        p.c += weighted_velocity * node_dist.transpose();
-                    }
-                }
+                let weighted_velocity = n.node.v_star * n.weight;
+                p.c += weighted_velocity * n.dist.transpose();
             }
 
             // flip
@@ -265,7 +224,7 @@ impl Space {
                 }
 
                 if bound.line.calc_excess(*i) >= 0. {
-                    //*i = bound.line.plus_excess(bound.line.calc_excess(*i));
+                    *i = bound.line.plus_excess(bound.line.calc_excess(*i));
                     *v_i_n = 0.;
                 }
             }

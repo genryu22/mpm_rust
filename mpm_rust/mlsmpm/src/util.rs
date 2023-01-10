@@ -1,27 +1,197 @@
-use std::ops::Deref;
-
 use crate::*;
+
+pub struct NeightborNodeMut<'a> {
+    pub node: &'a mut Node,
+    pub weight: f64,
+    pub dist: Vector2f,
+}
+
+pub struct NodeMutIterator<'a, 'b, 'c> {
+    settings: &'b Settings,
+    grid: &'a mut Vec<Node>,
+    base: Vector2f,
+    fx: Vector2f,
+    weights: [Vector2f; 3],
+    period_bounds: &'c Vec<PeriodicBoundary>,
+    gx: usize,
+    gy: usize,
+}
+
+impl<'a, 'b, 'd> Iterator for NodeMutIterator<'a, 'b, 'd> {
+    type Item = NeightborNodeMut<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.gx == 3 {
+            None
+        } else {
+            let (weight, dist, index) = calc_weight_dist_index(
+                self.settings,
+                &self.base,
+                &self.gx,
+                &self.gy,
+                &self.fx,
+                &self.weights,
+                self.period_bounds,
+            );
+            if let Some(index) = index {
+                unsafe {
+                    let node = self.grid.as_mut_ptr().add(index).as_mut().unwrap();
+                    self.gy += 1;
+                    if self.gy == 3 {
+                        self.gy = 0;
+                        self.gx += 1;
+                    }
+                    return Some(NeightborNodeMut { node, weight, dist });
+                }
+            }
+            None
+        }
+    }
+}
+
+impl<'a, 'b, 'c, 'd> NodeMutIterator<'a, 'b, 'd> {
+    pub fn new(
+        settings: &'b Settings,
+        grid: &'a mut Vec<Node>,
+        particle: &'c Particle,
+        period_bounds: &'d Vec<PeriodicBoundary>,
+    ) -> NodeMutIterator<'a, 'b, 'd> {
+        let (base, fx, weights) = calc_base_fx_weights(particle, settings);
+
+        NodeMutIterator {
+            settings,
+            grid,
+            base,
+            fx,
+            weights,
+            period_bounds,
+            gx: 0,
+            gy: 0,
+        }
+    }
+}
+
+pub struct NeightborNode<'a> {
+    pub node: &'a Node,
+    pub weight: f64,
+    pub dist: Vector2f,
+}
+
+pub struct NodeIterator<'a, 'b, 'c> {
+    settings: &'b Settings,
+    grid: &'a Vec<Node>,
+    base: Vector2f,
+    fx: Vector2f,
+    weights: [Vector2f; 3],
+    period_bounds: &'c Vec<PeriodicBoundary>,
+    gx: usize,
+    gy: usize,
+}
+
+impl<'a, 'b, 'd> Iterator for NodeIterator<'a, 'b, 'd> {
+    type Item = NeightborNode<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.gx == 3 {
+            None
+        } else {
+            let (weight, dist, index) = calc_weight_dist_index(
+                self.settings,
+                &self.base,
+                &self.gx,
+                &self.gy,
+                &self.fx,
+                &self.weights,
+                self.period_bounds,
+            );
+            if let Some(index) = index {
+                self.gy += 1;
+                if self.gy == 3 {
+                    self.gy = 0;
+                    self.gx += 1;
+                }
+                Some(NeightborNode {
+                    node: self.grid.get(index).unwrap(),
+                    weight,
+                    dist,
+                })
+            } else {
+                None
+            }
+        }
+    }
+}
+
+impl<'a, 'b, 'c, 'd> NodeIterator<'a, 'b, 'd> {
+    pub fn new(
+        settings: &'b Settings,
+        grid: &'a Vec<Node>,
+        particle: &'c Particle,
+        period_bounds: &'d Vec<PeriodicBoundary>,
+    ) -> NodeIterator<'a, 'b, 'd> {
+        let (base, fx, weights) = calc_base_fx_weights(particle, settings);
+
+        NodeIterator {
+            settings,
+            grid,
+            base,
+            fx,
+            weights,
+            period_bounds,
+            gx: 0,
+            gy: 0,
+        }
+    }
+}
+
+fn calc_weight_dist_index(
+    settings: &Settings,
+    base: &Vector2f,
+    gx: &usize,
+    gy: &usize,
+    fx: &Vector2f,
+    weights: &[Vector2f; 3],
+    period_bounds: &Vec<PeriodicBoundary>,
+) -> (f64, Vector2f, Option<usize>) {
+    let node_ipos = base.map(|x| x as U) + vector![*gx, *gy];
+    let cell_index = calc_cell_index_for_poiseuille(settings, period_bounds, node_ipos);
+    let weight = weights[*gx].x * weights[*gy].y;
+    let dist = (vector![*gx as f64, *gy as f64] - fx) * settings.cell_width();
+    if cell_index <= (settings.grid_width + 1).pow(2) {
+        (weight, dist, Some(cell_index))
+    } else {
+        (weight, dist, None)
+    }
+}
+
+fn calc_base_fx_weights(
+    particle: &Particle,
+    settings: &Settings,
+) -> (Vector2f, Vector2f, [Vector2f; 3]) {
+    let base = (particle.x / settings.cell_width() - vector![0.5, 0.5]).map(|e| e.floor());
+    let fx = particle.x / settings.cell_width() - base;
+
+    let weights = {
+        let w_0 = pow2(vector![1.5, 1.5] - fx).component_mul(&Vector2f::repeat(0.5));
+        let w_1 = Vector2f::repeat(0.75) - pow2(fx - vector![1., 1.]);
+        let w_2 = pow2(fx - vector![0.5, 0.5]).component_mul(&Vector2f::repeat(0.5));
+
+        [w_0, w_1, w_2]
+    };
+
+    (base, fx, weights)
+}
 
 pub fn calc_density_and_volume(
     settings: &Settings,
     p: &Particle,
     grid: &Vec<Node>,
-    base_ipos: &Vector2u,
-    weights: &[Vector2f; 3],
     period_bounds: &Vec<PeriodicBoundary>,
 ) -> (f64, f64) {
     let mut density = 0.;
-    for gx in 0..3 {
-        for gy in 0..3 {
-            let node_ipos = base_ipos + vector![gx as U, gy as U];
-            let cell_index = calc_cell_index_for_poiseuille(settings, period_bounds, node_ipos);
-            if let Some(node) = grid.get(cell_index) {
-                let weight = weights[gx].x * weights[gy].y;
-                density += node.mass * weight / (settings.cell_width() * settings.cell_width());
-            }
-        }
+    for n in NodeIterator::new(settings, grid, p, period_bounds) {
+        density += n.node.mass * n.weight / (settings.cell_width() * settings.cell_width());
     }
-
     (density, p.mass / density)
 }
 
