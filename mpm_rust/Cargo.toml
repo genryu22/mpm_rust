@@ -3,8 +3,6 @@
 members = [
     "mlsmpm",
     "examples",
-    "server",
-    "grpc_server",
     "viewer",
 ]
 default-members = ["viewer"]
