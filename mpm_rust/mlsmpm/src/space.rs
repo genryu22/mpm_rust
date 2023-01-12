@@ -132,14 +132,9 @@ impl Space {
             let pressure = pressure;
 
             let dudv = p.c;
-            let mut strain = dudv;
-            let anti_trace = strain[(1, 0)] + strain[(0, 1)];
-            strain[(0, 1)] = anti_trace;
-            strain[(1, 0)] = anti_trace;
-            strain[(0, 0)] *= 2.;
-            strain[(1, 1)] *= 2.;
-            let viscosity_term = settings.dynamic_viscosity * strain;
-            let stress = matrix![-pressure, 0.; 0., -pressure] + viscosity_term;
+            let strain = dudv;
+            let viscosity_term = settings.dynamic_viscosity * (strain + strain.transpose());
+            let stress = -pressure * Matrix2f::identity() + viscosity_term;
             let eq_16_term_0 =
                 -volume * 4. / (settings.cell_width() * settings.cell_width()) * stress;
 
