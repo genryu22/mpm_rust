@@ -59,6 +59,12 @@ impl ParticleWindow {
         if let Some(Button::Keyboard(key)) = event.press_args() {
             if key == Key::Space {
                 self.step_sender.send(0).unwrap();
+            } else if key == Key::Q {
+                self.step_sender.send(1).unwrap();
+            } else if key == Key::W {
+                self.step_sender.send(10).unwrap();
+            } else if key == Key::E {
+                self.step_sender.send(100).unwrap();
             }
         }
     }
@@ -68,7 +74,8 @@ impl ParticleWindow {
         let circle_rect = [-radius, -radius, radius, radius];
         let color = [1.0, 0.0, 0.0, 1.0];
 
-        if let Ok(particles) = self.receiver.try_recv() {
+        let ps_iter = self.receiver.try_iter();
+        if let Some(particles) = ps_iter.last() {
             self.current_particles = particles;
         }
 

@@ -1,7 +1,4 @@
-use std::sync::{
-    mpsc::{Receiver, Sender},
-    Arc, Mutex,
-};
+use std::sync::mpsc::{Receiver, Sender};
 
 use mlsmpm::Particle;
 
@@ -25,7 +22,7 @@ impl Executor {
         T: StepExecutor,
     {
         loop {
-            if (self.is_step_execution) {
+            if self.is_step_execution {
                 if let Ok(steps) = self.step_receiver.recv() {
                     if steps <= 0 {
                         self.is_step_execution = false;
@@ -40,11 +37,9 @@ impl Executor {
                     }
                 }
             } else {
-                if let Ok(steps) = self.step_receiver.try_recv() {
-                    if steps <= 0 {
-                        self.is_step_execution = true;
-                        continue;
-                    }
+                if let Ok(_) = self.step_receiver.try_recv() {
+                    self.is_step_execution = true;
+                    continue;
                 }
                 let particles = step_executor.step();
                 self.particles_sender.send(particles).unwrap();
