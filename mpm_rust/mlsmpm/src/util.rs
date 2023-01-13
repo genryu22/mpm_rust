@@ -239,6 +239,40 @@ pub fn calc_cell_index_for_poiseuille(
     node_ipos.x + node_ipos.y * (settings.grid_width + 1)
 }
 
+pub fn get_opposite_node_index(
+    settings: &Settings,
+    index: usize,
+    bound: &SlipBoundary,
+) -> Option<usize> {
+    let line_ipos = BoundaryLine::<i64> {
+        value: (bound.line.value as f64 / settings.cell_width()).round() as i64,
+        lower: bound.line.lower,
+    };
+
+    let mut node_ipos = vector![
+        (index % (settings.grid_width + 1)) as i64,
+        (index / (settings.grid_width + 1)) as i64
+    ];
+
+    let a;
+    if let Direction::Y = bound.direction {
+        a = &mut node_ipos.y;
+    } else {
+        a = &mut node_ipos.x;
+    }
+
+    let excess = line_ipos.calc_excess(*a);
+    if excess > 0 {
+        return None;
+    }
+    *a = line_ipos.plus_excess(excess);
+    if *a < 0 || *a >= settings.grid_width as i64 + 1 {
+        return None;
+    }
+
+    Some((node_ipos.x + node_ipos.y * (settings.grid_width as i64 + 1)) as usize)
+}
+
 pub fn calc_node_pos(settings: &Settings, index: U) -> Vector2f {
     let x_index = index % (settings.grid_width + 1);
     let y_index = index / (settings.grid_width + 1);
@@ -256,6 +290,49 @@ fn pow2(vec: Vector2f) -> Vector2f {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_get_opposite_node_index() {
+        let settings = Settings {
+            dt: 0.05,
+            gravity: 1e-2,
+            dynamic_viscosity: 1e-2,
+            alpha: 0.,
+            affine: true,
+            space_width: 10.,
+            grid_width: 100,
+            c: 0.,
+            eos_power: 0.,
+            boundary_mirror: false,
+            vx_zero: false,
+        };
+
+        let bound = SlipBoundary::new(4.5, Direction::X, true, false, false);
+
+        assert_eq!(get_opposite_node_index(&settings, 0, &bound), Some(90));
+        assert_eq!(get_opposite_node_index(&settings, 44, &bound), Some(46));
+        assert_eq!(get_opposite_node_index(&settings, 45, &bound), Some(45));
+        assert_eq!(get_opposite_node_index(&settings, 46, &bound), None);
+
+        assert_eq!(
+            get_opposite_node_index(&settings, 0 + 101, &bound),
+            Some(90 + 101)
+        );
+        assert_eq!(
+            get_opposite_node_index(&settings, 44 + 101, &bound),
+            Some(46 + 101)
+        );
+        assert_eq!(
+            get_opposite_node_index(&settings, 45 + 101, &bound),
+            Some(45 + 101)
+        );
+        assert_eq!(get_opposite_node_index(&settings, 46 + 101, &bound), None);
+
+        let bound = SlipBoundary::new(0., Direction::Y, true, false, false);
+
+        assert_eq!(get_opposite_node_index(&settings, 0, &bound), Some(0));
+        assert_eq!(get_opposite_node_index(&settings, 44, &bound), Some(44));
+    }
 
     #[test]
     fn test_pow2() {
@@ -278,6 +355,8 @@ mod tests {
             grid_width: 200,
             c: 0.,
             eos_power: 0.,
+            boundary_mirror: false,
+            vx_zero: false,
         };
 
         assert_eq!(calc_node_pos(&settings, 0), vector![0., 0.]);
@@ -297,6 +376,8 @@ mod tests {
             grid_width: 100,
             c: 0.,
             eos_power: 0.,
+            boundary_mirror: false,
+            vx_zero: false,
         };
 
         let period_bounds = vec![PeriodicBoundary::new(
@@ -341,6 +422,8 @@ mod tests {
             grid_width: 100,
             c: 0.,
             eos_power: 0.,
+            boundary_mirror: false,
+            vx_zero: false,
         };
 
         assert_eq!(
@@ -371,6 +454,8 @@ mod tests {
             grid_width: 100,
             c: 0.,
             eos_power: 0.,
+            boundary_mirror: false,
+            vx_zero: false,
         };
 
         let x = vector![4.6, 5.];

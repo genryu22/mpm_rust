@@ -17,7 +17,7 @@ mod space;
 mod util;
 
 use boundary::*;
-use node::*;
+pub use node::*;
 pub use particle::*;
 pub use settings::*;
 pub use space::*;
@@ -53,6 +53,10 @@ impl<'a> Calculator<'a> {
 
     pub fn get_particles(&self) -> &Vec<Particle> {
         &self.space.particles
+    }
+
+    pub fn get_grid(&self) -> &Vec<Node> {
+        &self.space.grid
     }
 
     pub fn get_min_velocity(&self) -> f64 {

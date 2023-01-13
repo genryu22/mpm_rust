@@ -11,6 +11,8 @@ fn main() {
         grid_width: 200,
         c: 0.,
         eos_power: 0.,
+        boundary_mirror: false,
+        vx_zero: false,
     };
 
     println!("{:?}", settings);

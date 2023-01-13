@@ -43,8 +43,8 @@ impl Space {
             grid,
             particles,
             slip_bounds: vec![
-                SlipBoundary::new(4.5, Direction::X, true),
-                SlipBoundary::new(5.5, Direction::X, false),
+                SlipBoundary::new(4.5, Direction::X, true, true, true),
+                SlipBoundary::new(5.5, Direction::X, false, true, true),
             ],
             period_bounds: vec![PeriodicBoundary::new(
                 BoundaryLine::new(4.5, true),
@@ -87,10 +87,10 @@ impl Space {
             grid,
             particles,
             slip_bounds: vec![
-                SlipBoundary::new(1., Direction::X, true),
-                SlipBoundary::new(9., Direction::X, false),
-                SlipBoundary::new(1., Direction::Y, true),
-                SlipBoundary::new(9., Direction::Y, false),
+                SlipBoundary::new(1., Direction::X, true, true, false),
+                SlipBoundary::new(9., Direction::X, false, true, false),
+                SlipBoundary::new(1., Direction::Y, true, false, false),
+                SlipBoundary::new(9., Direction::Y, false, false, false),
             ],
             period_bounds: vec![],
         }
@@ -145,6 +145,8 @@ impl Space {
     }
 
     pub fn update_grid(&mut self, settings: &Settings) {
+        let mut vel_configs = Vec::with_capacity(self.grid.len());
+
         for (i, n) in self.grid.iter_mut().enumerate() {
             if n.mass <= 0. {
                 continue;
@@ -155,17 +157,53 @@ impl Space {
 
             let node_pos = calc_node_pos(settings, i);
             for b in self.slip_bounds.iter() {
-                let &i;
-
-                if let Direction::X = b.direction {
-                    i = &node_pos.x;
+                if settings.boundary_mirror && b.fixed {
+                    if let Some(opposite) = get_opposite_node_index(settings, i, &b) {
+                        if opposite == i {
+                            n.v = Vector2f::zeros();
+                            n.v_star = Vector2f::zeros();
+                        } else {
+                            vel_configs.push((opposite, -n.v, -n.v_star, &b.direction, b.no_slip));
+                        }
+                    }
                 } else {
-                    i = &node_pos.y;
-                }
+                    let i;
 
-                if b.line.calc_excess(*i) >= 0. {
-                    n.v = Vector2f::zeros();
-                    n.v_star = Vector2f::zeros();
+                    if let Direction::X = b.direction {
+                        i = &node_pos.x;
+                    } else {
+                        i = &node_pos.y;
+                    }
+
+                    if b.line.calc_excess(*i) >= 0. {
+                        n.v = Vector2f::zeros();
+                        n.v_star = Vector2f::zeros();
+                    }
+                }
+            }
+        }
+
+        for (target, v, v_star, direction, no_slip) in vel_configs {
+            if let Some(target) = self.grid.get_mut(target) {
+                match direction {
+                    Direction::X => {
+                        if no_slip {
+                            target.v = vector![0., v.y];
+                            target.v_star = vector![0., v_star.y];
+                        } else {
+                            target.v = vector![v.x, 0.];
+                            target.v_star = vector![v_star.x, 0.];
+                        }
+                    }
+                    Direction::Y => {
+                        if no_slip {
+                            target.v = vector![v.x, 0.];
+                            target.v_star = vector![v_star.x, 0.];
+                        } else {
+                            target.v = vector![0., v.y];
+                            target.v_star = vector![0., v_star.y];
+                        }
+                    }
                 }
             }
         }
@@ -187,6 +225,10 @@ impl Space {
 
             // flip
             p.v += settings.alpha * p_v_t;
+
+            if settings.vx_zero {
+                p.v.x = 0.;
+            }
 
             p.c = p.c * 4. / (settings.cell_width() * settings.cell_width());
 

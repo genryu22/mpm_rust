@@ -1,5 +1,5 @@
 use viewer::*;
 
 fn main() {
-    run_dambreak_window();
+    run_poiseuille_window();
 }

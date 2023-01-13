@@ -38,13 +38,23 @@ impl<T: std::ops::Sub<Output = T> + std::ops::Add<Output = T> + std::marker::Cop
 pub struct SlipBoundary {
     pub(super) line: BoundaryLine<f64>,
     pub(super) direction: Direction,
+    pub(super) fixed: bool,
+    pub(super) no_slip: bool,
 }
 
 impl SlipBoundary {
-    pub fn new(value: f64, dir: Direction, lower: bool) -> SlipBoundary {
+    pub fn new(
+        value: f64,
+        dir: Direction,
+        lower: bool,
+        fixed: bool,
+        no_slip: bool,
+    ) -> SlipBoundary {
         SlipBoundary {
             line: BoundaryLine::<f64> { value, lower },
             direction: dir,
+            fixed,
+            no_slip,
         }
     }
 }

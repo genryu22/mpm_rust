@@ -5,14 +5,40 @@ use std::{
     },
     thread,
     time::Duration,
+    vec,
 };
 
 pub mod executor;
+mod file;
 pub mod window;
 
 use mlsmpm::*;
 
-use crate::executor::Executor;
+use crate::{executor::Executor, file::write_to_files};
+
+pub struct Snapshot {
+    particles: Vec<Particle>,
+    grid: Vec<Node>,
+    steps: usize,
+}
+
+impl Snapshot {
+    pub fn new(particles: Vec<Particle>, grid: Vec<Node>, steps: usize) -> Self {
+        Self {
+            particles,
+            grid,
+            steps,
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            particles: vec![],
+            grid: vec![],
+            steps: 0,
+        }
+    }
+}
 
 pub struct MLSMPMExecutor<'a> {
     steps: usize,
@@ -29,10 +55,15 @@ impl<'a> MLSMPMExecutor<'a> {
 }
 
 impl<'a> executor::StepExecutor for MLSMPMExecutor<'a> {
-    fn step(&mut self) -> Vec<Particle> {
+    fn step(&mut self) -> Snapshot {
         self.calculator.update();
         self.steps += 1;
-        self.calculator.get_particles().to_vec()
+
+        Snapshot::new(
+            self.calculator.get_particles().to_vec(),
+            self.calculator.get_grid().to_vec(),
+            self.steps,
+        )
     }
 }
 
@@ -40,20 +71,24 @@ pub fn run_window(space_size: f64, settings: Settings, space: Space) {
     println!("{:?}", settings);
 
     let (step_sender, step_receiver) = mpsc::channel();
-    let (particles_sender, particles_receiver) = mpsc::channel();
+    let (data_sender, data_receiver) = mpsc::channel();
 
     thread::spawn(move || {
         let calc = Calculator::new(&settings, space);
-        particles_sender
-            .send(calc.get_particles().to_vec())
+        data_sender
+            .send(Snapshot::new(
+                calc.get_particles().to_vec(),
+                calc.get_grid().to_vec(),
+                0,
+            ))
             .unwrap();
         let step_executor = MLSMPMExecutor::new(calc);
-        let mut executor = Executor::new(particles_sender, step_receiver);
+        let mut executor = Executor::new(data_sender, step_receiver);
         executor.start(step_executor);
     });
 
-    let mut window = window::ParticleWindow::new(space_size, particles_receiver, step_sender);
-    window.run();
+    let mut window = window::ParticleWindow::new(space_size, data_receiver, step_sender);
+    window.run(&|snapshot| write_to_files(snapshot).unwrap());
 }
 
 pub fn run_dambreak_window() {
@@ -67,6 +102,8 @@ pub fn run_dambreak_window() {
         grid_width: 100,
         c: 1e2,
         eos_power: 4.,
+        boundary_mirror: true,
+        vx_zero: false,
     };
 
     let space = Space::new_for_dambreak(&settings);
@@ -84,6 +121,8 @@ pub fn run_poiseuille_window() {
         grid_width: 200,
         c: 0.,
         eos_power: 0.,
+        boundary_mirror: true,
+        vx_zero: true,
     };
 
     let v_time_steps = (1. / settings.dynamic_viscosity / settings.dt).ceil() as u32;

@@ -2,7 +2,7 @@ use mlsmpm::*;
 
 fn main() {
     let settings = Settings {
-        dt: 1e-2,
+        dt: 5e-3,
         gravity: -1e-2,
         dynamic_viscosity: 1e-2,
         alpha: 0.,
@@ -11,6 +11,8 @@ fn main() {
         grid_width: 200,
         c: 0.,
         eos_power: 0.,
+        boundary_mirror: false,
+        vx_zero: true,
     };
 
     println!("{:?}", settings);

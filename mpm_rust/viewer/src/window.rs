@@ -1,7 +1,9 @@
 use std::sync::mpsc::{Receiver, Sender};
 
-use mlsmpm::Particle;
+use mlsmpm::{Node, Particle};
 use piston_window::*;
+
+use crate::Snapshot;
 
 pub struct ParticleWindow {
     width: u32,
@@ -9,35 +11,35 @@ pub struct ParticleWindow {
 
     space_size: f64,
 
-    receiver: Receiver<Vec<Particle>>,
-    current_particles: Vec<Particle>,
+    receiver: Receiver<Snapshot>,
+    current: Snapshot,
 
     step_sender: Sender<usize>,
 }
 
 impl ParticleWindow {
-    pub fn new(
-        space_size: f64,
-        receiver: Receiver<Vec<Particle>>,
-        step_sender: Sender<usize>,
-    ) -> Self {
+    pub fn new(space_size: f64, receiver: Receiver<Snapshot>, step_sender: Sender<usize>) -> Self {
         ParticleWindow {
             width: 1280,
             height: 720,
 
             space_size,
 
-            current_particles: vec![],
+            current: Snapshot::empty(),
 
             receiver,
             step_sender,
         }
     }
 
-    pub fn run(&mut self) {
+    pub fn run<F>(&mut self, data_seeker: &F)
+    where
+        F: Fn(&Snapshot),
+    {
         Self::run_window(self.width, self.height, |event, window| {
             self.handle_step(event);
             self.draw_particles(event, window);
+            self.snapshot(event, data_seeker);
         });
     }
 
@@ -52,6 +54,17 @@ impl ParticleWindow {
             .unwrap();
         while let Some(event) = window.next() {
             update(&event, &mut window);
+        }
+    }
+
+    fn snapshot<F>(&self, event: &Event, data_seeker: &F)
+    where
+        F: Fn(&Snapshot),
+    {
+        if let Some(Button::Keyboard(key)) = event.press_args() {
+            if key == Key::S {
+                data_seeker(&self.current);
+            }
         }
     }
 
@@ -74,14 +87,14 @@ impl ParticleWindow {
         let circle_rect = [-radius, -radius, radius, radius];
         let color = [1.0, 0.0, 0.0, 1.0];
 
-        let ps_iter = self.receiver.try_iter();
-        if let Some(particles) = ps_iter.last() {
-            self.current_particles = particles;
+        let data_iter = self.receiver.try_iter();
+        if let Some(snap) = data_iter.last() {
+            self.current = snap;
         }
 
         window.draw_2d(event, |context, graphics, _device| {
             clear([1.0; 4], graphics);
-            for p in self.current_particles.iter() {
+            for p in self.current.particles.iter() {
                 let v_p = convert_for_viewport(
                     (self.width, self.height),
                     self.space_size,

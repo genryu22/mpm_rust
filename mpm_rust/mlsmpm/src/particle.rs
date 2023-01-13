@@ -25,4 +25,14 @@ impl Particle {
     pub fn v(&self) -> &Vector2f {
         &self.v
     }
+
+    pub fn formatted_list(&self) -> [String; 5] {
+        [
+            self.x.x.to_string(),
+            self.x.y.to_string(),
+            self.v.x.to_string(),
+            self.v.y.to_string(),
+            self.mass.to_string(),
+        ]
+    }
 }
