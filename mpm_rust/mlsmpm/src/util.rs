@@ -13,6 +13,7 @@ pub struct NodeMutIterator<'a, 'b, 'c> {
     fx: Vector2f,
     weights: [Vector2f; 3],
     period_bounds: &'c Vec<PeriodicBoundary>,
+    period_bound_rect: &'c Option<PeriodicBoundaryRect>,
     gx: usize,
     gy: usize,
 }
@@ -32,6 +33,7 @@ impl<'a, 'b, 'd> Iterator for NodeMutIterator<'a, 'b, 'd> {
                 &self.fx,
                 &self.weights,
                 self.period_bounds,
+                self.period_bound_rect,
             );
             if let Some(index) = index {
                 unsafe {
@@ -55,6 +57,7 @@ impl<'a, 'b, 'c, 'd> NodeMutIterator<'a, 'b, 'd> {
         grid: &'a mut Vec<Node>,
         particle: &'c Particle,
         period_bounds: &'d Vec<PeriodicBoundary>,
+        period_bound_rect: &'d Option<PeriodicBoundaryRect>,
     ) -> NodeMutIterator<'a, 'b, 'd> {
         let (base, fx, weights) = calc_base_fx_weights(particle, settings);
 
@@ -65,6 +68,7 @@ impl<'a, 'b, 'c, 'd> NodeMutIterator<'a, 'b, 'd> {
             fx,
             weights,
             period_bounds,
+            period_bound_rect,
             gx: 0,
             gy: 0,
         }
@@ -84,6 +88,7 @@ pub struct NodeIterator<'a, 'b, 'c> {
     fx: Vector2f,
     weights: [Vector2f; 3],
     period_bounds: &'c Vec<PeriodicBoundary>,
+    period_bound_rect: &'c Option<PeriodicBoundaryRect>,
     gx: usize,
     gy: usize,
 }
@@ -103,6 +108,7 @@ impl<'a, 'b, 'd> Iterator for NodeIterator<'a, 'b, 'd> {
                 &self.fx,
                 &self.weights,
                 self.period_bounds,
+                self.period_bound_rect,
             );
             if let Some(index) = index {
                 self.gy += 1;
@@ -128,6 +134,7 @@ impl<'a, 'b, 'c, 'd> NodeIterator<'a, 'b, 'd> {
         grid: &'a Vec<Node>,
         particle: &'c Particle,
         period_bounds: &'d Vec<PeriodicBoundary>,
+        period_bound_rect: &'d Option<PeriodicBoundaryRect>,
     ) -> NodeIterator<'a, 'b, 'd> {
         let (base, fx, weights) = calc_base_fx_weights(particle, settings);
 
@@ -138,6 +145,7 @@ impl<'a, 'b, 'c, 'd> NodeIterator<'a, 'b, 'd> {
             fx,
             weights,
             period_bounds,
+            period_bound_rect,
             gx: 0,
             gy: 0,
         }
@@ -152,9 +160,11 @@ fn calc_weight_dist_index(
     fx: &Vector2f,
     weights: &[Vector2f; 3],
     period_bounds: &Vec<PeriodicBoundary>,
+    period_bound_rect: &Option<PeriodicBoundaryRect>,
 ) -> (f64, Vector2f, Option<usize>) {
     let node_ipos = base.map(|x| x as U) + vector![*gx, *gy];
-    let cell_index = calc_cell_index_for_poiseuille(settings, period_bounds, node_ipos);
+    let cell_index =
+        calc_cell_index_for_poiseuille(settings, period_bounds, period_bound_rect, node_ipos);
     let weight = weights[*gx].x * weights[*gy].y;
     let dist = (vector![*gx as f64, *gy as f64] - fx) * settings.cell_width();
     if cell_index <= (settings.grid_width + 1).pow(2) {
@@ -187,9 +197,10 @@ pub fn calc_density_and_volume(
     p: &Particle,
     grid: &Vec<Node>,
     period_bounds: &Vec<PeriodicBoundary>,
+    period_bound_rect: &Option<PeriodicBoundaryRect>,
 ) -> (f64, f64) {
     let mut density = 0.;
-    for n in NodeIterator::new(settings, grid, p, period_bounds) {
+    for n in NodeIterator::new(settings, grid, p, period_bounds, period_bound_rect) {
         density += n.node.mass * n.weight / (settings.cell_width() * settings.cell_width());
     }
     (density, p.mass / density)
@@ -210,33 +221,50 @@ pub fn calc_weights(settings: &Settings, x: Vector2f, ipos: Vector2u) -> [Vector
 pub fn calc_cell_index_for_poiseuille(
     settings: &Settings,
     period_bounds: &Vec<PeriodicBoundary>,
+    period_bound_rect: &Option<PeriodicBoundaryRect>,
     mut node_ipos: Vector2u,
 ) -> U {
-    for boundary in period_bounds.iter() {
-        let line_a_ipos = BoundaryLine::<i64> {
-            value: (boundary.a.value as f64 / settings.cell_width()).round() as i64,
-            lower: boundary.a.lower,
-        };
-        let line_b_ipos = BoundaryLine::<i64> {
-            value: (boundary.b.value as f64 / settings.cell_width()).round() as i64,
-            lower: boundary.b.lower,
-        };
+    if let Some(rect) = period_bound_rect {
+        let x_min_index = (rect.x_min / settings.cell_width()).round() as i64;
+        let x_max_index = (rect.x_max / settings.cell_width()).round() as i64;
+        let y_min_index = (rect.y_min / settings.cell_width()).round() as i64;
+        let y_max_index = (rect.y_max / settings.cell_width()).round() as i64;
 
-        let &mut i;
-        if let Direction::Y = boundary.direction {
-            i = &mut node_ipos.y;
-        } else {
-            i = &mut node_ipos.x;
+        let origin = vector![x_min_index, y_min_index];
+        let node_ipos = node_ipos.cast::<i64>() - origin;
+        let node_ipos = vector![
+            (node_ipos.x.rem_euclid(x_max_index - x_min_index) + origin.x) as U,
+            (node_ipos.y.rem_euclid(y_max_index - y_min_index) + origin.y) as U
+        ];
+
+        node_ipos.x + node_ipos.y * (settings.grid_width + 1)
+    } else {
+        for boundary in period_bounds.iter() {
+            let line_a_ipos = BoundaryLine::<i64> {
+                value: (boundary.a.value as f64 / settings.cell_width()).round() as i64,
+                lower: boundary.a.lower,
+            };
+            let line_b_ipos = BoundaryLine::<i64> {
+                value: (boundary.b.value as f64 / settings.cell_width()).round() as i64,
+                lower: boundary.b.lower,
+            };
+
+            let &mut i;
+            if let Direction::Y = boundary.direction {
+                i = &mut node_ipos.y;
+            } else {
+                i = &mut node_ipos.x;
+            }
+
+            if line_a_ipos.calc_excess(*i as i64) > 0 {
+                *i = line_b_ipos.plus_excess(line_a_ipos.calc_excess(*i as i64)) as usize;
+            } else if line_b_ipos.calc_excess(*i as i64) >= 0 {
+                *i = line_a_ipos.plus_excess(line_b_ipos.calc_excess(*i as i64)) as usize;
+            }
         }
 
-        if line_a_ipos.calc_excess(*i as i64) > 0 {
-            *i = line_b_ipos.plus_excess(line_a_ipos.calc_excess(*i as i64)) as usize;
-        } else if line_b_ipos.calc_excess(*i as i64) >= 0 {
-            *i = line_a_ipos.plus_excess(line_b_ipos.calc_excess(*i as i64)) as usize;
-        }
+        node_ipos.x + node_ipos.y * (settings.grid_width + 1)
     }
-
-    node_ipos.x + node_ipos.y * (settings.grid_width + 1)
 }
 
 pub fn get_opposite_node_index(
@@ -310,29 +338,27 @@ mod tests {
 
         let bound = SlipBoundary::new(4.5, Direction::X, true, false, false);
 
-        assert_eq!(get_opposite_node_index(&settings, 0, &bound), Some(90));
-        assert_eq!(get_opposite_node_index(&settings, 44, &bound), Some(46));
+        assert_eq!(get_opposite_node_index(&settings, 0, &bound), None);
+        assert_eq!(get_opposite_node_index(&settings, 44, &bound), None);
         assert_eq!(get_opposite_node_index(&settings, 45, &bound), Some(45));
-        assert_eq!(get_opposite_node_index(&settings, 46, &bound), None);
+        assert_eq!(get_opposite_node_index(&settings, 46, &bound), Some(44));
 
-        assert_eq!(
-            get_opposite_node_index(&settings, 0 + 101, &bound),
-            Some(90 + 101)
-        );
-        assert_eq!(
-            get_opposite_node_index(&settings, 44 + 101, &bound),
-            Some(46 + 101)
-        );
+        assert_eq!(get_opposite_node_index(&settings, 0 + 101, &bound), None);
+        assert_eq!(get_opposite_node_index(&settings, 44 + 101, &bound), None);
         assert_eq!(
             get_opposite_node_index(&settings, 45 + 101, &bound),
             Some(45 + 101)
         );
-        assert_eq!(get_opposite_node_index(&settings, 46 + 101, &bound), None);
+        assert_eq!(
+            get_opposite_node_index(&settings, 46 + 101, &bound),
+            Some(44 + 101)
+        );
 
         let bound = SlipBoundary::new(0., Direction::Y, true, false, false);
 
         assert_eq!(get_opposite_node_index(&settings, 0, &bound), Some(0));
         assert_eq!(get_opposite_node_index(&settings, 44, &bound), Some(44));
+        assert_eq!(get_opposite_node_index(&settings, 44 + 101, &bound), None);
     }
 
     #[test]
@@ -390,26 +416,59 @@ mod tests {
         )];
 
         let a = vector![0, 45];
-        let res_a = calc_cell_index_for_poiseuille(&settings, &period_bounds, a);
+        let res_a = calc_cell_index_for_poiseuille(&settings, &period_bounds, &None, a);
         assert_eq!(a, vector![0, 45]);
         assert_eq!(res_a, 45 * 101);
 
         let b = vector![0, 46];
         assert_eq!(
-            calc_cell_index_for_poiseuille(&settings, &period_bounds, b),
+            calc_cell_index_for_poiseuille(&settings, &period_bounds, &None, b),
             b.x + b.y * 101
         );
 
         let b = vector![0, 55];
         assert_eq!(
-            calc_cell_index_for_poiseuille(&settings, &period_bounds, b),
+            calc_cell_index_for_poiseuille(&settings, &period_bounds, &None, b),
             b.x + 45 * 101
         );
 
         let b = vector![0, 56];
         assert_eq!(
-            calc_cell_index_for_poiseuille(&settings, &period_bounds, b),
+            calc_cell_index_for_poiseuille(&settings, &period_bounds, &None, b),
             b.x + 46 * 101
+        );
+
+        let b = vector![0, 56];
+        assert_eq!(
+            calc_cell_index_for_poiseuille(
+                &settings,
+                &vec![],
+                &Some(PeriodicBoundaryRect::new(0., 10., 0., 10.)),
+                b
+            ),
+            b.x + b.y * 101
+        );
+
+        let b = vector![10, 30];
+        assert_eq!(
+            calc_cell_index_for_poiseuille(
+                &settings,
+                &vec![],
+                &Some(PeriodicBoundaryRect::new(3., 7., 3., 7.)),
+                b
+            ),
+            50 + b.y * 101
+        );
+
+        let b = vector![10, 29];
+        assert_eq!(
+            calc_cell_index_for_poiseuille(
+                &settings,
+                &vec![],
+                &Some(PeriodicBoundaryRect::new(3., 7., 3., 7.)),
+                b
+            ),
+            50 + 69 * 101
         );
     }
 

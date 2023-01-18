@@ -75,3 +75,22 @@ impl PeriodicBoundary {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct PeriodicBoundaryRect {
+    pub x_min: f64,
+    pub x_max: f64,
+    pub y_min: f64,
+    pub y_max: f64,
+}
+
+impl PeriodicBoundaryRect {
+    pub fn new(x_min: f64, x_max: f64, y_min: f64, y_max: f64) -> Self {
+        Self {
+            x_min,
+            x_max,
+            y_min,
+            y_max,
+        }
+    }
+}

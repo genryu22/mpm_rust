@@ -1111,6 +1111,7 @@ dependencies = [
 name = "mlsmpm"
 version = "0.1.0"
 dependencies = [
+ "csv",
  "nalgebra",
 ]
 
@@ -1963,7 +1964,6 @@ name = "viewer"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "csv",
  "mlsmpm",
  "piston_window",
 ]

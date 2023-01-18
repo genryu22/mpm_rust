@@ -15,6 +15,9 @@ pub struct ParticleWindow {
     current: Snapshot,
 
     step_sender: Sender<usize>,
+
+    previous_pressure_min: f64,
+    previous_pressure_max: f64,
 }
 
 impl ParticleWindow {
@@ -29,6 +32,9 @@ impl ParticleWindow {
 
             receiver,
             step_sender,
+
+            previous_pressure_min: f64::MAX,
+            previous_pressure_max: f64::MIN,
         }
     }
 
@@ -40,6 +46,7 @@ impl ParticleWindow {
             self.handle_step(event);
             self.draw_particles(event, window);
             self.snapshot(event, data_seeker);
+            self.update_pressure_cache();
         });
     }
 
@@ -85,7 +92,6 @@ impl ParticleWindow {
     fn draw_particles(&mut self, event: &Event, window: &mut PistonWindow) {
         let radius = 1.;
         let circle_rect = [-radius, -radius, radius, radius];
-        let color = [1.0, 0.0, 0.0, 1.0];
 
         let data_iter = self.receiver.try_iter();
         if let Some(snap) = data_iter.last() {
@@ -102,13 +108,47 @@ impl ParticleWindow {
                     (p.x().x, p.x().y),
                 );
                 let transform = context.transform.trans(v_p.0, v_p.1);
-                rectangle(color, circle_rect, transform, graphics);
+                rectangle(
+                    convert_pressure_to_color(
+                        p.pressure(),
+                        self.previous_pressure_min,
+                        self.previous_pressure_max,
+                    ),
+                    circle_rect,
+                    transform,
+                    graphics,
+                );
             }
         });
     }
+
+    fn update_pressure_cache(&mut self) {
+        self.previous_pressure_min = f64::MAX;
+        self.previous_pressure_max = f64::MIN;
+
+        for p in self.current.particles.iter() {
+            let pressure = p.pressure();
+            if pressure < self.previous_pressure_min {
+                self.previous_pressure_min = pressure;
+            }
+            if pressure > self.previous_pressure_max {
+                self.previous_pressure_max = pressure;
+            }
+        }
+    }
 }
 
-fn convert_pressure_for_color() {}
+fn convert_pressure_to_color(pressure: f64, min: f64, max: f64) -> [f32; 4] {
+    let pressure = pressure as f32;
+    let min = min as f32;
+    let max = max as f32;
+    let center = (max + min) / 2.;
+    let r = f32::clamp((pressure - min) / (center - min), 0., 1.);
+    let g = f32::clamp(1. - f32::abs((pressure - center) / (min - center)), 0., 1.);
+    let b = f32::clamp((pressure - center) / (min - center), 0., 1.);
+
+    [r, g, b, 1.]
+}
 
 fn convert_for_viewport(
     size: (u32, u32),

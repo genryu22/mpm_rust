@@ -10,6 +10,7 @@ type Vector2u = Vector2<U>;
 type Matrix2f = Matrix2<f64>;
 
 mod boundary;
+pub mod file;
 mod node;
 mod particle;
 mod settings;

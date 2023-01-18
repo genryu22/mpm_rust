@@ -7,6 +7,7 @@ pub struct Space {
 
     pub(super) slip_bounds: Vec<SlipBoundary>,
     pub(super) period_bounds: Vec<PeriodicBoundary>,
+    pub(super) period_bound_rect: Option<PeriodicBoundaryRect>,
 }
 
 impl Space {
@@ -51,6 +52,7 @@ impl Space {
                 BoundaryLine::new(5.5, false),
                 Direction::Y,
             )],
+            period_bound_rect: None,
         }
     }
 
@@ -93,6 +95,7 @@ impl Space {
                 SlipBoundary::new(9., Direction::Y, false, false, false),
             ],
             period_bounds: vec![],
+            period_bound_rect: None,
         }
     }
 
@@ -120,7 +123,7 @@ impl Space {
                     / (num_x * num_x) as f64;
                 p.v = vector![
                     f64::sin(p.x.x - 5.) * f64::cos(p.x.y - 5.),
-                    f64::cos(p.x.x - 5.) * f64::sin(p.x.y - 5.)
+                    -f64::cos(p.x.x - 5.) * f64::sin(p.x.y - 5.)
                 ];
                 particles.push(p);
             }
@@ -135,18 +138,10 @@ impl Space {
             grid,
             particles,
             slip_bounds: vec![],
-            period_bounds: vec![
-                PeriodicBoundary::new(
-                    BoundaryLine::new(pos_x_min, true),
-                    BoundaryLine::new(pos_x_max, false),
-                    Direction::X,
-                ),
-                PeriodicBoundary::new(
-                    BoundaryLine::new(pos_x_min, true),
-                    BoundaryLine::new(pos_x_max, false),
-                    Direction::Y,
-                ),
-            ],
+            period_bounds: vec![],
+            period_bound_rect: Some(PeriodicBoundaryRect::new(
+                pos_x_min, pos_x_max, pos_x_min, pos_x_max,
+            )),
         }
     }
 
@@ -158,7 +153,13 @@ impl Space {
 
     pub fn distribute_mass(&mut self, settings: &Settings) {
         for p in self.particles.iter() {
-            for node in NodeMutIterator::new(settings, &mut self.grid, p, &self.period_bounds) {
+            for node in NodeMutIterator::new(
+                settings,
+                &mut self.grid,
+                p,
+                &self.period_bounds,
+                &self.period_bound_rect,
+            ) {
                 let q = match settings.affine {
                     true => p.c * node.dist,
                     false => Vector2f::zeros(),
@@ -172,16 +173,21 @@ impl Space {
 
     pub fn p2g(&mut self, settings: &Settings) {
         for p in self.particles.iter_mut() {
-            let (density, volume) =
-                calc_density_and_volume(settings, p, &self.grid, &self.period_bounds);
+            let (density, volume) = calc_density_and_volume(
+                settings,
+                p,
+                &self.grid,
+                &self.period_bounds,
+                &self.period_bound_rect,
+            );
 
             let mut pressure = 0.;
             if settings.c != 0. && settings.eos_power != 0. {
                 pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
                     * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
-                if pressure < 0. {
-                    pressure = 0.;
-                }
+                // if pressure < 0. {
+                //     pressure = 0.;
+                // }
             }
             p.pressure = pressure;
             let pressure = pressure;
@@ -193,7 +199,13 @@ impl Space {
             let eq_16_term_0 =
                 -volume * 4. / (settings.cell_width() * settings.cell_width()) * stress;
 
-            for n in NodeMutIterator::new(settings, &mut self.grid, p, &self.period_bounds) {
+            for n in NodeMutIterator::new(
+                settings,
+                &mut self.grid,
+                p,
+                &self.period_bounds,
+                &self.period_bound_rect,
+            ) {
                 n.node.force += eq_16_term_0 * n.weight * n.dist;
             }
         }
@@ -270,7 +282,13 @@ impl Space {
             p.v = Vector2f::zeros();
             p.c = Matrix2f::zeros();
 
-            for n in NodeIterator::new(settings, &self.grid, p, &self.period_bounds) {
+            for n in NodeIterator::new(
+                settings,
+                &self.grid,
+                p,
+                &self.period_bounds,
+                &self.period_bound_rect,
+            ) {
                 p.v += (n.node.v_star - settings.alpha * n.node.v) * n.weight;
                 p.x += n.node.v_star * n.weight * settings.dt;
 
@@ -287,19 +305,33 @@ impl Space {
 
             p.c = p.c * 4. / (settings.cell_width() * settings.cell_width());
 
-            for bound in self.period_bounds.iter() {
-                let &mut i;
-
-                if let Direction::Y = bound.direction {
-                    i = &mut p.x.y;
-                } else {
-                    i = &mut p.x.x;
+            if let Some(ref rect) = self.period_bound_rect {
+                if p.x.x < rect.x_min {
+                    p.x.x = rect.x_max - (rect.x_min - p.x.x);
+                } else if rect.x_max < p.x.x {
+                    p.x.x = rect.x_min + (p.x.x - rect.x_max);
                 }
 
-                if bound.a.calc_excess(*i) > 0. {
-                    *i = bound.b.plus_excess(bound.a.calc_excess(*i));
-                } else if bound.b.calc_excess(*i) >= 0. {
-                    *i = bound.a.plus_excess(bound.b.calc_excess(*i));
+                if p.x.y < rect.y_min {
+                    p.x.y = rect.y_max - (rect.y_min - p.x.y);
+                } else if rect.y_max < p.x.y {
+                    p.x.y = rect.y_min + (p.x.y - rect.y_max);
+                }
+            } else {
+                for bound in self.period_bounds.iter() {
+                    let &mut i;
+
+                    if let Direction::Y = bound.direction {
+                        i = &mut p.x.y;
+                    } else {
+                        i = &mut p.x.x;
+                    }
+
+                    if bound.a.calc_excess(*i) > 0. {
+                        *i = bound.b.plus_excess(bound.a.calc_excess(*i));
+                    } else if bound.b.calc_excess(*i) >= 0. {
+                        *i = bound.a.plus_excess(bound.b.calc_excess(*i));
+                    }
                 }
             }
 
