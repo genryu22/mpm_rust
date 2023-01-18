@@ -95,7 +95,7 @@ pub fn run_dambreak_window() {
     let settings = Settings {
         dt: 1e-3,
         gravity: -100.,
-        dynamic_viscosity: 1e-6,
+        dynamic_viscosity: 1e-3,
         alpha: 0.,
         affine: true,
         space_width: 10.,
@@ -152,8 +152,8 @@ pub fn run_taylorgreen_window() {
         space_width: 10.,
         grid_width: 500,
         rho_0: 1.,
-        c: 0.,
-        eos_power: 0.,
+        c: 1e2,
+        eos_power: 4.,
         boundary_mirror: false,
         vx_zero: false,
     };

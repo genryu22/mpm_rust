@@ -171,18 +171,19 @@ impl Space {
     }
 
     pub fn p2g(&mut self, settings: &Settings) {
-        for p in self.particles.iter() {
+        for p in self.particles.iter_mut() {
             let (density, volume) =
                 calc_density_and_volume(settings, p, &self.grid, &self.period_bounds);
 
             let mut pressure = 0.;
             if settings.c != 0. && settings.eos_power != 0. {
-                pressure = 1000. * settings.c * settings.c / settings.eos_power
-                    * ((density / 1000.).powf(settings.eos_power) - 1.);
+                pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
+                    * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
                 if pressure < 0. {
                     pressure = 0.;
                 }
             }
+            p.pressure = pressure;
             let pressure = pressure;
 
             let dudv = p.c;

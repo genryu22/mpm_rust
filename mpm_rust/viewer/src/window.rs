@@ -108,6 +108,8 @@ impl ParticleWindow {
     }
 }
 
+fn convert_pressure_for_color() {}
+
 fn convert_for_viewport(
     size: (u32, u32),
     space_size: f64,

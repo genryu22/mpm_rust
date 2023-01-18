@@ -36,7 +36,7 @@ pub fn write_to_files(snapshot: &Snapshot) -> Result<(), Box<dyn Error>> {
 
     let mut particle =
         csv::Writer::from_path(folder.join(format!("{}-{}-particle.csv", now, snapshot.steps)))?;
-    particle.write_record(&["x", "y", "vx", "vy", "mass"])?;
+    particle.write_record(&["x", "y", "vx", "vy", "mass", "pressure"])?;
     for p in snapshot.particles.iter() {
         let formatted = p.formatted_list();
         particle.write_record(&[
@@ -45,6 +45,7 @@ pub fn write_to_files(snapshot: &Snapshot) -> Result<(), Box<dyn Error>> {
             &formatted[2],
             &formatted[3],
             &formatted[4],
+            &formatted[5],
         ])?;
     }
     grid.flush()?;

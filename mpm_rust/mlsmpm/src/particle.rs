@@ -6,6 +6,7 @@ pub struct Particle {
     pub(super) v: Vector2f,
     pub(super) c: Matrix2f,
     pub(super) mass: f64,
+    pub(super) pressure: f64,
 }
 
 impl Particle {
@@ -14,7 +15,8 @@ impl Particle {
             x: pos,
             v: Vector2::zeros(),
             c: Matrix2f::zeros(),
-            mass: 0.0,
+            mass: 0.,
+            pressure: 0.,
         }
     }
 
@@ -26,13 +28,14 @@ impl Particle {
         &self.v
     }
 
-    pub fn formatted_list(&self) -> [String; 5] {
+    pub fn formatted_list(&self) -> [String; 6] {
         [
             self.x.x.to_string(),
             self.x.y.to_string(),
             self.v.x.to_string(),
             self.v.y.to_string(),
             self.mass.to_string(),
+            self.pressure.to_string(),
         ]
     }
 }
