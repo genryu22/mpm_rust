@@ -9,6 +9,7 @@ fn main() {
         affine: true,
         space_width: 10.,
         grid_width: 200,
+        rho_0: 1.,
         c: 0.,
         eos_power: 0.,
         boundary_mirror: false,

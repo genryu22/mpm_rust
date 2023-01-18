@@ -28,7 +28,7 @@ impl Space {
                     (pos_x_max - pos_x_min) * (i_x as f64 + 0.5) / num_x as f64 + pos_x_min,
                     (pos_x_max - pos_x_min) * (i_y as f64 + 0.5) / num_x as f64 + pos_x_min,
                 ));
-                p.mass = (1. * (pos_x_max - pos_x_min) * (pos_x_max - pos_x_min))
+                p.mass = (settings.rho_0 * (pos_x_max - pos_x_min) * (pos_x_max - pos_x_min))
                     / (num_x * num_x) as f64;
                 particles.push(p);
             }
@@ -72,7 +72,7 @@ impl Space {
                     (pos_x_max - pos_x_min) * (i_x as f64 + 0.5) / num_x as f64 + pos_x_min,
                     (pos_x_max - pos_x_min) * (i_y as f64 + 0.5) / num_x as f64 + pos_x_min,
                 ));
-                p.mass = (1000. * (pos_x_max - pos_x_min) * (pos_x_max - pos_x_min))
+                p.mass = (settings.rho_0 * (pos_x_max - pos_x_min) * (pos_x_max - pos_x_min))
                     / (num_x * num_x) as f64;
                 particles.push(p);
             }
@@ -93,6 +93,60 @@ impl Space {
                 SlipBoundary::new(9., Direction::Y, false, false, false),
             ],
             period_bounds: vec![],
+        }
+    }
+
+    pub fn new_for_taylor_green(settings: &Settings) -> Space {
+        let grid_width = settings.grid_width;
+        let cell_size = settings.cell_width();
+
+        let p_dist = cell_size / 2.;
+
+        let half_domain_size = std::f64::consts::PI;
+
+        let pos_x_min = 5. - half_domain_size;
+        let pos_x_max = 5. + half_domain_size;
+        let num_x = ((pos_x_max - pos_x_min) / p_dist + 0.5) as usize;
+
+        let mut particles = Vec::<Particle>::with_capacity(num_x * num_x);
+
+        for i_y in 0..num_x {
+            for i_x in 0..num_x {
+                let mut p = Particle::new(Vector2::new(
+                    (pos_x_max - pos_x_min) * (i_x as f64 + 0.5) / num_x as f64 + pos_x_min,
+                    (pos_x_max - pos_x_min) * (i_y as f64 + 0.5) / num_x as f64 + pos_x_min,
+                ));
+                p.mass = (settings.rho_0 * (pos_x_max - pos_x_min) * (pos_x_max - pos_x_min))
+                    / (num_x * num_x) as f64;
+                p.v = vector![
+                    f64::sin(p.x.x - 5.) * f64::cos(p.x.y - 5.),
+                    f64::cos(p.x.x - 5.) * f64::sin(p.x.y - 5.)
+                ];
+                particles.push(p);
+            }
+        }
+
+        let mut grid: Vec<Node> = Vec::with_capacity((grid_width + 1) * (grid_width + 1));
+        for _i in 0..(grid_width + 1) * (grid_width + 1) {
+            grid.push(Node::new());
+        }
+
+        Space {
+            grid,
+            particles,
+            slip_bounds: vec![],
+            period_bounds: vec![
+                PeriodicBoundary::new(
+                    BoundaryLine::new(pos_x_min, true),
+                    BoundaryLine::new(pos_x_max, false),
+                    Direction::X,
+                ),
+                PeriodicBoundary::new(
+                    BoundaryLine::new(pos_x_min, true),
+                    BoundaryLine::new(pos_x_max, false),
+                    Direction::Y,
+                ),
+            ],
         }
     }
 

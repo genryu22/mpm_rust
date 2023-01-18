@@ -100,6 +100,7 @@ pub fn run_dambreak_window() {
         affine: true,
         space_width: 10.,
         grid_width: 100,
+        rho_0: 1000.,
         c: 1e2,
         eos_power: 4.,
         boundary_mirror: true,
@@ -119,6 +120,7 @@ pub fn run_poiseuille_window() {
         affine: true,
         space_width: 10.,
         grid_width: 200,
+        rho_0: 1.,
         c: 0.,
         eos_power: 0.,
         boundary_mirror: true,
@@ -138,4 +140,24 @@ pub fn run_poiseuille_window() {
 
     let space = Space::new_for_poiseuille(&settings);
     run_window(1., settings, space);
+}
+
+pub fn run_taylorgreen_window() {
+    let settings = Settings {
+        dt: 4e-4,
+        gravity: 0.,
+        dynamic_viscosity: 1e-3,
+        alpha: 0.,
+        affine: true,
+        space_width: 10.,
+        grid_width: 500,
+        rho_0: 1.,
+        c: 0.,
+        eos_power: 0.,
+        boundary_mirror: false,
+        vx_zero: false,
+    };
+
+    let space = Space::new_for_taylor_green(&settings);
+    run_window(7., settings, space);
 }

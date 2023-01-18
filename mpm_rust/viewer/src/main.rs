@@ -1,5 +1,5 @@
 use viewer::*;
 
 fn main() {
-    run_poiseuille_window();
+    run_taylorgreen_window();
 }

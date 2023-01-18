@@ -10,6 +10,8 @@ pub struct Settings {
     pub space_width: f64,
     pub grid_width: U,
 
+    pub rho_0: f64,
+
     pub c: f64,
     pub eos_power: f64,
 
@@ -26,6 +28,7 @@ impl Settings {
         affine: bool,
         space_width: f64,
         grid_width: U,
+        rho_0: f64,
         c: f64,
         eos_power: f64,
         boundary_mirror: bool,
@@ -39,6 +42,7 @@ impl Settings {
             affine,
             space_width,
             grid_width,
+            rho_0,
             c,
             eos_power,
             boundary_mirror,

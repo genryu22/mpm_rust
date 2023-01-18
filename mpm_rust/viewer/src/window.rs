@@ -83,7 +83,7 @@ impl ParticleWindow {
     }
 
     fn draw_particles(&mut self, event: &Event, window: &mut PistonWindow) {
-        let radius = 5.;
+        let radius = 1.;
         let circle_rect = [-radius, -radius, radius, radius];
         let color = [1.0, 0.0, 0.0, 1.0];
 
