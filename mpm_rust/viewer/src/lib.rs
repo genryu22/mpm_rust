@@ -152,7 +152,7 @@ pub fn run_taylorgreen_window() {
         space_width: 10.,
         grid_width: 500,
         rho_0: 1.,
-        c: 1e2,
+        c: 1e1,
         eos_power: 4.,
         boundary_mirror: false,
         vx_zero: false,
