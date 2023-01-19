@@ -68,4 +68,13 @@ impl<'a> Calculator<'a> {
             .min_by(|x, y| x.partial_cmp(y).unwrap())
             .unwrap()
     }
+
+    pub fn get_max_x(&self) -> f64 {
+        self.space
+            .particles
+            .iter()
+            .map(|p| p.x.x)
+            .max_by(|x, y| x.partial_cmp(y).unwrap())
+            .unwrap()
+    }
 }

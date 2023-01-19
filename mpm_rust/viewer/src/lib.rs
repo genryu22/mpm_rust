@@ -111,6 +111,26 @@ pub fn run_dambreak_window() {
     run_window(settings.space_width, settings, space);
 }
 
+pub fn run_dambreak_experiment_window() {
+    let settings = Settings {
+        dt: 1e-4,
+        gravity: -10.,
+        dynamic_viscosity: 1e-3,
+        alpha: 0.,
+        affine: true,
+        space_width: 10.,
+        grid_width: 500,
+        rho_0: 1000.,
+        c: 1e1,
+        eos_power: 4.,
+        boundary_mirror: true,
+        vx_zero: false,
+    };
+
+    let space = Space::new_for_dambreak_experiment(&settings);
+    run_window(settings.space_width, settings, space);
+}
+
 pub fn run_poiseuille_window() {
     let settings = Settings {
         dt: 0.01,

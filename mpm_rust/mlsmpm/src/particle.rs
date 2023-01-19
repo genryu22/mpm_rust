@@ -32,6 +32,10 @@ impl Particle {
         self.pressure
     }
 
+    pub fn v_norm(&self) -> f64 {
+        self.v.norm()
+    }
+
     pub fn formatted_list(&self) -> [String; 6] {
         [
             self.x.x.to_string(),

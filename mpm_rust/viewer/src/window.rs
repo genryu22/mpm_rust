@@ -90,7 +90,7 @@ impl ParticleWindow {
     }
 
     fn draw_particles(&mut self, event: &Event, window: &mut PistonWindow) {
-        let radius = 1.;
+        let radius = 2.;
         let circle_rect = [-radius, -radius, radius, radius];
 
         let data_iter = self.receiver.try_iter();
@@ -108,16 +108,13 @@ impl ParticleWindow {
                     (p.x().x, p.x().y),
                 );
                 let transform = context.transform.trans(v_p.0, v_p.1);
-                rectangle(
-                    convert_pressure_to_color(
-                        p.pressure(),
-                        self.previous_pressure_min,
-                        self.previous_pressure_max,
-                    ),
-                    circle_rect,
-                    transform,
-                    graphics,
+                let color = convert_pressure_to_color(
+                    p.v_norm(),
+                    self.previous_pressure_min,
+                    self.previous_pressure_max,
                 );
+                let color = [0., 0., 1., 1.];
+                rectangle(color, circle_rect, transform, graphics);
             }
         });
     }
@@ -127,7 +124,7 @@ impl ParticleWindow {
         self.previous_pressure_max = f64::MIN;
 
         for p in self.current.particles.iter() {
-            let pressure = p.pressure();
+            let pressure = p.v_norm();
             if pressure < self.previous_pressure_min {
                 self.previous_pressure_min = pressure;
             }
