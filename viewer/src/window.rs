@@ -109,11 +109,10 @@ impl ParticleWindow {
                 );
                 let transform = context.transform.trans(v_p.0, v_p.1);
                 let color = convert_pressure_to_color(
-                    p.v_norm(),
+                    p.pressure(),
                     self.previous_pressure_min,
                     self.previous_pressure_max,
                 );
-                let color = [0., 0., 1., 1.];
                 rectangle(color, circle_rect, transform, graphics);
             }
         });
@@ -124,7 +123,7 @@ impl ParticleWindow {
         self.previous_pressure_max = f64::MIN;
 
         for p in self.current.particles.iter() {
-            let pressure = p.v_norm();
+            let pressure = p.pressure();
             if pressure < self.previous_pressure_min {
                 self.previous_pressure_min = pressure;
             }
