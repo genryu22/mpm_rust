@@ -3,7 +3,11 @@ use std::{
     sync::mpsc,
 };
 
-use bevy::{prelude::*, render::camera::ScalingMode, DefaultPlugins};
+use bevy::{
+    prelude::*,
+    render::{camera::ScalingMode, mesh},
+    DefaultPlugins,
+};
 use bevy_points::{material::PointsShaderSettings, prelude::*};
 
 use crate::Snapshot;
@@ -21,7 +25,7 @@ pub fn run(snapshot_receiver: mpsc::Receiver<Snapshot>) {
         .insert_resource(ClearColor(Color::rgb(0.01, 0.02, 0.08)))
         .insert_non_send_resource(snapshot_receiver)
         .add_startup_system(setup)
-        .add_system(test_animate)
+        //.add_system(test_animate)
         .add_system(update)
         .run();
 }
@@ -40,11 +44,11 @@ fn setup(
             near: 0.1,
             far: 100.,
             scale: 1.0,
-            scaling_mode: ScalingMode::WindowSize(200.),
+            scaling_mode: ScalingMode::WindowSize(180.),
             ..Default::default()
         }
         .into(),
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, -5.0))
+        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 5.0))
             .looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
     });
@@ -63,19 +67,13 @@ fn test_animate(
         return;
     }
     let mesh = meshes.get_mut(mesh_handle).unwrap();
-    let vertices = mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION);
-    if vertices.is_none() {
-        return;
-    }
     let mut frame_count = count.get_single_mut().unwrap();
-    let vertices = vertices.unwrap();
-    let v_sum = vertices.len() / 4;
+    let n = 320;
     let h = 3.0;
     update_mesh(
         mesh,
-        PointsMesh::from_iter((0..v_sum).map(|i| {
-            let t01 =
-                ((i as f32 + frame_count.0 as f32 / 10.) % v_sum as f32) / ((v_sum - 1) as f32);
+        PointsMesh::from_iter((0..n).map(|i| {
+            let t01 = ((i as f32 + frame_count.0 as f32 / 10.) % n as f32) / ((n - 1) as f32);
             let r = t01 * TAU * 4.0;
             Vec3::new(r.cos(), (t01 - 0.5) * h, r.sin())
         })),
@@ -123,15 +121,48 @@ fn update_mesh(mesh: &mut Mesh, points_mesh: PointsMesh) {
 }
 
 fn update(world: &mut World) {
-    let receiver = world.get_non_send_resource::<mpsc::Receiver<Snapshot>>();
-    if receiver.is_none() {
+    let snapshot = {
+        let receiver = world.get_non_send_resource::<mpsc::Receiver<Snapshot>>();
+        if receiver.is_none() {
+            return;
+        }
+        let received = receiver.unwrap().try_recv();
+
+        received
+    };
+    if snapshot.is_err() {
         return;
     }
-    let receiver = receiver.unwrap();
+    let snapshot = snapshot.unwrap();
 
-    if let Ok(snapshot) = receiver.try_recv() {
-        println!("{}", snapshot.steps);
+    let mesh_handle = world
+        .query_filtered::<&Handle<Mesh>, With<Spiral>>()
+        .get_single(world);
+    if mesh_handle.is_err() {
+        return;
     }
+    let mesh_handle = mesh_handle.unwrap().clone();
+
+    let meshes = world.get_resource_mut::<Assets<Mesh>>();
+    if meshes.is_none() {
+        return;
+    }
+    let mut meshes = meshes.unwrap();
+    if !meshes.contains(&mesh_handle) {
+        return;
+    }
+    let mesh = meshes.get_mut(&mesh_handle).unwrap();
+
+    println!("{}", snapshot.steps);
+
+    update_mesh(
+        mesh,
+        PointsMesh::from_iter(snapshot.particles.iter().map(|p| Vec3 {
+            x: p.x().x as f32 - 3.,
+            y: p.x().y as f32 - 3.,
+            z: 0.,
+        })),
+    );
 }
 
 fn create_points_mesh(
