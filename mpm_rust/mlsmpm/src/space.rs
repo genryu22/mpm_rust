@@ -405,4 +405,8 @@ impl Space {
             p.x.y = clamp(p.x.y, 3. * dx, settings.space_width - 3. * dx);
         }
     }
+
+    pub fn get_particle_count(&self) -> usize {
+        self.particles.len()
+    }
 }
