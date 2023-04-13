@@ -44,7 +44,7 @@ fn setup(
             near: 0.1,
             far: 100.,
             scale: 1.0,
-            scaling_mode: ScalingMode::WindowSize(180.),
+            scaling_mode: ScalingMode::WindowSize(100.),
             ..Default::default()
         }
         .into(),
@@ -52,33 +52,6 @@ fn setup(
             .looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
     });
-}
-
-fn test_animate(
-    mut meshes: ResMut<Assets<Mesh>>,
-    mesh_query: Query<&Handle<Mesh>, With<Spiral>>,
-    mut count: Query<&mut Count>,
-) {
-    if mesh_query.is_empty() {
-        return;
-    }
-    let mesh_handle = mesh_query.single();
-    if !meshes.contains(mesh_handle) {
-        return;
-    }
-    let mesh = meshes.get_mut(mesh_handle).unwrap();
-    let mut frame_count = count.get_single_mut().unwrap();
-    let n = 320;
-    let h = 3.0;
-    update_mesh(
-        mesh,
-        PointsMesh::from_iter((0..n).map(|i| {
-            let t01 = ((i as f32 + frame_count.0 as f32 / 10.) % n as f32) / ((n - 1) as f32);
-            let r = t01 * TAU * 4.0;
-            Vec3::new(r.cos(), (t01 - 0.5) * h, r.sin())
-        })),
-    );
-    frame_count.0 += 1;
 }
 
 fn update_mesh(mesh: &mut Mesh, points_mesh: PointsMesh) {
@@ -155,14 +128,59 @@ fn update(world: &mut World) {
 
     println!("{}", snapshot.steps);
 
-    update_mesh(
-        mesh,
-        PointsMesh::from_iter(snapshot.particles.iter().map(|p| Vec3 {
-            x: p.x().x as f32 - 3.,
-            y: p.x().y as f32 - 3.,
-            z: 0.,
-        })),
+    let mut points_mesh = PointsMesh::from_iter(snapshot.particles.iter().map(|p| Vec3 {
+        x: p.x().x as f32 - 5.,
+        y: p.x().y as f32 - 5.,
+        z: 0.,
+    }));
+
+    fn convert_particle_to_scaler(particle: &mlsmpm::Particle) -> f64 {
+        particle.pressure()
+    }
+
+    let (scaler_min, scaler_max) = {
+        let mut min = f64::MAX;
+        let mut max = f64::MIN;
+
+        for p in snapshot.particles.iter() {
+            min = f64::min(min, convert_particle_to_scaler(p));
+            max = f64::max(max, convert_particle_to_scaler(p));
+        }
+
+        (min, max)
+    };
+
+    points_mesh.colors = Some(
+        snapshot
+            .particles
+            .iter()
+            .map(|p| {
+                let color =
+                    convert_scalar_to_color(convert_particle_to_scaler(p), scaler_min, scaler_max);
+
+                Color::Rgba {
+                    red: color[0],
+                    green: color[1],
+                    blue: color[2],
+                    alpha: color[3],
+                }
+            })
+            .collect(),
     );
+
+    update_mesh(mesh, points_mesh);
+}
+
+fn convert_scalar_to_color(scalar: f64, min: f64, max: f64) -> [f32; 4] {
+    let pressure = scalar as f32;
+    let min = min as f32;
+    let max = max as f32;
+    let center = (max + min) / 2.;
+    let r = f32::clamp((pressure - min) / (center - min), 0., 1.);
+    let g = f32::clamp(1. - f32::abs((pressure - center) / (min - center)), 0., 1.);
+    let b = f32::clamp((pressure - center) / (min - center), 0., 1.);
+
+    [r, g, b, 1.]
 }
 
 fn create_points_mesh(
