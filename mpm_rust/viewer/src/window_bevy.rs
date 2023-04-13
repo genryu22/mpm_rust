@@ -20,7 +20,13 @@ struct Count(usize);
 
 pub fn run(snapshot_receiver: mpsc::Receiver<Snapshot>) {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                resolution: bevy::window::WindowResolution::new(1920., 1080.),
+                ..default()
+            }),
+            ..default()
+        }))
         .add_plugin(PointsPlugin)
         .insert_resource(ClearColor(Color::rgb(0.01, 0.02, 0.08)))
         .insert_non_send_resource(snapshot_receiver)
