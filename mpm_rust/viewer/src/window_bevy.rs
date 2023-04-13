@@ -105,10 +105,18 @@ fn update(world: &mut World) {
         if receiver.is_none() {
             return;
         }
-        let received = receiver.unwrap().try_recv();
 
-        received
+        if false {
+            receiver.unwrap().try_recv()
+        } else {
+            receiver
+                .unwrap()
+                .try_iter()
+                .last()
+                .map_or(Err(mpsc::TryRecvError::Empty), |s| Ok(s))
+        }
     };
+
     if snapshot.is_err() {
         return;
     }
