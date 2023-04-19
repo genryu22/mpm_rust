@@ -162,7 +162,7 @@ fn calc_weight_dist_index(
     period_bounds: &Vec<PeriodicBoundary>,
     period_bound_rect: &Option<PeriodicBoundaryRect>,
 ) -> (f64, Vector2f, Option<usize>) {
-    let node_ipos = base.map(|x| x as U) + vector![*gx, *gy];
+    let node_ipos = base + vector![*gx as f64, *gy as f64];
     let cell_index =
         calc_cell_index_for_poiseuille(settings, period_bounds, period_bound_rect, node_ipos);
     let weight = weights[*gx].x * weights[*gy].y;
@@ -222,7 +222,7 @@ pub fn calc_cell_index_for_poiseuille(
     settings: &Settings,
     period_bounds: &Vec<PeriodicBoundary>,
     period_bound_rect: &Option<PeriodicBoundaryRect>,
-    mut node_ipos: Vector2u,
+    mut node_ipos: Vector2f,
 ) -> U {
     if let Some(rect) = period_bound_rect {
         let x_min_index = (rect.x_min / settings.cell_width()).round() as i64;
@@ -231,7 +231,7 @@ pub fn calc_cell_index_for_poiseuille(
         let y_max_index = (rect.y_max / settings.cell_width()).round() as i64;
 
         let origin = vector![x_min_index, y_min_index];
-        let node_ipos = node_ipos.cast::<i64>() - origin;
+        let node_ipos = node_ipos.map(|p| p.floor() as i64) - origin;
         let node_ipos = vector![
             (node_ipos.x.rem_euclid(x_max_index - x_min_index) + origin.x) as U,
             (node_ipos.y.rem_euclid(y_max_index - y_min_index) + origin.y) as U
@@ -239,6 +239,8 @@ pub fn calc_cell_index_for_poiseuille(
 
         node_ipos.x + node_ipos.y * (settings.grid_width + 1)
     } else {
+        let mut node_ipos = node_ipos.map(|p| p.floor() as usize); // 微妙？
+
         for boundary in period_bounds.iter() {
             let line_a_ipos = BoundaryLine::<i64> {
                 value: (boundary.a.value as f64 / settings.cell_width()).round() as i64,
@@ -415,30 +417,30 @@ mod tests {
             Direction::Y,
         )];
 
-        let a = vector![0, 45];
+        let a = vector![0., 45.];
         let res_a = calc_cell_index_for_poiseuille(&settings, &period_bounds, &None, a);
-        assert_eq!(a, vector![0, 45]);
+        assert_eq!(a, vector![0., 45.]);
         assert_eq!(res_a, 45 * 101);
 
-        let b = vector![0, 46];
+        let b = vector![0., 46.];
         assert_eq!(
             calc_cell_index_for_poiseuille(&settings, &period_bounds, &None, b),
-            b.x + b.y * 101
+            (b.x + b.y * 101.) as usize
         );
 
-        let b = vector![0, 55];
+        let b = vector![0., 55.];
         assert_eq!(
             calc_cell_index_for_poiseuille(&settings, &period_bounds, &None, b),
-            b.x + 45 * 101
+            (b.x + 45. * 101.) as usize
         );
 
-        let b = vector![0, 56];
+        let b = vector![0., 56.];
         assert_eq!(
             calc_cell_index_for_poiseuille(&settings, &period_bounds, &None, b),
-            b.x + 46 * 101
+            (b.x + 46. * 101.) as usize
         );
 
-        let b = vector![0, 56];
+        let b = vector![0., 56.];
         assert_eq!(
             calc_cell_index_for_poiseuille(
                 &settings,
@@ -446,10 +448,10 @@ mod tests {
                 &Some(PeriodicBoundaryRect::new(0., 10., 0., 10.)),
                 b
             ),
-            b.x + b.y * 101
+            (b.x + b.y * 101.) as usize
         );
 
-        let b = vector![10, 30];
+        let b = vector![10., 30.];
         assert_eq!(
             calc_cell_index_for_poiseuille(
                 &settings,
@@ -457,10 +459,10 @@ mod tests {
                 &Some(PeriodicBoundaryRect::new(3., 7., 3., 7.)),
                 b
             ),
-            50 + b.y * 101
+            (50. + b.y * 101.) as usize
         );
 
-        let b = vector![10, 29];
+        let b = vector![10., 2.];
         assert_eq!(
             calc_cell_index_for_poiseuille(
                 &settings,
@@ -468,7 +470,7 @@ mod tests {
                 &Some(PeriodicBoundaryRect::new(3., 7., 3., 7.)),
                 b
             ),
-            50 + 69 * 101
+            (50. + 69. * 101.) as usize
         );
     }
 

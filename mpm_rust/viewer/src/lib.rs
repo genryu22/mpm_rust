@@ -163,6 +163,26 @@ pub fn run_dambreak_window_bevy() {
     run_window_bevy(settings.space_width, settings, space);
 }
 
+pub fn run_taylorgreen_window_bevy() {
+    let settings = Settings {
+        dt: 4e-4,
+        gravity: 0.,
+        dynamic_viscosity: 1e-3,
+        alpha: 0.,
+        affine: true,
+        space_width: 10.,
+        grid_width: 200,
+        rho_0: 1.,
+        c: 1e1,
+        eos_power: 4.,
+        boundary_mirror: false,
+        vx_zero: false,
+    };
+
+    let space = Space::new_for_taylor_green(&settings);
+    run_window_bevy(settings.space_width, settings, space);
+}
+
 pub fn run_window(space_size: f64, settings: Settings, space: Space) {
     println!("{:?}", settings);
 

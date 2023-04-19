@@ -50,7 +50,7 @@ fn setup(
             near: 0.1,
             far: 100.,
             scale: 1.0,
-            scaling_mode: ScalingMode::WindowSize(100.),
+            scaling_mode: ScalingMode::WindowSize(150.),
             ..Default::default()
         }
         .into(),
@@ -149,7 +149,7 @@ fn update(world: &mut World) {
     }));
 
     fn convert_particle_to_scaler(particle: &mlsmpm::Particle) -> f64 {
-        particle.pressure()
+        particle.v_norm()
     }
 
     let (scaler_min, scaler_max) = {
