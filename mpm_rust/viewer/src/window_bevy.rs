@@ -50,7 +50,7 @@ fn setup(
             near: 0.1,
             far: 100.,
             scale: 1.0,
-            scaling_mode: ScalingMode::WindowSize(150.),
+            scaling_mode: ScalingMode::WindowSize(120.),
             ..Default::default()
         }
         .into(),
