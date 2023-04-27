@@ -140,7 +140,7 @@ pub fn run_window_bevy(space_size: f64, settings: Settings, space: Space) {
         executor.start(step_executor);
     });
 
-    window_bevy::run(data_receiver);
+    window_bevy::run(data_receiver, |snapshot| write_to_files(snapshot).unwrap());
 }
 
 pub fn run_dambreak_window_bevy() {
@@ -181,6 +181,61 @@ pub fn run_taylorgreen_window_bevy() {
 
     let space = Space::new_for_taylor_green(&settings);
     run_window_bevy(settings.space_width, settings, space);
+}
+
+pub fn run_taylorgreen_window_bevy_experiment() {
+    let (data_sender, data_receiver) = mpsc::channel();
+    let target_grid_width = [100, 200, 400, 500];
+
+    for grid_width in target_grid_width {
+        let settings = Settings {
+            dt: 4e-4,
+            gravity: 0.,
+            dynamic_viscosity: 1e-3,
+            alpha: 0.,
+            affine: true,
+            space_width: 10.,
+            grid_width,
+            rho_0: 1.,
+            c: 1e1,
+            eos_power: 4.,
+            boundary_mirror: false,
+            vx_zero: false,
+        };
+
+        let space = Space::new_for_taylor_green(&settings);
+
+        println!("{:?}", settings);
+
+        let (step_sender, step_receiver) = mpsc::channel();
+
+        step_sender.send(100).unwrap();
+
+        let data_sender = data_sender.clone();
+        thread::spawn(move || {
+            let calc = Calculator::new(&settings, space);
+            data_sender
+                .send(Snapshot::new(
+                    calc.get_particles().to_vec(),
+                    calc.get_grid().to_vec(),
+                    0,
+                ))
+                .unwrap();
+            let step_executor = MLSMPMExecutor::new(calc);
+            let mut executor = Executor::new(data_sender, step_receiver);
+            executor.start(step_executor);
+        });
+    }
+
+    window_bevy::run(data_receiver, |snapshot| {
+        if snapshot.steps == 100 {
+            file::write_to_files_with_name(
+                snapshot,
+                &(((snapshot.grid.len() as f64).sqrt() - 1.) as usize).to_string(),
+            )
+            .unwrap()
+        }
+    });
 }
 
 pub fn run_window(space_size: f64, settings: Settings, space: Space) {

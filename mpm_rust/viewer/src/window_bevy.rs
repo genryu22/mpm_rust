@@ -18,7 +18,7 @@ struct Spiral;
 #[derive(Component)]
 struct Count(usize);
 
-pub fn run(snapshot_receiver: mpsc::Receiver<Snapshot>) {
+pub fn run(snapshot_receiver: mpsc::Receiver<Snapshot>, store_data: fn(&Snapshot)) {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -30,8 +30,8 @@ pub fn run(snapshot_receiver: mpsc::Receiver<Snapshot>) {
         .add_plugin(PointsPlugin)
         .insert_resource(ClearColor(Color::rgb(0.01, 0.02, 0.08)))
         .insert_non_send_resource(snapshot_receiver)
+        .insert_non_send_resource(store_data)
         .add_startup_system(setup)
-        //.add_system(test_animate)
         .add_system(update)
         .run();
 }
@@ -106,7 +106,7 @@ fn update(world: &mut World) {
             return;
         }
 
-        if false {
+        if true {
             receiver.unwrap().try_recv()
         } else {
             receiver
@@ -121,6 +121,11 @@ fn update(world: &mut World) {
         return;
     }
     let snapshot = snapshot.unwrap();
+
+    let store_data = world.get_non_send_resource::<fn(&Snapshot)>();
+    if let Some(store_data) = store_data {
+        store_data(&snapshot);
+    }
 
     let mesh_handle = world
         .query_filtered::<&Handle<Mesh>, With<Spiral>>()
