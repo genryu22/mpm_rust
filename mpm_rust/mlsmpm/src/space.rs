@@ -1,3 +1,5 @@
+use core::num;
+
 use crate::*;
 
 #[derive(Debug)]
@@ -148,29 +150,30 @@ impl Space {
 
     pub fn new_for_taylor_green(settings: &Settings) -> Space {
         let grid_width = settings.grid_width;
-        let cell_size = settings.cell_width();
 
-        let p_dist = cell_size / 2.;
-
-        let half_domain_size = std::f64::consts::PI;
+        let PI = std::f64::consts::PI;
+        let half_domain_size = 1.;
 
         let pos_x_min = 5. - half_domain_size;
         let pos_x_max = 5. + half_domain_size;
-        let num_x = ((pos_x_max - pos_x_min) / p_dist + 0.5) as usize;
+        let num_x = grid_width * 2;
+        let p_dist = half_domain_size * 2. / (num_x as f64);
 
         let mut particles = Vec::<Particle>::with_capacity(num_x * num_x);
 
         for i_y in 0..num_x {
             for i_x in 0..num_x {
                 let mut p = Particle::new(Vector2::new(
-                    (pos_x_max - pos_x_min) * (i_x as f64 + 0.5) / num_x as f64 + pos_x_min,
-                    (pos_x_max - pos_x_min) * (i_y as f64 + 0.5) / num_x as f64 + pos_x_min,
+                    p_dist * (i_x as f64 + 0.5) as f64 + pos_x_min,
+                    p_dist * (i_y as f64 + 0.5) as f64 + pos_x_min,
                 ));
-                p.mass = (settings.rho_0 * (pos_x_max - pos_x_min) * (pos_x_max - pos_x_min))
+                p.mass = (settings.rho_0 * (half_domain_size * 2.) * (half_domain_size * 2.))
                     / (num_x * num_x) as f64;
                 p.v = vector![
-                    f64::sin(p.x.x - 5.) * f64::cos(p.x.y - 5.),
-                    -f64::cos(p.x.x - 5.) * f64::sin(p.x.y - 5.)
+                    f64::sin(PI * (p.x.x - 5.) / half_domain_size)
+                        * f64::cos(PI * (p.x.y - 5.) / half_domain_size),
+                    -f64::cos(PI * (p.x.x - 5.) / half_domain_size)
+                        * f64::sin(PI * (p.x.y - 5.) / half_domain_size)
                 ];
                 particles.push(p);
             }

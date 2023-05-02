@@ -50,7 +50,7 @@ fn setup(
             near: 0.1,
             far: 100.,
             scale: 1.0,
-            scaling_mode: ScalingMode::WindowSize(120.),
+            scaling_mode: ScalingMode::WindowSize(500.),
             ..Default::default()
         }
         .into(),
@@ -144,8 +144,6 @@ fn update(world: &mut World) {
         return;
     }
     let mesh = meshes.get_mut(&mesh_handle).unwrap();
-
-    println!("{}", snapshot.steps);
 
     let mut points_mesh = PointsMesh::from_iter(snapshot.particles.iter().map(|p| Vec3 {
         x: p.x().x as f32 - 5.,

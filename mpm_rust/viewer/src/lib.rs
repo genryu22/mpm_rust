@@ -171,7 +171,7 @@ pub fn run_taylorgreen_window_bevy() {
         alpha: 0.,
         affine: true,
         space_width: 10.,
-        grid_width: 200,
+        grid_width: 130,
         rho_0: 1.,
         c: 1e1,
         eos_power: 4.,
@@ -191,7 +191,7 @@ pub fn run_taylorgreen_window_bevy_experiment() {
         let settings = Settings {
             dt: 4e-4,
             gravity: 0.,
-            dynamic_viscosity: 1e-3,
+            dynamic_viscosity: 1e-2,
             alpha: 0.,
             affine: true,
             space_width: 10.,
@@ -209,7 +209,7 @@ pub fn run_taylorgreen_window_bevy_experiment() {
 
         let (step_sender, step_receiver) = mpsc::channel();
 
-        step_sender.send(100).unwrap();
+        step_sender.send(250).unwrap();
 
         let data_sender = data_sender.clone();
         thread::spawn(move || {
@@ -228,7 +228,7 @@ pub fn run_taylorgreen_window_bevy_experiment() {
     }
 
     window_bevy::run(data_receiver, |snapshot| {
-        if snapshot.steps == 100 {
+        if snapshot.steps == 250 {
             file::write_to_files_with_name(
                 snapshot,
                 &(((snapshot.grid.len() as f64).sqrt() - 1.) as usize).to_string(),
