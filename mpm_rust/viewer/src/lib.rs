@@ -124,7 +124,7 @@ pub fn run_window_bevy(space_size: f64, settings: Settings, space: Space) {
     let (step_sender, step_receiver) = mpsc::channel();
     let (data_sender, data_receiver) = mpsc::channel();
 
-    step_sender.send(0).unwrap();
+    step_sender.send(1).unwrap();
 
     thread::spawn(move || {
         let calc = Calculator::new(&settings, space);
@@ -140,7 +140,11 @@ pub fn run_window_bevy(space_size: f64, settings: Settings, space: Space) {
         executor.start(step_executor);
     });
 
-    window_bevy::run(data_receiver, |snapshot| write_to_files(snapshot).unwrap());
+    window_bevy::run(data_receiver, |snapshot| {
+        if false {
+            write_to_files(snapshot).unwrap()
+        }
+    });
 }
 
 pub fn run_dambreak_window_bevy() {
@@ -165,13 +169,13 @@ pub fn run_dambreak_window_bevy() {
 
 pub fn run_taylorgreen_window_bevy() {
     let settings = Settings {
-        dt: 4e-4,
+        dt: 1e-4,
         gravity: 0.,
-        dynamic_viscosity: 1e-3,
+        dynamic_viscosity: 1e-2,
         alpha: 0.,
         affine: true,
         space_width: 10.,
-        grid_width: 130,
+        grid_width: 500,
         rho_0: 1.,
         c: 1e1,
         eos_power: 4.,
@@ -185,11 +189,11 @@ pub fn run_taylorgreen_window_bevy() {
 
 pub fn run_taylorgreen_window_bevy_experiment() {
     let (data_sender, data_receiver) = mpsc::channel();
-    let target_grid_width = [100, 200, 400, 500];
+    let target_grid_width = [25, 50, 100, 150, 200, 250, 400, 500, 800, 1000, 2000, 4000];
 
     for grid_width in target_grid_width {
         let settings = Settings {
-            dt: 4e-4,
+            dt: 1e-4,
             gravity: 0.,
             dynamic_viscosity: 1e-2,
             alpha: 0.,
@@ -209,7 +213,7 @@ pub fn run_taylorgreen_window_bevy_experiment() {
 
         let (step_sender, step_receiver) = mpsc::channel();
 
-        step_sender.send(250).unwrap();
+        step_sender.send(1).unwrap();
 
         let data_sender = data_sender.clone();
         thread::spawn(move || {
@@ -228,7 +232,7 @@ pub fn run_taylorgreen_window_bevy_experiment() {
     }
 
     window_bevy::run(data_receiver, |snapshot| {
-        if snapshot.steps == 250 {
+        if snapshot.steps == 1 {
             file::write_to_files_with_name(
                 snapshot,
                 &(((snapshot.grid.len() as f64).sqrt() - 1.) as usize).to_string(),

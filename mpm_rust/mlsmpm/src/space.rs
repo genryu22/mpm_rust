@@ -156,7 +156,7 @@ impl Space {
 
         let pos_x_min = 5. - half_domain_size;
         let pos_x_max = 5. + half_domain_size;
-        let num_x = grid_width * 2;
+        let num_x = (half_domain_size * 2. / (settings.cell_width() / 2.)) as usize;
         let p_dist = half_domain_size * 2. / (num_x as f64);
 
         let mut particles = Vec::<Particle>::with_capacity(num_x * num_x);
