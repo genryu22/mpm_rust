@@ -124,7 +124,7 @@ pub fn run_window_bevy(space_size: f64, settings: Settings, space: Space) {
     let (step_sender, step_receiver) = mpsc::channel();
     let (data_sender, data_receiver) = mpsc::channel();
 
-    step_sender.send(1).unwrap();
+    step_sender.send(0).unwrap();
 
     thread::spawn(move || {
         let calc = Calculator::new(&settings, space);
@@ -175,7 +175,7 @@ pub fn run_taylorgreen_window_bevy() {
         alpha: 0.,
         affine: true,
         space_width: 10.,
-        grid_width: 500,
+        grid_width: 100,
         rho_0: 1.,
         c: 1e1,
         eos_power: 4.,
@@ -213,7 +213,7 @@ pub fn run_taylorgreen_window_bevy_experiment() {
 
         let (step_sender, step_receiver) = mpsc::channel();
 
-        step_sender.send(1).unwrap();
+        step_sender.send(1000).unwrap();
 
         let data_sender = data_sender.clone();
         thread::spawn(move || {

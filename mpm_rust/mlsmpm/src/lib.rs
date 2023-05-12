@@ -50,6 +50,8 @@ impl<'a> Calculator<'a> {
         self.space.p2g(self.settings);
         self.space.update_grid(self.settings);
         self.space.g2p(self.settings);
+
+        self.space.steps += 1;
     }
 
     pub fn get_particles(&self) -> &Vec<Particle> {

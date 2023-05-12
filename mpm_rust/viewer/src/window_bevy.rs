@@ -152,7 +152,7 @@ fn update(world: &mut World) {
     }));
 
     fn convert_particle_to_scaler(particle: &mlsmpm::Particle) -> f64 {
-        particle.v_norm()
+        particle.pressure()
     }
 
     let (scaler_min, scaler_max) = {

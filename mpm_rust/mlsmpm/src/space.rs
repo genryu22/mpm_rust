@@ -10,6 +10,8 @@ pub struct Space {
     pub(super) slip_bounds: Vec<SlipBoundary>,
     pub(super) period_bounds: Vec<PeriodicBoundary>,
     pub(super) period_bound_rect: Option<PeriodicBoundaryRect>,
+
+    pub(super) steps: usize,
 }
 
 impl Space {
@@ -55,6 +57,7 @@ impl Space {
                 Direction::Y,
             )],
             period_bound_rect: None,
+            steps: 0,
         }
     }
 
@@ -98,6 +101,7 @@ impl Space {
             ],
             period_bounds: vec![],
             period_bound_rect: None,
+            steps: 0,
         }
     }
 
@@ -145,6 +149,7 @@ impl Space {
             ],
             period_bounds: vec![],
             period_bound_rect: None,
+            steps: 0,
         }
     }
 
@@ -192,6 +197,7 @@ impl Space {
             period_bound_rect: Some(PeriodicBoundaryRect::new(
                 pos_x_min, pos_x_max, pos_x_min, pos_x_max,
             )),
+            steps: 0,
         }
     }
 
@@ -232,13 +238,28 @@ impl Space {
             );
 
             let mut pressure = 0.;
-            if settings.c != 0. && settings.eos_power != 0. {
-                pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
-                    * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
-                if pressure < 0. {
-                    pressure = 0.;
-                }
-            }
+            // if settings.c != 0. && settings.eos_power != 0. {
+            //     pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
+            //         * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
+            //     if pressure < 0. {
+            //         pressure = 0.;
+            //     }
+            // }
+
+            pressure = {
+                let PI = std::f64::consts::PI;
+                let L = 1.;
+                let rho = 1.;
+                let U = 1.;
+                let nu = 1e-2;
+
+                let (x, y) = (p.x.x - 5., p.x.y - 5.);
+
+                rho * U * U / 4.
+                    * f64::exp(-4. * PI * PI * (self.steps as f64) * settings.dt * nu / (L * L))
+                    * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+            };
+
             p.pressure = pressure;
             let pressure = pressure;
 
