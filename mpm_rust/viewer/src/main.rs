@@ -1,5 +1,5 @@
 use viewer::*;
 
 fn main() {
-    run_taylorgreen_window_bevy_experiment();
+    run_dambreak_window_bevy();
 }
