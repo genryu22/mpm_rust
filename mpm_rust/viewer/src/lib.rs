@@ -89,7 +89,7 @@ pub fn run_window_wgpu(space_size: f64, settings: Settings, space: Space) {
             ))
             .unwrap();
         let step_executor = MLSMPMExecutor::new(calc);
-        let mut executor = Executor::new(data_sender, step_receiver);
+        let mut executor = Executor::new(data_sender, step_receiver, None);
         executor.start(step_executor);
     });
 
@@ -136,7 +136,7 @@ pub fn run_window_bevy(space_size: f64, settings: Settings, space: Space) {
             ))
             .unwrap();
         let step_executor = MLSMPMExecutor::new(calc);
-        let mut executor = Executor::new(data_sender, step_receiver);
+        let mut executor = Executor::new(data_sender, step_receiver, None);
         executor.start(step_executor);
     });
 
@@ -189,7 +189,7 @@ pub fn run_taylorgreen_window_bevy() {
 
 pub fn run_taylorgreen_window_bevy_experiment() {
     let (data_sender, data_receiver) = mpsc::channel();
-    let target_grid_width = [25, 50, 100, 150, 200, 250, 400, 500, 800, 1000, 2000, 4000];
+    let target_grid_width = [1, 1000];
 
     for grid_width in target_grid_width {
         let settings = Settings {
@@ -226,19 +226,70 @@ pub fn run_taylorgreen_window_bevy_experiment() {
                 ))
                 .unwrap();
             let step_executor = MLSMPMExecutor::new(calc);
-            let mut executor = Executor::new(data_sender, step_receiver);
+            let mut executor = Executor::new(data_sender, step_receiver, None);
             executor.start(step_executor);
         });
     }
 
     window_bevy::run(data_receiver, |snapshot| {
-        if snapshot.steps == 1 {
+        if snapshot.steps == 1000 {
             file::write_to_files_with_name(
                 snapshot,
                 &(((snapshot.grid.len() as f64).sqrt() - 1.) as usize).to_string(),
             )
             .unwrap()
         }
+    });
+}
+
+pub fn run_taylorgreen_window_bevy_time_experiment() {
+    let (data_sender, data_receiver) = mpsc::channel();
+    let target_dt = [1e-2, 5e-3, 1e-3, 5e-4, 1e-4, 5e-5, 1e-5];
+
+    for dt in target_dt {
+        let settings = Settings {
+            dt,
+            gravity: 0.,
+            dynamic_viscosity: 1e-2,
+            alpha: 0.,
+            affine: true,
+            space_width: 10.,
+            grid_width: 500,
+            rho_0: 1.,
+            c: 1e1,
+            eos_power: 4.,
+            boundary_mirror: false,
+            vx_zero: false,
+        };
+
+        let space = Space::new_for_taylor_green(&settings);
+
+        println!("{:?}", settings);
+
+        let (step_sender, step_receiver) = mpsc::channel();
+
+        let target_step = (1e-1 / dt) as usize;
+        println!("{}", target_step);
+        step_sender.send(target_step).unwrap();
+
+        let data_sender = data_sender.clone();
+        thread::spawn(move || {
+            let calc = Calculator::new(&settings, space);
+            data_sender
+                .send(Snapshot::new(
+                    calc.get_particles().to_vec(),
+                    calc.get_grid().to_vec(),
+                    0,
+                ))
+                .unwrap();
+            let step_executor = MLSMPMExecutor::new(calc);
+            let mut executor = Executor::new(data_sender, step_receiver, Some(target_step));
+            executor.start(step_executor);
+        });
+    }
+
+    window_bevy::run(data_receiver, |snapshot| {
+        file::write_to_files_with_name(snapshot, "500").unwrap()
     });
 }
 
@@ -258,7 +309,7 @@ pub fn run_window(space_size: f64, settings: Settings, space: Space) {
             ))
             .unwrap();
         let step_executor = MLSMPMExecutor::new(calc);
-        let mut executor = Executor::new(data_sender, step_receiver);
+        let mut executor = Executor::new(data_sender, step_receiver, None);
         executor.start(step_executor);
     });
 

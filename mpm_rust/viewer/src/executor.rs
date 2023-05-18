@@ -8,14 +8,20 @@ pub struct Executor {
     is_step_execution: bool,
     data_sender: Sender<Snapshot>,
     step_receiver: Receiver<usize>,
+    target_step: Option<usize>,
 }
 
 impl Executor {
-    pub fn new(data_sender: Sender<Snapshot>, step_receiver: Receiver<usize>) -> Self {
+    pub fn new(
+        data_sender: Sender<Snapshot>,
+        step_receiver: Receiver<usize>,
+        target_step: Option<usize>,
+    ) -> Self {
         Self {
             is_step_execution: true,
             data_sender,
             step_receiver,
+            target_step,
         }
     }
 
@@ -25,8 +31,14 @@ impl Executor {
     {
         let mut step = || {
             let data = step_executor.step();
-            self.data_sender.send(data).unwrap();
+            data
         };
+
+        if let Some(target_step) = self.target_step {
+            if target_step == 0 {
+                return;
+            }
+        }
 
         loop {
             if self.is_step_execution {
@@ -38,7 +50,15 @@ impl Executor {
 
                     if self.is_step_execution {
                         for _i in 0..steps {
-                            step();
+                            let data = step();
+
+                            if self.target_step.is_some() && data.steps >= self.target_step.unwrap()
+                            {
+                                self.data_sender.send(data).unwrap();
+                                return;
+                            } else if self.target_step.is_none() {
+                                self.data_sender.send(data).unwrap();
+                            }
                         }
                     }
                 }
@@ -47,7 +67,13 @@ impl Executor {
                     self.is_step_execution = true;
                     continue;
                 }
-                step();
+                let data = step();
+                if self.target_step.is_some() && data.steps >= self.target_step.unwrap() {
+                    self.data_sender.send(data).unwrap();
+                    return;
+                } else if self.target_step.is_none() {
+                    self.data_sender.send(data).unwrap();
+                }
             }
         }
     }
