@@ -189,7 +189,7 @@ pub fn run_taylorgreen_window_bevy() {
 
 pub fn run_taylorgreen_window_bevy_experiment() {
     let (data_sender, data_receiver) = mpsc::channel();
-    let target_grid_width = [1, 1000];
+    let target_grid_width = [25, 50, 100, 150, 200, 250, 400, 500, 1000, 2000, 2500];
 
     for grid_width in target_grid_width {
         let settings = Settings {
@@ -213,7 +213,7 @@ pub fn run_taylorgreen_window_bevy_experiment() {
 
         let (step_sender, step_receiver) = mpsc::channel();
 
-        step_sender.send(1000).unwrap();
+        step_sender.send(1).unwrap();
 
         let data_sender = data_sender.clone();
         thread::spawn(move || {
@@ -232,7 +232,7 @@ pub fn run_taylorgreen_window_bevy_experiment() {
     }
 
     window_bevy::run(data_receiver, |snapshot| {
-        if snapshot.steps == 1000 {
+        if snapshot.steps == 1 {
             file::write_to_files_with_name(
                 snapshot,
                 &(((snapshot.grid.len() as f64).sqrt() - 1.) as usize).to_string(),
