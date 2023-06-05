@@ -4,5 +4,6 @@ members = [
     "mlsmpm",
     "examples",
     "viewer",
+    "mlsmpm_3d",
 ]
 default-members = ["viewer"]
