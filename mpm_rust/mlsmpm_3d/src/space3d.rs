@@ -4,7 +4,7 @@ use crate::*;
 
 #[derive(Debug)]
 pub struct Space {
-    pub(super) grid: Vec<Node>,
+    pub(super) grid: Grid,
     pub(super) particles: Vec<Particle>,
 
     pub(super) steps: usize,
@@ -14,21 +14,25 @@ pub struct Space {
 
 impl Space {
     pub fn clear_grid(&mut self) {
-        for n in self.grid.iter_mut() {
-            n.reset();
+        for node in self.grid.all_nodes_iter() {
+            node.reset();
         }
     }
 
     pub fn distribute_mass(&mut self, settings: &Settings) {
         for p in self.particles.iter() {
-            for node in NodeMutIterator::new(settings, &mut self.grid, p) {
+            for info in NodeIterator::new(settings, p) {
                 let q = match settings.affine {
-                    true => p.c * node.dist,
+                    true => p.c * info.dist,
                     false => Vector3f::zeros(),
                 };
-                let mass_contrib = node.weight * p.mass;
-                node.node.mass += mass_contrib;
-                node.node.v += mass_contrib * (p.v + q);
+                let mass_contrib = info.weight * p.mass;
+
+                let node = self.grid.get_node_mut(info.index);
+                if let Some(node) = node {
+                    node.mass += mass_contrib;
+                    node.v += mass_contrib * (p.v + q);
+                }
             }
         }
     }
@@ -61,14 +65,17 @@ impl Space {
             let eq_16_term_0 =
                 -volume * 4. / (settings.cell_width() * settings.cell_width()) * stress;
 
-            for n in NodeMutIterator::new(settings, &mut self.grid, p) {
-                n.node.force += eq_16_term_0 * n.weight * n.dist;
+            for n in NodeIterator::new(settings, p) {
+                let node = self.grid.get_node_mut(n.index);
+                if let Some(node) = node {
+                    node.force += eq_16_term_0 * n.weight * n.dist;
+                }
             }
         }
     }
 
     pub fn update_grid(&mut self, settings: &Settings) {
-        for (i, n) in self.grid.iter_mut().enumerate() {
+        for n in self.grid.all_nodes_iter() {
             if n.mass <= 0. {
                 continue;
             }
@@ -84,12 +91,15 @@ impl Space {
             p.v = Vector3f::zeros();
             p.c = Matrix3f::zeros();
 
-            for n in NodeIterator::new(settings, &self.grid, p) {
-                p.v += (n.node.v_star - settings.alpha * n.node.v) * n.weight;
-                p.x += n.node.v_star * n.weight * settings.dt;
+            for n in NodeIterator::new(settings, p) {
+                let node = self.grid.get_node(n.index);
+                if let Some(node) = node {
+                    p.v += (node.v_star - settings.alpha * node.v) * n.weight;
+                    p.x += node.v_star * n.weight * settings.dt;
 
-                let weighted_velocity = n.node.v_star * n.weight;
-                p.c += weighted_velocity * n.dist.transpose();
+                    let weighted_velocity = node.v_star * n.weight;
+                    p.c += weighted_velocity * n.dist.transpose();
+                }
             }
 
             // flip

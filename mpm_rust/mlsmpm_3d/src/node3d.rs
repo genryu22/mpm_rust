@@ -2,7 +2,7 @@ use nalgebra::vector;
 
 use crate::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Node {
     pub(super) v: Vector3f,
     pub(super) v_star: Vector3f,

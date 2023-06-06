@@ -1,140 +1,55 @@
+use std::vec::IntoIter;
+
 use nalgebra::vector;
 
 use crate::*;
 
-pub struct NeightborNodeMut<'a> {
-    pub node: &'a mut Node,
+pub struct NeightborNodeInfo {
+    pub index: Vector3i,
     pub weight: f64,
     pub dist: Vector3f,
 }
 
-pub struct NodeMutIterator<'a, 'b> {
-    settings: &'b Settings,
-    grid: &'a mut Vec<Node>,
-    base: Vector3f,
-    fx: Vector3f,
-    weights: [Vector3f; 3],
-    gx: usize,
-    gy: usize,
-    gz: usize,
+pub struct NodeIterator<'a> {
+    settings: &'a Settings,
+    particle_pos: Vector3f,
+    indices_iter: IntoIter<(i64, i64, i64)>,
 }
 
-impl<'a, 'b> Iterator for NodeMutIterator<'a, 'b> {
-    type Item = NeightborNodeMut<'a>;
+impl<'a> Iterator for NodeIterator<'a> {
+    type Item = NeightborNodeInfo;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.gx == 3 {
-            None
-        } else {
-            let (weight, dist, index) = calc_weight_dist_index(
-                self.settings,
-                &self.base,
-                &self.gx,
-                &self.gy,
-                &self.gz,
-                &self.fx,
-                &self.weights,
-            );
-            if let Some(index) = index {
-                unsafe {
-                    let node = self.grid.as_mut_ptr().add(index).as_mut().unwrap();
-                    self.gy += 1;
-                    if self.gy == 3 {
-                        self.gy = 0;
-                        self.gx += 1;
-                    }
-                    return Some(NeightborNodeMut { node, weight, dist });
-                }
+        loop {
+            let next_index = self.indices_iter.next();
+            if next_index.is_none() {
+                return None;
             }
-            None
+            let (gx, gy, gz) = next_index.unwrap();
+            let target_node_index =
+                self.particle_pos.map(|x| x.floor() as i64) + vector![gx, gy, gz]; //
+            let node_pos = target_node_index.map(|x| x as f64) * self.settings.cell_width();
+            return Some(NeightborNodeInfo {
+                index: target_node_index,
+                weight: calc_node_weight(&self.particle_pos, self.settings, &node_pos),
+                dist: node_pos - self.particle_pos,
+            });
         }
     }
 }
 
-impl<'a, 'b, 'c, 'd> NodeMutIterator<'a, 'b> {
-    pub fn new(
-        settings: &'b Settings,
-        grid: &'a mut Vec<Node>,
-        particle: &'c Particle,
-    ) -> NodeMutIterator<'a, 'b> {
-        let (base, fx, weights) = calc_base_fx_weights(particle, settings);
-
-        NodeMutIterator {
-            settings,
-            grid,
-            base,
-            fx,
-            weights,
-            gx: 0,
-            gy: 0,
-            gz: 0,
-        }
-    }
-}
-pub struct NeightborNode<'a> {
-    pub node: &'a Node,
-    pub weight: f64,
-    pub dist: Vector3f,
-}
-
-pub struct NodeIterator<'a, 'b> {
-    settings: &'b Settings,
-    grid: &'a Vec<Node>,
-    base: Vector3f,
-    fx: Vector3f,
-    weights: [Vector3f; 3],
-    gx: usize,
-    gy: usize,
-    gz: usize,
-}
-
-impl<'a, 'b> Iterator for NodeIterator<'a, 'b> {
-    type Item = NeightborNode<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.gx == 3 {
-            None
-        } else {
-            let (weight, dist, index) = calc_weight_dist_index(
-                self.settings,
-                &self.base,
-                &self.gx,
-                &self.gy,
-                &self.gz,
-                &self.fx,
-                &self.weights,
-            );
-            if let Some(index) = index {
-                let node = self.grid.get(index).unwrap();
-                self.gy += 1;
-                if self.gy == 3 {
-                    self.gy = 0;
-                    self.gx += 1;
-                }
-                return Some(NeightborNode { node, weight, dist });
-            }
-            None
-        }
-    }
-}
-
-impl<'a, 'b, 'c, 'd> NodeIterator<'a, 'b> {
-    pub fn new(
-        settings: &'b Settings,
-        grid: &'a Vec<Node>,
-        particle: &'c Particle,
-    ) -> NodeIterator<'a, 'b> {
-        let (base, fx, weights) = calc_base_fx_weights(particle, settings);
+impl<'a, 'b> NodeIterator<'a> {
+    pub fn new(settings: &'a Settings, particle: &'b Particle) -> NodeIterator<'a> {
+        let indices = (-3..3)
+            .flat_map(|gx| {
+                (-3..3).flat_map(move |gy| (-3..3).map(move |gz| (gx as i64, gy as i64, gz as i64)))
+            })
+            .collect::<Vec<_>>();
 
         NodeIterator {
             settings,
-            grid,
-            base,
-            fx,
-            weights,
-            gx: 0,
-            gy: 0,
-            gz: 0,
+            particle_pos: particle.x,
+            indices_iter: indices.into_iter(),
         }
     }
 }
@@ -147,7 +62,7 @@ pub struct ParticleMut<'a> {
 pub struct ParticleMutIterator<'a, 'b, 'c> {
     settings: &'a Settings,
     particles: &'b mut Vec<Particle>,
-    grid: &'c Vec<Node>,
+    grid: &'c Grid,
     index: usize,
 }
 
@@ -182,7 +97,7 @@ impl<'a, 'b, 'c> ParticleMutIterator<'a, 'b, 'c> {
     pub fn new(
         settings: &'a Settings,
         particles: &'b mut Vec<Particle>,
-        grid: &'c Vec<Node>,
+        grid: &'c Grid,
     ) -> ParticleMutIterator<'a, 'b, 'c> {
         Self {
             settings,
@@ -193,58 +108,33 @@ impl<'a, 'b, 'c> ParticleMutIterator<'a, 'b, 'c> {
     }
 }
 
-fn calc_base_fx_weights(
-    particle: &Particle,
-    settings: &Settings,
-) -> (Vector3f, Vector3f, [Vector3f; 3]) {
-    let base = (particle.x / settings.cell_width() - vector![0.5, 0.5, 0.5]).map(|e| e.floor());
-    let fx = particle.x / settings.cell_width() - base;
-
-    let weights = {
-        let w_0 = pow2(vector![1.5, 1.5, 1.5] - fx).component_mul(&Vector3f::repeat(0.5));
-        let w_1 = Vector3f::repeat(0.75) - pow2(fx - vector![1., 1., 1.]);
-        let w_2 = pow2(fx - vector![0.5, 0.5, 0.5]).component_mul(&Vector3f::repeat(0.5));
-
-        [w_0, w_1, w_2]
-    };
-
-    (base, fx, weights)
-}
-
-fn calc_weight_dist_index(
-    settings: &Settings,
-    base: &Vector3f,
-    gx: &usize,
-    gy: &usize,
-    gz: &usize,
-    fx: &Vector3f,
-    weights: &[Vector3f; 3],
-) -> (f64, Vector3f, Option<usize>) {
-    let node_ipos = base + vector![*gx as f64, *gy as f64, *gz as f64];
-    let cell_index = calc_cell_index_for_poiseuille(settings, node_ipos);
-    let weight = weights[*gx].x * weights[*gy].y;
-    let dist = (vector![*gx as f64, *gy as f64, *gz as f64] - fx) * settings.cell_width();
-    if cell_index <= (settings.grid_width + 1).pow(2) {
-        (weight, dist, Some(cell_index))
+fn quadratic_kernel(x: f64) -> f64 {
+    let x = x.abs();
+    if 0. <= x && x < 0.5 {
+        0.75 - x * x
+    } else if 0.5 <= x && 1.5 <= x {
+        0.5 * (1.5 - x).powi(2)
     } else {
-        (weight, dist, None)
+        0.
     }
 }
 
-fn calc_cell_index_for_poiseuille(settings: &Settings, mut node_ipos: Vector3f) -> U {
-    let node_ipos = node_ipos.map(|p| p.floor() as usize);
-
-    node_ipos.x + node_ipos.y * (settings.grid_width + 1)
+fn calc_node_weight(particle_pos: &Vector3f, settings: &Settings, node_pos: &Vector3f) -> f64 {
+    quadratic_kernel((particle_pos.x - node_pos.x) / settings.cell_width())
+        * quadratic_kernel((particle_pos.y - node_pos.y) / settings.cell_width())
+        * quadratic_kernel((particle_pos.z - node_pos.z) / settings.cell_width())
 }
 
 fn pow2(vec: Vector3f) -> Vector3f {
     vec.component_mul(&vec)
 }
 
-fn calc_density_and_volume(settings: &Settings, p: &Particle, grid: &Vec<Node>) -> (f64, f64) {
+fn calc_density_and_volume(settings: &Settings, p: &Particle, grid: &Grid) -> (f64, f64) {
     let mut density = 0.;
-    for n in NodeIterator::new(settings, grid, p) {
-        density += n.node.mass * n.weight / (settings.cell_width() * settings.cell_width());
+    for n in NodeIterator::new(settings, p) {
+        if let Some(node) = grid.get_node(n.index) {
+            density += node.mass * n.weight / (settings.cell_width() * settings.cell_width());
+        }
     }
     (density, p.mass / density)
 }
