@@ -26,10 +26,11 @@ impl Space {
                     true => p.c * info.dist,
                     false => Vector3f::zeros(),
                 };
-                let mass_contrib = info.weight * p.mass;
 
                 let node = self.grid.get_node_mut(info.index);
                 if let Some(node) = node {
+                    let weight = node.calc_weight(info.dist, settings.cell_width());
+                    let mass_contrib = weight * p.mass;
                     node.mass += mass_contrib;
                     node.v += mass_contrib * (p.v + q);
                 }
@@ -68,7 +69,8 @@ impl Space {
             for n in NodeIterator::new(settings, p) {
                 let node = self.grid.get_node_mut(n.index);
                 if let Some(node) = node {
-                    node.force += eq_16_term_0 * n.weight * n.dist;
+                    let weight = node.calc_weight(n.dist, settings.cell_width());
+                    node.force += eq_16_term_0 * weight * n.dist;
                 }
             }
         }
@@ -94,10 +96,11 @@ impl Space {
             for n in NodeIterator::new(settings, p) {
                 let node = self.grid.get_node(n.index);
                 if let Some(node) = node {
-                    p.v += (node.v_star - settings.alpha * node.v) * n.weight;
-                    p.x += node.v_star * n.weight * settings.dt;
+                    let weight = node.calc_weight(n.dist, settings.cell_width());
+                    p.v += (node.v_star - settings.alpha * node.v) * weight;
+                    p.x += node.v_star * weight * settings.dt;
 
-                    let weighted_velocity = node.v_star * n.weight;
+                    let weighted_velocity = node.v_star * weight;
                     p.c += weighted_velocity * n.dist.transpose();
                 }
             }

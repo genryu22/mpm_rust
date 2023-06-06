@@ -6,7 +6,6 @@ use crate::*;
 
 pub struct NeightborNodeInfo {
     pub index: Vector3i,
-    pub weight: f64,
     pub dist: Vector3f,
 }
 
@@ -31,7 +30,6 @@ impl<'a> Iterator for NodeIterator<'a> {
             let node_pos = target_node_index.map(|x| x as f64) * self.settings.cell_width();
             return Some(NeightborNodeInfo {
                 index: target_node_index,
-                weight: calc_node_weight(&self.particle_pos, self.settings, &node_pos),
                 dist: node_pos - self.particle_pos,
             });
         }
@@ -108,32 +106,12 @@ impl<'a, 'b, 'c> ParticleMutIterator<'a, 'b, 'c> {
     }
 }
 
-fn quadratic_kernel(x: f64) -> f64 {
-    let x = x.abs();
-    if 0. <= x && x < 0.5 {
-        0.75 - x * x
-    } else if 0.5 <= x && 1.5 <= x {
-        0.5 * (1.5 - x).powi(2)
-    } else {
-        0.
-    }
-}
-
-fn calc_node_weight(particle_pos: &Vector3f, settings: &Settings, node_pos: &Vector3f) -> f64 {
-    quadratic_kernel((particle_pos.x - node_pos.x) / settings.cell_width())
-        * quadratic_kernel((particle_pos.y - node_pos.y) / settings.cell_width())
-        * quadratic_kernel((particle_pos.z - node_pos.z) / settings.cell_width())
-}
-
-fn pow2(vec: Vector3f) -> Vector3f {
-    vec.component_mul(&vec)
-}
-
 fn calc_density_and_volume(settings: &Settings, p: &Particle, grid: &Grid) -> (f64, f64) {
     let mut density = 0.;
     for n in NodeIterator::new(settings, p) {
         if let Some(node) = grid.get_node(n.index) {
-            density += node.mass * n.weight / (settings.cell_width() * settings.cell_width());
+            let weight = node.calc_weight(n.dist, settings.cell_width());
+            density += node.mass * weight / (settings.cell_width() * settings.cell_width());
         }
     }
     (density, p.mass / density)

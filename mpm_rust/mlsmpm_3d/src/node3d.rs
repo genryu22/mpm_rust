@@ -6,15 +6,33 @@ pub struct Node {
     pub(super) v_star: Vector3f,
     pub(super) force: Vector3f,
     pub(super) mass: f64,
+    pub(super) basis_function: fn(f64) -> f64,
+}
+
+pub enum NodeType {
+    Normal,
+    LeftWall,
+    LeftHalf,
+    RightWall,
+    RightHalf,
 }
 
 impl Node {
-    pub fn new() -> Node {
+    pub fn new(node_type: NodeType) -> Node {
+        let basis = match node_type {
+            NodeType::Normal => quadratic_kernel,
+            NodeType::LeftWall => left_wall_quadratic_kernel,
+            NodeType::LeftHalf => left_half_quadratic_kernel,
+            NodeType::RightWall => right_wall_quadratic_kernel,
+            NodeType::RightHalf => right_half_quadratic_kernel,
+        };
+
         Node {
             v: Vector3::zeros(),
             v_star: Vector3::zeros(),
             force: Vector3::zeros(),
             mass: 0.0,
+            basis_function: basis,
         }
     }
 
@@ -23,6 +41,12 @@ impl Node {
         self.v_star = Vector3::zeros();
         self.force = Vector3::zeros();
         self.mass = 0.0;
+    }
+
+    pub fn calc_weight(&self, x: Vector3f, h: f64) -> f64 {
+        (self.basis_function)(x.x / h)
+            * (self.basis_function)(x.y / h)
+            * (self.basis_function)(x.z / h)
     }
 
     pub fn formatted_list(&self) -> [String; 7] {
@@ -35,5 +59,45 @@ impl Node {
             self.force.y.to_string(),
             self.mass.to_string(),
         ]
+    }
+}
+
+fn quadratic_kernel(x: f64) -> f64 {
+    b_spline_basis(0, 2, &vec![-1.5, -0.5, 0.5, 1.5], x)
+}
+
+fn left_half_quadratic_kernel(x: f64) -> f64 {
+    b_spline_basis(0, 2, &vec![-1., -0.5, 0.5, 1.5], x)
+}
+
+fn right_half_quadratic_kernel(x: f64) -> f64 {
+    b_spline_basis(0, 2, &vec![-1.5, -0.5, 0.5, 1.], x)
+}
+
+fn left_wall_quadratic_kernel(x: f64) -> f64 {
+    b_spline_basis(0, 2, &vec![0., 0., 0.5, 1.5], x)
+        + b_spline_basis(0, 2, &vec![0., 0., 0., 0.5], x)
+}
+
+fn right_wall_quadratic_kernel(x: f64) -> f64 {
+    b_spline_basis(0, 2, &vec![-1.5, -0.5, 0., 0.], x)
+        + b_spline_basis(0, 2, &vec![-0.5, 0., 0., 0.], x)
+}
+
+fn b_spline_basis(j: usize, k: usize, knot: &Vec<f64>, t: f64) -> f64 {
+    if knot.len() as i32 - k as i32 - 2 < 0 || j > knot.len() - 2 {
+        panic!();
+    }
+
+    if k == 0 {
+        if knot[j] <= t && t < knot[j + 1] {
+            1.
+        } else {
+            0.
+        }
+    } else {
+        (t - knot[j]) / (knot[j + k] - knot[j]) * b_spline_basis(j, k - 1, knot, t)
+            + (knot[j + k + 1] - t) / (knot[j + k + 1] - knot[j + 1])
+                * b_spline_basis(j + 1, k - 1, knot, t)
     }
 }
