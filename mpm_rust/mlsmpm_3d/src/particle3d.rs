@@ -2,11 +2,11 @@ use crate::*;
 
 #[derive(Debug, Clone)]
 pub struct Particle {
-    pub(super) x: Vector3f,
-    pub(super) v: Vector3f,
-    pub(super) c: Matrix3f,
-    pub(super) mass: f64,
-    pub(super) pressure: f64,
+    pub x: Vector3f,
+    pub v: Vector3f,
+    pub c: Matrix3f,
+    pub mass: f64,
+    pub pressure: f64,
 }
 
 impl Particle {

@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Settings {
     pub dt: f64,
     pub gravity: f64,

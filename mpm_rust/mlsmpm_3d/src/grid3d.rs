@@ -6,8 +6,6 @@ use crate::*;
 pub struct Grid {
     pub nodes: Vec<Vec<Vec<Node>>>,
     pub slip_walls: Vec<SlipWall>,
-
-    pub size: usize,
 }
 
 impl Grid {
@@ -39,9 +37,17 @@ impl Grid {
             .collect::<Vec<_>>()
     }
 
+    pub fn all_nodes_cloned(&self) -> Vec<Node> {
+        self.all_nodes_indices()
+            .iter()
+            .map(|(x, y, z)| self.nodes[*z][*y][*x].clone())
+            .collect::<Vec<_>>()
+    }
+
     pub fn all_nodes_indices(&self) -> Vec<(usize, usize, usize)> {
-        (0..self.size)
-            .flat_map(|x| (0..self.size).flat_map(move |y| (0..self.size).map(move |z| (x, y, z))))
+        let size = self.nodes.len();
+        (0..size)
+            .flat_map(|x| (0..size).flat_map(move |y| (0..size).map(move |z| (x, y, z))))
             .collect::<Vec<_>>()
     }
 

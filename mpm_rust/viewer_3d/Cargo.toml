@@ -6,3 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bevy = "0.10.1"
+bevy_points = "0.2.1"
+mlsmpm_3d = { path = "../mlsmpm_3d" }
+nalgebra = "0.32.2"

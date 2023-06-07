@@ -4815,6 +4815,12 @@ dependencies = [
 [[package]]
 name = "viewer_3d"
 version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_points",
+ "mlsmpm_3d",
+ "nalgebra 0.32.2",
+]
 
 [[package]]
 name = "waker-fn"

@@ -1,25 +1,29 @@
+use std::vec;
+
 use nalgebra::{clamp, vector};
 
 use crate::*;
 
 #[derive(Debug)]
 pub struct Space {
-    pub(super) grid: Grid,
-    pub(super) particles: Vec<Particle>,
+    pub grid: Grid,
+    pub particles: Vec<Particle>,
 
-    pub(super) steps: usize,
+    pub steps: usize,
 
-    pub(super) settings: Settings,
+    pub settings: Settings,
 }
 
 impl Space {
     pub fn clear_grid(&mut self) {
+        println!("clear_grid");
         for node in self.grid.all_nodes_iter() {
             node.reset();
         }
     }
 
     pub fn distribute_mass(&mut self, settings: &Settings) {
+        println!("distribute_mass");
         for p in self.particles.iter() {
             for info in NodeIterator::new(settings, p) {
                 let q = match settings.affine {
@@ -39,6 +43,7 @@ impl Space {
     }
 
     pub fn p2g(&mut self, settings: &Settings) {
+        println!("p2g");
         for ParticleMut {
             particle: p,
             density,
@@ -77,46 +82,68 @@ impl Space {
     }
 
     pub fn update_grid(&mut self, settings: &Settings) {
+        println!("update_grid");
         for n in self.grid.all_nodes_iter() {
             if n.mass <= 0. {
                 continue;
             }
 
-            n.v /= n.mass;
-            n.v_star = n.v + settings.dt * (vector![0., 0., settings.gravity] + n.force / n.mass);
+            match n.node_type {
+                NodeType::LeftWall | NodeType::RightWall => {
+                    n.v = Vector3f::zeros();
+                    n.v_star = Vector3f::zeros();
+                }
+                _ => {
+                    n.v /= n.mass;
+                    n.v_star =
+                        n.v + settings.dt * (vector![0., settings.gravity, 0.] + n.force / n.mass);
+                }
+            }
         }
     }
 
     pub fn g2p(&mut self, settings: &Settings) {
+        println!("g2p");
         for p in self.particles.iter_mut() {
             let p_v_t = p.v;
             p.v = Vector3f::zeros();
             p.c = Matrix3f::zeros();
+
+            let mut new_x = p.x;
 
             for n in NodeIterator::new(settings, p) {
                 let node = self.grid.get_node(n.index);
                 if let Some(node) = node {
                     let weight = node.calc_weight(n.dist, settings.cell_width());
                     p.v += (node.v_star - settings.alpha * node.v) * weight;
-                    p.x += node.v_star * weight * settings.dt;
+                    new_x += node.v_star * weight * settings.dt;
 
                     let weighted_velocity = node.v_star * weight;
                     p.c += weighted_velocity * n.dist.transpose();
                 }
             }
 
+            p.c = p.c * 4. / (settings.cell_width() * settings.cell_width());
+
             // flip
             p.v += settings.alpha * p_v_t;
 
-            if settings.vx_zero {
-                p.v.x = 0.;
+            for slip_wall in self.grid.slip_walls.iter() {
+                if slip_wall.calc_distance(&new_x) < 0. {
+                    new_x = slip_wall.calc_projection(&new_x);
+                    p.v -= p.v.dot(&slip_wall.n) * p.v;
+                }
             }
 
-            p.c = p.c * 4. / (settings.cell_width() * settings.cell_width());
+            p.x = new_x;
 
-            let dx = settings.cell_width();
-            p.x.x = clamp(p.x.x, 3. * dx, settings.space_width - 3. * dx);
-            p.x.y = clamp(p.x.y, 3. * dx, settings.space_width - 3. * dx);
+            // let dx = settings.cell_width();
+            // p.x.x = clamp(p.x.x, 3. * dx, settings.space_width - 3. * dx);
+            // p.x.y = clamp(p.x.y, 3. * dx, settings.space_width - 3. * dx);
         }
+    }
+
+    pub fn get_particle_count(&self) -> usize {
+        self.particles.len()
     }
 }

@@ -25,8 +25,10 @@ impl<'a> Iterator for NodeIterator<'a> {
                 return None;
             }
             let (gx, gy, gz) = next_index.unwrap();
-            let target_node_index =
-                self.particle_pos.map(|x| x.floor() as i64) + vector![gx, gy, gz]; //
+            let target_node_index = self
+                .particle_pos
+                .map(|x| (x / self.settings.cell_width()).floor() as i64)
+                + vector![gx, gy, gz]; //
             let node_pos = target_node_index.map(|x| x as f64) * self.settings.cell_width();
             return Some(NeightborNodeInfo {
                 index: target_node_index,
@@ -38,9 +40,9 @@ impl<'a> Iterator for NodeIterator<'a> {
 
 impl<'a, 'b> NodeIterator<'a> {
     pub fn new(settings: &'a Settings, particle: &'b Particle) -> NodeIterator<'a> {
-        let indices = (-3..3)
+        let indices = (-2..2)
             .flat_map(|gx| {
-                (-3..3).flat_map(move |gy| (-3..3).map(move |gz| (gx as i64, gy as i64, gz as i64)))
+                (-2..2).flat_map(move |gy| (-2..2).map(move |gz| (gx as i64, gy as i64, gz as i64)))
             })
             .collect::<Vec<_>>();
 
