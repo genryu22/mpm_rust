@@ -16,6 +16,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         eos_power: 4.,
         boundary_mirror: true,
         vx_zero: false,
+        weight_type: WeightType::QuadraticBSpline,
     };
 
     println!("{:?}", settings);

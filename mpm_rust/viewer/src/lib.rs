@@ -110,6 +110,7 @@ pub fn run_dambreak_window_wgpu() {
         eos_power: 4.,
         boundary_mirror: true,
         vx_zero: false,
+        weight_type: WeightType::QuadraticBSpline,
     };
 
     let space = Space::new_for_dambreak(&settings);
@@ -161,6 +162,7 @@ pub fn run_dambreak_window_bevy() {
         eos_power: 4.,
         boundary_mirror: true,
         vx_zero: false,
+        weight_type: WeightType::QuadraticBSpline,
     };
 
     let space = Space::new_for_dambreak(&settings);
@@ -181,6 +183,7 @@ pub fn run_taylorgreen_window_bevy() {
         eos_power: 4.,
         boundary_mirror: false,
         vx_zero: false,
+        weight_type: WeightType::QuadraticBSpline,
     };
 
     let space = Space::new_for_taylor_green(&settings);
@@ -205,6 +208,7 @@ pub fn run_taylorgreen_window_bevy_experiment() {
             eos_power: 4.,
             boundary_mirror: false,
             vx_zero: false,
+            weight_type: WeightType::QuadraticBSpline,
         };
 
         let space = Space::new_for_taylor_green(&settings);
@@ -280,6 +284,7 @@ pub fn run_dambreak_window() {
         eos_power: 4.,
         boundary_mirror: true,
         vx_zero: false,
+        weight_type: WeightType::QuadraticBSpline,
     };
 
     let space = Space::new_for_dambreak(&settings);
@@ -300,6 +305,7 @@ pub fn run_dambreak_experiment_window() {
         eos_power: 4.,
         boundary_mirror: true,
         vx_zero: false,
+        weight_type: WeightType::QuadraticBSpline,
     };
 
     let space = Space::new_for_dambreak_experiment(&settings);
@@ -320,6 +326,7 @@ pub fn run_poiseuille_window() {
         eos_power: 0.,
         boundary_mirror: true,
         vx_zero: true,
+        weight_type: WeightType::QuadraticBSpline,
     };
 
     let v_time_steps = (1. / settings.dynamic_viscosity / settings.dt).ceil() as u32;
@@ -351,6 +358,7 @@ pub fn run_taylorgreen_window() {
         eos_power: 4.,
         boundary_mirror: false,
         vx_zero: false,
+        weight_type: WeightType::QuadraticBSpline,
     };
 
     let space = Space::new_for_taylor_green(&settings);

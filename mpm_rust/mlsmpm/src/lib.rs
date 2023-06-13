@@ -17,7 +17,7 @@ mod settings;
 mod space;
 mod util;
 
-use boundary::*;
+pub use boundary::*;
 pub use node::*;
 pub use particle::*;
 pub use settings::*;

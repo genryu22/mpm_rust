@@ -20,6 +20,26 @@ impl Particle {
         }
     }
 
+    pub fn new_with_mass(pos: Vector2f, mass: f64) -> Particle {
+        Particle {
+            x: pos,
+            v: Vector2::zeros(),
+            c: Matrix2f::zeros(),
+            mass,
+            pressure: 0.,
+        }
+    }
+
+    pub fn new_with_mass_velocity(pos: Vector2f, mass: f64, velocity: Vector2f) -> Particle {
+        Particle {
+            x: pos,
+            v: velocity,
+            c: Matrix2f::zeros(),
+            mass,
+            pressure: 0.,
+        }
+    }
+
     pub fn x(&self) -> &Vector2f {
         &self.x
     }

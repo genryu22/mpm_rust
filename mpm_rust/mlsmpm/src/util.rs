@@ -9,29 +9,25 @@ pub struct NeightborNodeMut<'a> {
 pub struct NodeMutIterator<'a, 'b, 'c> {
     settings: &'b Settings,
     grid: &'a mut Vec<Node>,
-    base: Vector2f,
-    fx: Vector2f,
-    weights: [Vector2f; 3],
+    particle_position: Vector2f,
     period_bounds: &'c Vec<PeriodicBoundary>,
     period_bound_rect: &'c Option<PeriodicBoundaryRect>,
-    gx: usize,
-    gy: usize,
+    gx: i32,
+    gy: i32,
 }
 
 impl<'a, 'b, 'd> Iterator for NodeMutIterator<'a, 'b, 'd> {
     type Item = NeightborNodeMut<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.gx == 3 {
+        if self.gx > 3 {
             None
         } else {
             let (weight, dist, index) = calc_weight_dist_index(
                 self.settings,
-                &self.base,
+                &self.particle_position,
                 &self.gx,
                 &self.gy,
-                &self.fx,
-                &self.weights,
                 self.period_bounds,
                 self.period_bound_rect,
             );
@@ -39,8 +35,8 @@ impl<'a, 'b, 'd> Iterator for NodeMutIterator<'a, 'b, 'd> {
                 unsafe {
                     let node = self.grid.as_mut_ptr().add(index).as_mut().unwrap();
                     self.gy += 1;
-                    if self.gy == 3 {
-                        self.gy = 0;
+                    if self.gy > 3 {
+                        self.gy = -3;
                         self.gx += 1;
                     }
                     return Some(NeightborNodeMut { node, weight, dist });
@@ -59,18 +55,14 @@ impl<'a, 'b, 'c, 'd> NodeMutIterator<'a, 'b, 'd> {
         period_bounds: &'d Vec<PeriodicBoundary>,
         period_bound_rect: &'d Option<PeriodicBoundaryRect>,
     ) -> NodeMutIterator<'a, 'b, 'd> {
-        let (base, fx, weights) = calc_base_fx_weights(particle, settings);
-
         NodeMutIterator {
             settings,
             grid,
-            base,
-            fx,
-            weights,
+            particle_position: particle.x,
             period_bounds,
             period_bound_rect,
-            gx: 0,
-            gy: 0,
+            gx: -3,
+            gy: -3,
         }
     }
 }
@@ -84,36 +76,32 @@ pub struct NeightborNode<'a> {
 pub struct NodeIterator<'a, 'b, 'c> {
     settings: &'b Settings,
     grid: &'a Vec<Node>,
-    base: Vector2f,
-    fx: Vector2f,
-    weights: [Vector2f; 3],
+    particle_position: Vector2f,
     period_bounds: &'c Vec<PeriodicBoundary>,
     period_bound_rect: &'c Option<PeriodicBoundaryRect>,
-    gx: usize,
-    gy: usize,
+    gx: i32,
+    gy: i32,
 }
 
 impl<'a, 'b, 'd> Iterator for NodeIterator<'a, 'b, 'd> {
     type Item = NeightborNode<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.gx == 3 {
+        if self.gx > 3 {
             None
         } else {
             let (weight, dist, index) = calc_weight_dist_index(
                 self.settings,
-                &self.base,
+                &self.particle_position,
                 &self.gx,
                 &self.gy,
-                &self.fx,
-                &self.weights,
                 self.period_bounds,
                 self.period_bound_rect,
             );
             if let Some(index) = index {
                 self.gy += 1;
-                if self.gy == 3 {
-                    self.gy = 0;
+                if self.gy > 3 {
+                    self.gy = -3;
                     self.gx += 1;
                 }
                 Some(NeightborNode {
@@ -136,37 +124,35 @@ impl<'a, 'b, 'c, 'd> NodeIterator<'a, 'b, 'd> {
         period_bounds: &'d Vec<PeriodicBoundary>,
         period_bound_rect: &'d Option<PeriodicBoundaryRect>,
     ) -> NodeIterator<'a, 'b, 'd> {
-        let (base, fx, weights) = calc_base_fx_weights(particle, settings);
-
         NodeIterator {
             settings,
             grid,
-            base,
-            fx,
-            weights,
+            particle_position: particle.x,
             period_bounds,
             period_bound_rect,
-            gx: 0,
-            gy: 0,
+            gx: -3,
+            gy: -3,
         }
     }
 }
 
 fn calc_weight_dist_index(
     settings: &Settings,
-    base: &Vector2f,
-    gx: &usize,
-    gy: &usize,
-    fx: &Vector2f,
-    weights: &[Vector2f; 3],
+    particle_position: &Vector2f,
+    gx: &i32,
+    gy: &i32,
     period_bounds: &Vec<PeriodicBoundary>,
     period_bound_rect: &Option<PeriodicBoundaryRect>,
 ) -> (f64, Vector2f, Option<usize>) {
+    let base = (particle_position / settings.cell_width()).map(|e| e.floor()); // 粒子の左下のインデックス座標
     let node_ipos = base + vector![*gx as f64, *gy as f64];
     let cell_index =
         calc_cell_index_for_poiseuille(settings, period_bounds, period_bound_rect, node_ipos);
-    let weight = weights[*gx].x * weights[*gy].y;
-    let dist = (vector![*gx as f64, *gy as f64] - fx) * settings.cell_width();
+    let dist = node_ipos * settings.cell_width() - particle_position;
+    let weight = weight_function(settings)(
+        dist.x / settings.cell_width(),
+        dist.y / settings.cell_width(),
+    );
     if cell_index <= (settings.grid_width + 1).pow(2) {
         (weight, dist, Some(cell_index))
     } else {
@@ -174,22 +160,59 @@ fn calc_weight_dist_index(
     }
 }
 
-fn calc_base_fx_weights(
-    particle: &Particle,
-    settings: &Settings,
-) -> (Vector2f, Vector2f, [Vector2f; 3]) {
-    let base = (particle.x / settings.cell_width() - vector![0.5, 0.5]).map(|e| e.floor());
-    let fx = particle.x / settings.cell_width() - base;
+fn weight_function(settings: &Settings) -> fn(f64, f64) -> f64 {
+    fn quadratic_b_spline_2d(x: f64, y: f64) -> f64 {
+        quadratic_b_spline(x) * quadratic_b_spline(y)
+    }
 
-    let weights = {
-        let w_0 = pow2(vector![1.5, 1.5] - fx).component_mul(&Vector2f::repeat(0.5));
-        let w_1 = Vector2f::repeat(0.75) - pow2(fx - vector![1., 1.]);
-        let w_2 = pow2(fx - vector![0.5, 0.5]).component_mul(&Vector2f::repeat(0.5));
+    fn qubic_b_spline_2d(x: f64, y: f64) -> f64 {
+        qubic_b_spline(x) * qubic_b_spline(y)
+    }
 
-        [w_0, w_1, w_2]
-    };
+    fn linear_2d(x: f64, y: f64) -> f64 {
+        linear(x) * linear(y)
+    }
 
-    (base, fx, weights)
+    match settings.weight_type {
+        WeightType::QuadraticBSpline => quadratic_b_spline_2d,
+        WeightType::QubicBSpline => qubic_b_spline_2d,
+        WeightType::Linear => linear_2d,
+        _ => quadratic_b_spline_2d,
+    }
+}
+
+fn linear(x: f64) -> f64 {
+    if -1. <= x && x <= 0. {
+        1. + x
+    } else if 0. <= x && x <= 1. {
+        1. - x
+    } else {
+        0.
+    }
+}
+
+fn qubic_b_spline(x: f64) -> f64 {
+    let x = x.abs();
+
+    if 0. <= x && x <= 1. {
+        0.5 * x * x * x - x * x + 2. / 3.
+    } else if 1. <= x && x <= 2. {
+        (2. - x).powi(3) / 6.
+    } else {
+        0.
+    }
+}
+
+fn quadratic_b_spline(x: f64) -> f64 {
+    let x = x.abs();
+
+    if 0. <= x && x <= 0.5 {
+        0.75 - x * x
+    } else if 0.5 <= x && x <= 1.5 {
+        0.5 * (x - 1.5).powi(2)
+    } else {
+        0.
+    }
 }
 
 pub fn calc_density_and_volume(
@@ -336,6 +359,7 @@ mod tests {
             eos_power: 0.,
             boundary_mirror: false,
             vx_zero: false,
+            weight_type: WeightType::QuadraticBSpline,
         };
 
         let bound = SlipBoundary::new(4.5, Direction::X, true, false, false);
@@ -387,6 +411,7 @@ mod tests {
             eos_power: 0.,
             boundary_mirror: false,
             vx_zero: false,
+            weight_type: WeightType::QuadraticBSpline,
         };
 
         assert_eq!(calc_node_pos(&settings, 0), vector![0., 0.]);
@@ -409,6 +434,7 @@ mod tests {
             eos_power: 0.,
             boundary_mirror: false,
             vx_zero: false,
+            weight_type: WeightType::QuadraticBSpline,
         };
 
         let period_bounds = vec![PeriodicBoundary::new(
@@ -489,6 +515,7 @@ mod tests {
             eos_power: 0.,
             boundary_mirror: false,
             vx_zero: false,
+            weight_type: WeightType::QuadraticBSpline,
         };
 
         assert_eq!(
@@ -522,6 +549,7 @@ mod tests {
             eos_power: 0.,
             boundary_mirror: false,
             vx_zero: false,
+            weight_type: WeightType::QuadraticBSpline,
         };
 
         let x = vector![4.6, 5.];

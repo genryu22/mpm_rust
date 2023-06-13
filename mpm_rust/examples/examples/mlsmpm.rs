@@ -14,6 +14,7 @@ fn main() {
         eos_power: 0.,
         boundary_mirror: false,
         vx_zero: false,
+        weight_type: mlsmpm::WeightType::QuadraticBSpline,
     };
 
     println!("{:?}", settings);

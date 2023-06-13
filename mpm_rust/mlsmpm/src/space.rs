@@ -15,6 +15,24 @@ pub struct Space {
 }
 
 impl Space {
+    pub fn new(
+        grid: Vec<Node>,
+        particles: Vec<Particle>,
+        slip_bounds: Vec<SlipBoundary>,
+        period_bounds: Vec<PeriodicBoundary>,
+        period_bound_rect: Option<PeriodicBoundaryRect>,
+        steps: usize,
+    ) -> Self {
+        Self {
+            grid,
+            particles,
+            slip_bounds,
+            period_bounds,
+            period_bound_rect,
+            steps,
+        }
+    }
+
     pub fn new_for_poiseuille(settings: &Settings) -> Space {
         let grid_width = settings.grid_width;
         let cell_size = settings.cell_width();

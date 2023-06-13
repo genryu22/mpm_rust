@@ -20,6 +20,7 @@ fn main() {
                 eos_power: 0.,
                 boundary_mirror: true,
                 vx_zero: true,
+                weight_type: WeightType::QuadraticBSpline,
             };
 
             println!("{:?}", settings);
