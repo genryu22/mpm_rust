@@ -117,7 +117,7 @@ pub fn run_dambreak_window_wgpu() {
     run_window_wgpu(settings.space_width, settings, space);
 }
 
-pub fn run_window_bevy(space_size: f64, settings: Settings, space: Space) {
+pub fn run_window_bevy(space_size: f64, settings: Settings, space: Space, window_size: f32) {
     println!("{:?}", settings);
 
     let count = space.get_particle_count() as u32;
@@ -141,11 +141,15 @@ pub fn run_window_bevy(space_size: f64, settings: Settings, space: Space) {
         executor.start(step_executor);
     });
 
-    window_bevy::run(data_receiver, |snapshot| {
-        if false {
-            write_to_files(snapshot).unwrap()
-        }
-    });
+    window_bevy::run(
+        data_receiver,
+        |snapshot| {
+            if false {
+                write_to_files(snapshot).unwrap()
+            }
+        },
+        window_size,
+    );
 }
 
 pub fn run_dambreak_window_bevy() {
@@ -166,7 +170,7 @@ pub fn run_dambreak_window_bevy() {
     };
 
     let space = Space::new_for_dambreak(&settings);
-    run_window_bevy(settings.space_width, settings, space);
+    run_window_bevy(settings.space_width, settings, space, 100.);
 }
 
 pub fn run_taylorgreen_window_bevy() {
@@ -187,7 +191,7 @@ pub fn run_taylorgreen_window_bevy() {
     };
 
     let space = Space::new_for_taylor_green(&settings);
-    run_window_bevy(settings.space_width, settings, space);
+    run_window_bevy(settings.space_width, settings, space, 250.);
 }
 
 pub fn run_taylorgreen_window_bevy_experiment() {
@@ -235,15 +239,19 @@ pub fn run_taylorgreen_window_bevy_experiment() {
         });
     }
 
-    window_bevy::run(data_receiver, |snapshot| {
-        if snapshot.steps == 1 {
-            file::write_to_files_with_name(
-                snapshot,
-                &(((snapshot.grid.len() as f64).sqrt() - 1.) as usize).to_string(),
-            )
-            .unwrap()
-        }
-    });
+    window_bevy::run(
+        data_receiver,
+        |snapshot| {
+            if snapshot.steps == 1 {
+                file::write_to_files_with_name(
+                    snapshot,
+                    &(((snapshot.grid.len() as f64).sqrt() - 1.) as usize).to_string(),
+                )
+                .unwrap()
+            }
+        },
+        250.,
+    );
 }
 
 pub fn run_window(space_size: f64, settings: Settings, space: Space) {

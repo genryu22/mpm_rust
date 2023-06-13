@@ -18,7 +18,14 @@ struct Spiral;
 #[derive(Component)]
 struct Count(usize);
 
-pub fn run(snapshot_receiver: mpsc::Receiver<Snapshot>, store_data: fn(&Snapshot)) {
+#[derive(Resource)]
+struct WindowSize(f32);
+
+pub fn run(
+    snapshot_receiver: mpsc::Receiver<Snapshot>,
+    store_data: fn(&Snapshot),
+    camera_size: f32,
+) {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -31,6 +38,7 @@ pub fn run(snapshot_receiver: mpsc::Receiver<Snapshot>, store_data: fn(&Snapshot
         .insert_resource(ClearColor(Color::rgb(0.01, 0.02, 0.08)))
         .insert_non_send_resource(snapshot_receiver)
         .insert_non_send_resource(store_data)
+        .insert_resource(WindowSize(camera_size))
         .add_startup_system(setup)
         .add_system(update)
         .run();
@@ -40,6 +48,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PointsMaterial>>,
+    window_size: Res<WindowSize>,
 ) {
     commands.spawn(Count(0));
 
@@ -50,7 +59,7 @@ fn setup(
             near: 0.1,
             far: 100.,
             scale: 1.0,
-            scaling_mode: ScalingMode::WindowSize(100.),
+            scaling_mode: ScalingMode::WindowSize(window_size.0),
             ..Default::default()
         }
         .into(),

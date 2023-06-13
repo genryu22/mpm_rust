@@ -18,7 +18,7 @@ fn main() {
     };
 
     let space = Space::new_for_dambreak(&settings);
-    viewer::run_window_bevy(settings.space_width, settings, space);
+    viewer::run_window_bevy(settings.space_width, settings, space, 100.);
 }
 
 pub fn new_for_dambreak(settings: &Settings) -> Space {

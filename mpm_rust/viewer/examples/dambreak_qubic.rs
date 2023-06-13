@@ -18,7 +18,7 @@ fn main() {
     };
 
     let space = Space::new_for_dambreak(&settings);
-    viewer::run_window_bevy(settings.space_width, settings, space);
+    viewer::run_window_bevy(settings.space_width, settings, space, 100.);
 }
 
 pub fn new_for_dambreak(settings: &Settings) -> Space {
@@ -58,8 +58,8 @@ pub fn new_for_dambreak(settings: &Settings) -> Space {
         vec![
             SlipBoundary::new(1., Direction::X, true, true, false),
             SlipBoundary::new(9., Direction::X, false, true, false),
-            SlipBoundary::new(1., Direction::Y, true, false, false),
-            SlipBoundary::new(9., Direction::Y, false, false, false),
+            SlipBoundary::new(1., Direction::Y, true, true, false),
+            SlipBoundary::new(9., Direction::Y, false, true, false),
         ],
         vec![],
         None,

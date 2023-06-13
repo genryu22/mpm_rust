@@ -14,7 +14,7 @@ fn main() {
         eos_power: 4.,
         boundary_mirror: false,
         vx_zero: false,
-        weight_type: WeightType::QuadraticBSpline,
+        weight_type: WeightType::Linear,
     };
 
     let space = Space::new_for_taylor_green(&settings);
