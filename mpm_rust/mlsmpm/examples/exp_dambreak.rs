@@ -17,6 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         boundary_mirror: true,
         vx_zero: false,
         weight_type: WeightType::QuadraticBSpline,
+        scheme: SchemeType::MLSMPM,
     };
 
     println!("{:?}", settings);

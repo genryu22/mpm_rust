@@ -22,11 +22,11 @@ pub enum NodeType {
 impl Node {
     pub fn new(node_type: NodeType) -> Node {
         let basis = match node_type {
-            NodeType::Normal => quadratic_kernel,
-            NodeType::LeftWall => left_wall_quadratic_kernel,
-            NodeType::LeftHalf => left_half_quadratic_kernel,
-            NodeType::RightWall => right_wall_quadratic_kernel,
-            NodeType::RightHalf => right_half_quadratic_kernel,
+            NodeType::Normal => quadratic_b_spline,
+            NodeType::LeftWall => quadratic_b_spline,
+            NodeType::LeftHalf => quadratic_b_spline,
+            NodeType::RightWall => quadratic_b_spline,
+            NodeType::RightHalf => quadratic_b_spline,
         };
 
         Node {
@@ -69,6 +69,18 @@ impl Node {
 
 fn quadratic_kernel(x: f64) -> f64 {
     b_spline_basis(0, 2, &vec![-1.5, -0.5, 0.5, 1.5], x)
+}
+
+fn quadratic_b_spline(x: f64) -> f64 {
+    let x = x.abs();
+
+    if 0. <= x && x <= 0.5 {
+        0.75 - x * x
+    } else if 0.5 <= x && x <= 1.5 {
+        0.5 * (x - 1.5).powi(2)
+    } else {
+        0.
+    }
 }
 
 fn left_half_quadratic_kernel(x: f64) -> f64 {

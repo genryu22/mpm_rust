@@ -286,7 +286,7 @@ impl Space {
             let viscosity_term = settings.dynamic_viscosity * (strain + strain.transpose());
             let stress = -pressure * Matrix2f::identity() + viscosity_term;
             let eq_16_term_0 =
-                -volume * 3. / (settings.cell_width() * settings.cell_width()) * stress;
+                -volume * 4. / (settings.cell_width() * settings.cell_width()) * stress;
 
             for n in NodeMutIterator::new(
                 settings,
@@ -392,7 +392,7 @@ impl Space {
                 p.v.x = 0.;
             }
 
-            p.c = p.c * 3. / (settings.cell_width() * settings.cell_width());
+            p.c = p.c * 4. / (settings.cell_width() * settings.cell_width());
 
             if let Some(ref rect) = self.period_bound_rect {
                 if p.x.x < rect.x_min {

@@ -1,4 +1,4 @@
-use mlsmpm::{Calculator, Settings, Space};
+use mlsmpm::{Calculator, SchemeType, Settings, Space};
 
 fn main() {
     let settings = Settings {
@@ -15,6 +15,7 @@ fn main() {
         boundary_mirror: false,
         vx_zero: false,
         weight_type: mlsmpm::WeightType::QuadraticBSpline,
+        scheme: SchemeType::MLSMPM,
     };
 
     println!("{:?}", settings);

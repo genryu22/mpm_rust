@@ -21,6 +21,7 @@ fn main() {
                 boundary_mirror: true,
                 vx_zero: true,
                 weight_type: WeightType::QuadraticBSpline,
+                scheme: SchemeType::MLSMPM,
             };
 
             println!("{:?}", settings);

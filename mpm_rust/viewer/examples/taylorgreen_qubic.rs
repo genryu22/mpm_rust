@@ -15,6 +15,7 @@ fn main() {
         boundary_mirror: false,
         vx_zero: false,
         weight_type: WeightType::QubicBSpline,
+        scheme: SchemeType::MLSMPM,
     };
 
     let space = Space::new_for_taylor_green(&settings);

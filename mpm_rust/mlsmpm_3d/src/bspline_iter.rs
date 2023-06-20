@@ -113,7 +113,8 @@ fn calc_density_and_volume(settings: &Settings, p: &Particle, grid: &Grid) -> (f
     for n in NodeIterator::new(settings, p) {
         if let Some(node) = grid.get_node(n.index) {
             let weight = node.calc_weight(n.dist, settings.cell_width());
-            density += node.mass * weight / (settings.cell_width() * settings.cell_width());
+            density += node.mass * weight
+                / (settings.cell_width() * settings.cell_width() * settings.cell_width());
         }
     }
     (density, p.mass / density)

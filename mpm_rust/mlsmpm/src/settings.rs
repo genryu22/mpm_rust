@@ -19,6 +19,8 @@ pub struct Settings {
     pub vx_zero: bool,
 
     pub weight_type: WeightType,
+
+    pub scheme: SchemeType,
 }
 
 #[derive(Debug)]
@@ -26,6 +28,11 @@ pub enum WeightType {
     QuadraticBSpline,
     QubicBSpline,
     Linear,
+}
+
+#[derive(Debug)]
+pub enum SchemeType {
+    MLSMPM,
 }
 
 impl Settings {

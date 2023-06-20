@@ -5,11 +5,11 @@ fn main() {
     let settings = Settings {
         dt: 1e-3,
         gravity: -100.,
-        dynamic_viscosity: 1e-3,
+        dynamic_viscosity: 1e-6,
         alpha: 0.,
         affine: true,
         space_width: 10.,
-        grid_width: 25,
+        grid_width: 20,
         rho_0: 1000.,
         c: 1e1,
         eos_power: 4.,
