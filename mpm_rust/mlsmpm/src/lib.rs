@@ -46,7 +46,6 @@ impl<'a> Calculator<'a> {
 
     pub fn update(&mut self) {
         self.space.clear_grid();
-        self.space.distribute_mass(self.settings);
         self.space.p2g(self.settings);
         self.space.update_grid(self.settings);
         self.space.g2p(self.settings);

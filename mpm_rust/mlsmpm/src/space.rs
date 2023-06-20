@@ -33,199 +33,13 @@ impl Space {
         }
     }
 
-    pub fn new_for_poiseuille(settings: &Settings) -> Space {
-        let grid_width = settings.grid_width;
-        let cell_size = settings.cell_width();
-
-        let p_dist = cell_size / 2.;
-
-        let pos_x_min = 4.5;
-        let pos_x_max = 5.5;
-        let num_x = ((pos_x_max - pos_x_min) / p_dist + 0.5) as usize;
-
-        let mut particles = Vec::<Particle>::with_capacity(num_x * num_x);
-
-        for i_y in 0..num_x {
-            for i_x in 0..num_x {
-                let mut p = Particle::new(Vector2::new(
-                    (pos_x_max - pos_x_min) * (i_x as f64 + 0.5) / num_x as f64 + pos_x_min,
-                    (pos_x_max - pos_x_min) * (i_y as f64 + 0.5) / num_x as f64 + pos_x_min,
-                ));
-                p.mass = (settings.rho_0 * (pos_x_max - pos_x_min) * (pos_x_max - pos_x_min))
-                    / (num_x * num_x) as f64;
-                particles.push(p);
-            }
-        }
-
-        let mut grid: Vec<Node> = Vec::with_capacity((grid_width + 1) * (grid_width + 1));
-        for _i in 0..(grid_width + 1) * (grid_width + 1) {
-            grid.push(Node::new());
-        }
-
-        Space {
-            grid,
-            particles,
-            slip_bounds: vec![
-                SlipBoundary::new(4.5, Direction::X, true, true, true),
-                SlipBoundary::new(5.5, Direction::X, false, true, true),
-            ],
-            period_bounds: vec![PeriodicBoundary::new(
-                BoundaryLine::new(4.5, true),
-                BoundaryLine::new(5.5, false),
-                Direction::Y,
-            )],
-            period_bound_rect: None,
-            steps: 0,
-        }
-    }
-
-    pub fn new_for_dambreak(settings: &Settings) -> Space {
-        let grid_width = settings.grid_width;
-        let cell_size = settings.cell_width();
-
-        let p_dist = cell_size / 2.;
-
-        let pos_x_min = 1.1;
-        let pos_x_max = 5.1;
-        let num_x = ((pos_x_max - pos_x_min) / p_dist + 0.5) as usize;
-
-        let mut particles = Vec::<Particle>::with_capacity(num_x * num_x);
-
-        for i_y in 0..num_x {
-            for i_x in 0..num_x {
-                let mut p = Particle::new(Vector2::new(
-                    (pos_x_max - pos_x_min) * (i_x as f64 + 0.5) / num_x as f64 + pos_x_min,
-                    (pos_x_max - pos_x_min) * (i_y as f64 + 0.5) / num_x as f64 + pos_x_min,
-                ));
-                p.mass = (settings.rho_0 * (pos_x_max - pos_x_min) * (pos_x_max - pos_x_min))
-                    / (num_x * num_x) as f64;
-                particles.push(p);
-            }
-        }
-
-        let mut grid: Vec<Node> = Vec::with_capacity((grid_width + 1) * (grid_width + 1));
-        for _i in 0..(grid_width + 1) * (grid_width + 1) {
-            grid.push(Node::new());
-        }
-
-        Space {
-            grid,
-            particles,
-            slip_bounds: vec![
-                SlipBoundary::new(1., Direction::X, true, true, false),
-                SlipBoundary::new(9., Direction::X, false, true, false),
-                SlipBoundary::new(1., Direction::Y, true, false, false),
-                SlipBoundary::new(9., Direction::Y, false, false, false),
-            ],
-            period_bounds: vec![],
-            period_bound_rect: None,
-            steps: 0,
-        }
-    }
-
-    pub fn new_for_dambreak_experiment(settings: &Settings) -> Space {
-        let grid_width = settings.grid_width;
-        let cell_size = settings.cell_width();
-
-        let p_dist = cell_size / 2.;
-
-        let pos_x_min = 3.0;
-        let pos_x_max = 4.0;
-        let num_x = ((pos_x_max - pos_x_min) / p_dist + 0.5) as usize;
-
-        let pos_y_min = 4.0;
-        let pos_y_max = 6.0;
-        let num_y = ((pos_y_max - pos_y_min) / p_dist + 0.5) as usize;
-
-        let mut particles = Vec::<Particle>::with_capacity(num_x * num_x);
-
-        for i_y in 0..num_y {
-            for i_x in 0..num_x {
-                let mut p = Particle::new(Vector2::new(
-                    (pos_x_max - pos_x_min) * (i_x as f64 + 0.5) / num_x as f64 + pos_x_min,
-                    (pos_y_max - pos_y_min) * (i_y as f64 + 0.5) / num_y as f64 + pos_y_min,
-                ));
-                p.mass = (settings.rho_0 * (pos_x_max - pos_x_min) * (pos_y_max - pos_y_min))
-                    / (num_x * num_y) as f64;
-                particles.push(p);
-            }
-        }
-
-        let mut grid: Vec<Node> = Vec::with_capacity((grid_width + 1) * (grid_width + 1));
-        for _i in 0..(grid_width + 1) * (grid_width + 1) {
-            grid.push(Node::new());
-        }
-
-        Space {
-            grid,
-            particles,
-            slip_bounds: vec![
-                SlipBoundary::new(3., Direction::X, true, true, false),
-                SlipBoundary::new(7., Direction::X, false, true, false),
-                SlipBoundary::new(4., Direction::Y, true, false, false),
-                SlipBoundary::new(6.5, Direction::Y, false, false, false),
-            ],
-            period_bounds: vec![],
-            period_bound_rect: None,
-            steps: 0,
-        }
-    }
-
-    pub fn new_for_taylor_green(settings: &Settings) -> Space {
-        let grid_width = settings.grid_width;
-
-        let PI = std::f64::consts::PI;
-        let half_domain_size = 1.;
-
-        let pos_x_min = 5. - half_domain_size;
-        let pos_x_max = 5. + half_domain_size;
-        let num_x = (half_domain_size * 2. / (settings.cell_width() / 2.)) as usize;
-        let p_dist = half_domain_size * 2. / (num_x as f64);
-
-        let mut particles = Vec::<Particle>::with_capacity(num_x * num_x);
-
-        for i_y in 0..num_x {
-            for i_x in 0..num_x {
-                let mut p = Particle::new(Vector2::new(
-                    p_dist * (i_x as f64 + 0.5) as f64 + pos_x_min,
-                    p_dist * (i_y as f64 + 0.5) as f64 + pos_x_min,
-                ));
-                p.mass = (settings.rho_0 * (half_domain_size * 2.) * (half_domain_size * 2.))
-                    / (num_x * num_x) as f64;
-                p.v = vector![
-                    f64::sin(PI * (p.x.x - 5.) / half_domain_size)
-                        * f64::cos(PI * (p.x.y - 5.) / half_domain_size),
-                    -f64::cos(PI * (p.x.x - 5.) / half_domain_size)
-                        * f64::sin(PI * (p.x.y - 5.) / half_domain_size)
-                ];
-                particles.push(p);
-            }
-        }
-
-        let mut grid: Vec<Node> = Vec::with_capacity((grid_width + 1) * (grid_width + 1));
-        for _i in 0..(grid_width + 1) * (grid_width + 1) {
-            grid.push(Node::new());
-        }
-
-        Space {
-            grid,
-            particles,
-            slip_bounds: vec![],
-            period_bounds: vec![],
-            period_bound_rect: Some(PeriodicBoundaryRect::new(
-                pos_x_min, pos_x_max, pos_x_min, pos_x_max,
-            )),
-            steps: 0,
-        }
-    }
-
     pub fn clear_grid(&mut self) {
         for n in self.grid.iter_mut() {
             n.reset();
         }
     }
 
-    pub fn distribute_mass(&mut self, settings: &Settings) {
+    pub fn p2g(&mut self, settings: &Settings) {
         for p in self.particles.iter() {
             for node in NodeMutIterator::new(
                 settings,
@@ -243,9 +57,7 @@ impl Space {
                 node.node.v += mass_contrib * (p.v + q);
             }
         }
-    }
 
-    pub fn p2g(&mut self, settings: &Settings) {
         for p in self.particles.iter_mut() {
             let (density, volume) = calc_density_and_volume(
                 settings,
