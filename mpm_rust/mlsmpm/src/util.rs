@@ -12,6 +12,7 @@ pub struct NodeMutIterator<'a, 'b, 'c> {
     particle_position: Vector2f,
     period_bounds: &'c Vec<PeriodicBoundary>,
     period_bound_rect: &'c Option<PeriodicBoundaryRect>,
+    radius: i32,
     gx: i32,
     gy: i32,
 }
@@ -20,7 +21,7 @@ impl<'a, 'b, 'd> Iterator for NodeMutIterator<'a, 'b, 'd> {
     type Item = NeightborNodeMut<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.gx > 3 {
+        if self.gx > self.radius {
             None
         } else {
             let (weight, dist, index) = calc_weight_dist_index(
@@ -35,8 +36,8 @@ impl<'a, 'b, 'd> Iterator for NodeMutIterator<'a, 'b, 'd> {
                 unsafe {
                     let node = self.grid.as_mut_ptr().add(index).as_mut().unwrap();
                     self.gy += 1;
-                    if self.gy > 3 {
-                        self.gy = -3;
+                    if self.gy > self.radius {
+                        self.gy = -self.radius;
                         self.gx += 1;
                     }
                     return Some(NeightborNodeMut { node, weight, dist });
@@ -55,14 +56,16 @@ impl<'a, 'b, 'c, 'd> NodeMutIterator<'a, 'b, 'd> {
         period_bounds: &'d Vec<PeriodicBoundary>,
         period_bound_rect: &'d Option<PeriodicBoundaryRect>,
     ) -> NodeMutIterator<'a, 'b, 'd> {
+        let radius: i32 = 3;
         NodeMutIterator {
             settings,
             grid,
             particle_position: particle.x,
             period_bounds,
             period_bound_rect,
-            gx: -3,
-            gy: -3,
+            radius,
+            gx: -radius,
+            gy: -radius,
         }
     }
 }
@@ -79,6 +82,7 @@ pub struct NodeIterator<'a, 'b, 'c> {
     particle_position: Vector2f,
     period_bounds: &'c Vec<PeriodicBoundary>,
     period_bound_rect: &'c Option<PeriodicBoundaryRect>,
+    radius: i32,
     gx: i32,
     gy: i32,
 }
@@ -87,7 +91,7 @@ impl<'a, 'b, 'd> Iterator for NodeIterator<'a, 'b, 'd> {
     type Item = NeightborNode<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.gx > 3 {
+        if self.gx > self.radius {
             None
         } else {
             let (weight, dist, index) = calc_weight_dist_index(
@@ -100,8 +104,8 @@ impl<'a, 'b, 'd> Iterator for NodeIterator<'a, 'b, 'd> {
             );
             if let Some(index) = index {
                 self.gy += 1;
-                if self.gy > 3 {
-                    self.gy = -3;
+                if self.gy > self.radius {
+                    self.gy = -self.radius;
                     self.gx += 1;
                 }
                 Some(NeightborNode {
@@ -124,14 +128,16 @@ impl<'a, 'b, 'c, 'd> NodeIterator<'a, 'b, 'd> {
         period_bounds: &'d Vec<PeriodicBoundary>,
         period_bound_rect: &'d Option<PeriodicBoundaryRect>,
     ) -> NodeIterator<'a, 'b, 'd> {
+        let radius: i32 = 3;
         NodeIterator {
             settings,
             grid,
             particle_position: particle.x,
             period_bounds,
             period_bound_rect,
-            gx: -3,
-            gy: -3,
+            radius,
+            gx: -radius,
+            gy: -radius,
         }
     }
 }
@@ -175,7 +181,7 @@ fn weight_function(settings: &Settings) -> fn(f64, f64) -> f64 {
 
     match settings.weight_type {
         WeightType::QuadraticBSpline => quadratic_b_spline_2d,
-        WeightType::QubicBSpline => qubic_b_spline_2d,
+        WeightType::CubicBSpline => qubic_b_spline_2d,
         WeightType::Linear => linear_2d,
         _ => quadratic_b_spline_2d,
     }

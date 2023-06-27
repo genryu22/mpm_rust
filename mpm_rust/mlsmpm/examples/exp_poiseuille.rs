@@ -21,7 +21,8 @@ fn main() {
                 boundary_mirror: true,
                 vx_zero: true,
                 weight_type: WeightType::QuadraticBSpline,
-                scheme: SchemeType::MLSMPM,
+                p2g_scheme: P2GSchemeType::MLSMPM,
+                g2p_scheme: G2PSchemeType::MLSMPM,
             };
 
             println!("{:?}", settings);
@@ -76,8 +77,8 @@ pub fn new_for_poiseuille(settings: &Settings) -> Space {
     }
 
     let mut grid: Vec<Node> = Vec::with_capacity((grid_width + 1) * (grid_width + 1));
-    for _i in 0..(grid_width + 1) * (grid_width + 1) {
-        grid.push(Node::new());
+    for i in 0..(grid_width + 1) * (grid_width + 1) {
+        grid.push(Node::new((i % (grid_width + 1), i / (grid_width + 1))));
     }
 
     Space::new(

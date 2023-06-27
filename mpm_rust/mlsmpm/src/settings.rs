@@ -20,19 +20,29 @@ pub struct Settings {
 
     pub weight_type: WeightType,
 
-    pub scheme: SchemeType,
+    pub p2g_scheme: P2GSchemeType,
+    pub g2p_scheme: G2PSchemeType,
 }
 
 #[derive(Debug)]
 pub enum WeightType {
     QuadraticBSpline,
-    QubicBSpline,
+    CubicBSpline,
     Linear,
 }
 
 #[derive(Debug)]
-pub enum SchemeType {
+pub enum P2GSchemeType {
     MLSMPM,
+    LSMPS,
+    LsmpsOnlyForce,
+}
+
+#[derive(Debug)]
+pub enum G2PSchemeType {
+    MLSMPM,
+    LSMPS,
+    LsmpsLinear,
 }
 
 impl Settings {

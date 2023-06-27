@@ -3062,6 +3062,7 @@ version = "0.1.0"
 dependencies = [
  "csv",
  "nalgebra 0.31.4",
+ "rayon",
 ]
 
 [[package]]

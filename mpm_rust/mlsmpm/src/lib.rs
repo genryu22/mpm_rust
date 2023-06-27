@@ -70,6 +70,33 @@ impl<'a> Calculator<'a> {
             .unwrap()
     }
 
+    pub fn get_max_velocity(&self) -> f64 {
+        self.space
+            .particles
+            .iter()
+            .map(|p| p.v.norm())
+            .max_by(|x, y| x.partial_cmp(y).unwrap())
+            .unwrap()
+    }
+
+    pub fn get_max_nodal_velocity(&self) -> f64 {
+        self.space
+            .grid
+            .iter()
+            .map(|n| n.v.norm())
+            .max_by(|x, y| x.partial_cmp(y).unwrap())
+            .unwrap()
+    }
+
+    pub fn get_max_nodal_star_velocity(&self) -> f64 {
+        self.space
+            .grid
+            .iter()
+            .map(|n| n.v_star.norm())
+            .max_by(|x, y| x.partial_cmp(y).unwrap())
+            .unwrap()
+    }
+
     pub fn get_max_x(&self) -> f64 {
         self.space
             .particles

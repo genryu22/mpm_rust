@@ -14,8 +14,8 @@ fn main() {
         eos_power: 4.,
         boundary_mirror: true,
         vx_zero: false,
-        weight_type: WeightType::CubicBSpline,
-        p2g_scheme: P2GSchemeType::MLSMPM,
+        weight_type: WeightType::QuadraticBSpline,
+        p2g_scheme: P2GSchemeType::LSMPS,
         g2p_scheme: G2PSchemeType::MLSMPM,
     };
 
@@ -60,8 +60,8 @@ pub fn new_for_dambreak(settings: &Settings) -> Space {
         vec![
             SlipBoundary::new(1., Direction::X, true, true, false),
             SlipBoundary::new(9., Direction::X, false, true, false),
-            SlipBoundary::new(1., Direction::Y, true, true, false),
-            SlipBoundary::new(9., Direction::Y, false, true, false),
+            SlipBoundary::new(1., Direction::Y, true, false, false),
+            SlipBoundary::new(9., Direction::Y, false, false, false),
         ],
         vec![],
         None,

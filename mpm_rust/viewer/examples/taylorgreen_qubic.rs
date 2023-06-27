@@ -14,8 +14,9 @@ fn main() {
         eos_power: 4.,
         boundary_mirror: false,
         vx_zero: false,
-        weight_type: WeightType::QubicBSpline,
-        scheme: SchemeType::MLSMPM,
+        weight_type: WeightType::CubicBSpline,
+        p2g_scheme: P2GSchemeType::MLSMPM,
+        g2p_scheme: G2PSchemeType::MLSMPM,
     };
 
     let space = new_for_taylor_green(&settings);
@@ -55,8 +56,8 @@ pub fn new_for_taylor_green(settings: &Settings) -> Space {
     }
 
     let mut grid: Vec<Node> = Vec::with_capacity((grid_width + 1) * (grid_width + 1));
-    for _i in 0..(grid_width + 1) * (grid_width + 1) {
-        grid.push(Node::new());
+    for i in 0..(grid_width + 1) * (grid_width + 1) {
+        grid.push(Node::new((i % (grid_width + 1), i / (grid_width + 1))));
     }
 
     Space::new(

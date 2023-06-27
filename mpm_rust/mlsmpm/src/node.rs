@@ -6,15 +6,17 @@ pub struct Node {
     pub(super) v_star: Vector2f,
     pub(super) force: Vector2f,
     pub(super) mass: f64,
+    pub(super) index: (usize, usize),
 }
 
 impl Node {
-    pub fn new() -> Node {
+    pub fn new(index: (usize, usize)) -> Node {
         Node {
             v: Vector2::zeros(),
             v_star: Vector2::zeros(),
             force: Vector2::zeros(),
             mass: 0.0,
+            index,
         }
     }
 

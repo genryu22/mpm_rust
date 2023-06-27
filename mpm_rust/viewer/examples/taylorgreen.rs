@@ -15,11 +15,12 @@ fn main() {
         boundary_mirror: false,
         vx_zero: false,
         weight_type: WeightType::QuadraticBSpline,
-        scheme: SchemeType::MLSMPM,
+        p2g_scheme: P2GSchemeType::MLSMPM,
+        g2p_scheme: G2PSchemeType::MLSMPM,
     };
 
     let space = new_for_taylor_green(&settings);
-    viewer::run_window_bevy(settings.space_width, settings, space, 250.);
+    viewer::run_window_bevy(settings.space_width, settings, space, 500.);
 }
 
 pub fn new_for_taylor_green(settings: &Settings) -> Space {
@@ -55,8 +56,8 @@ pub fn new_for_taylor_green(settings: &Settings) -> Space {
     }
 
     let mut grid: Vec<Node> = Vec::with_capacity((grid_width + 1) * (grid_width + 1));
-    for _i in 0..(grid_width + 1) * (grid_width + 1) {
-        grid.push(Node::new());
+    for i in 0..(grid_width + 1) * (grid_width + 1) {
+        grid.push(Node::new((i % (grid_width + 1), i / (grid_width + 1))));
     }
 
     Space::new(

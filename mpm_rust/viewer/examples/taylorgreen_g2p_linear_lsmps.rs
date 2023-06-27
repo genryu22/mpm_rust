@@ -14,13 +14,13 @@ fn main() {
         eos_power: 4.,
         boundary_mirror: false,
         vx_zero: false,
-        weight_type: WeightType::Linear,
+        weight_type: WeightType::QuadraticBSpline,
         p2g_scheme: P2GSchemeType::MLSMPM,
-        g2p_scheme: G2PSchemeType::MLSMPM,
+        g2p_scheme: G2PSchemeType::LsmpsLinear,
     };
 
     let space = new_for_taylor_green(&settings);
-    viewer::run_window_bevy(settings.space_width, settings, space, 250.);
+    viewer::run_window_bevy(settings.space_width, settings, space, 500.);
 }
 
 pub fn new_for_taylor_green(settings: &Settings) -> Space {
