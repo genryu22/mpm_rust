@@ -36,6 +36,8 @@ pub enum P2GSchemeType {
     MLSMPM,
     LSMPS,
     LsmpsOnlyForce,
+    CompactLsmps,
+    CompactOnlyVelocity,
 }
 
 #[derive(Debug)]

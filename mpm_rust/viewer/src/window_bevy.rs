@@ -174,7 +174,7 @@ fn update(world: &mut World) {
             return;
         }
 
-        if false {
+        if true {
             receiver.unwrap().try_recv()
         } else {
             receiver
