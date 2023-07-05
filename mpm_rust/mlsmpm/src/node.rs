@@ -2,10 +2,10 @@ use crate::*;
 
 #[derive(Debug, Clone)]
 pub struct Node {
-    pub(super) v: Vector2f,
+    pub v: Vector2f,
     pub(super) v_star: Vector2f,
     pub(super) force: Vector2f,
-    pub(super) mass: f64,
+    pub mass: f64,
     pub(super) index: (usize, usize),
 }
 

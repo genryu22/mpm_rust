@@ -855,4 +855,8 @@ impl Space {
     pub fn get_particle_count(&self) -> usize {
         self.particles.len()
     }
+
+    pub fn get_nodes(&self) -> Vec<Node> {
+        self.grid.clone()
+    }
 }

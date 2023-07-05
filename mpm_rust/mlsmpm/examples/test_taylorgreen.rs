@@ -1,0 +1,135 @@
+use mlsmpm::*;
+use rand::Rng;
+
+fn main() {
+    let settings = Settings {
+        dt: 1e-4,
+        gravity: 0.,
+        dynamic_viscosity: 1e-2,
+        alpha: 0.,
+        affine: true,
+        space_width: 10.,
+        grid_width: 200,
+        rho_0: 1.,
+        c: 1e1,
+        eos_power: 4.,
+        boundary_mirror: false,
+        vx_zero: false,
+        weight_type: WeightType::QuadraticBSpline,
+        p2g_scheme: P2GSchemeType::LSMPS,
+        g2p_scheme: G2PSchemeType::LSMPS,
+    };
+
+    let mut space = new_for_taylor_green(&settings);
+
+    space.clear_grid();
+    space.p2g(&settings);
+
+    let PI = std::f64::consts::PI;
+    let half_domain_size = 1.;
+    fn true_vel(x: f64, y: f64, U: f64, PI: f64) -> Vector2<f64> {
+        Vector2::new(
+            f64::sin(PI * (x - 5.) / U) * f64::cos(PI * (y - 5.) / U),
+            -f64::cos(PI * (x - 5.) / U) * f64::sin(PI * (y - 5.) / U),
+        )
+    }
+
+    let width = 200;
+    let cell_width = 10. / width as f64;
+    let grid_width = width + 1;
+    let nodes = space.get_nodes();
+    let nodes = nodes
+        .iter()
+        .enumerate()
+        .map(|(index, node)| (index % grid_width, index / grid_width, node))
+        .filter(|(x, y, node)| {
+            4. <= *x as f64 * cell_width
+                && *x as f64 * cell_width < 6.
+                && 4. <= *y as f64 * cell_width
+                && *y as f64 * cell_width < 6.
+        })
+        .collect::<Vec<_>>();
+    let l2_error = f64::sqrt(
+        nodes
+            .iter()
+            .map(|(x, y, node)| {
+                ((*node).v / node.mass
+                    - true_vel(*x as f64 * cell_width, *y as f64 * cell_width, 1., PI))
+                .norm_squared()
+            })
+            .sum::<f64>()
+            / nodes
+                .iter()
+                .map(|(x, y, _)| {
+                    true_vel(*x as f64 * cell_width, *y as f64 * cell_width, 1., PI).norm_squared()
+                })
+                .sum::<f64>(),
+    );
+
+    // for (x, y, node) in nodes {
+    //     println!(
+    //         "{}, {}",
+    //         node.v / node.mass,
+    //         true_vel(x as f64 * cell_width, y as f64 * cell_width, 1., PI)
+    //     );
+    // }
+
+    println!("l2 norm error = {}", l2_error);
+
+    println!("{}", 0.0002574334138207201 / 0.00001625965084991693);
+}
+
+pub fn new_for_taylor_green(settings: &Settings) -> Space {
+    let grid_width = settings.grid_width;
+
+    let PI = std::f64::consts::PI;
+    let half_domain_size = 1.;
+
+    let pos_x_min = 5. - half_domain_size;
+    let pos_x_max = 5. + half_domain_size;
+    let num_x = (half_domain_size * 2. / (settings.cell_width() / 2.)) as usize;
+    let p_dist = half_domain_size * 2. / (num_x as f64);
+
+    let mut particles = Vec::<Particle>::with_capacity(num_x * num_x);
+
+    let mut rng = rand::thread_rng();
+
+    for i_y in 0..num_x {
+        for i_x in 0..num_x {
+            let mut x = p_dist * (i_x as f64 + 0.5) as f64 + pos_x_min;
+            let mut y = p_dist * (i_y as f64 + 0.5) as f64 + pos_x_min;
+            if true {
+                x += rng.gen_range(-1.0..=1.0) * p_dist * 0.1;
+                y += rng.gen_range(-1.0..=1.0) * p_dist * 0.1;
+            }
+            let p = Particle::new_with_mass_velocity(
+                Vector2::new(x, y),
+                (settings.rho_0 * (half_domain_size * 2.) * (half_domain_size * 2.))
+                    / (num_x * num_x) as f64,
+                Vector2::new(
+                    f64::sin(PI * (x - 5.) / half_domain_size)
+                        * f64::cos(PI * (y - 5.) / half_domain_size),
+                    -f64::cos(PI * (x - 5.) / half_domain_size)
+                        * f64::sin(PI * (y - 5.) / half_domain_size),
+                ),
+            );
+            particles.push(p);
+        }
+    }
+
+    let mut grid: Vec<Node> = Vec::with_capacity((grid_width + 1) * (grid_width + 1));
+    for i in 0..(grid_width + 1) * (grid_width + 1) {
+        grid.push(Node::new((i % (grid_width + 1), i / (grid_width + 1))));
+    }
+
+    Space::new(
+        grid,
+        particles,
+        vec![],
+        vec![],
+        Some(PeriodicBoundaryRect::new(
+            pos_x_min, pos_x_max, pos_x_min, pos_x_max,
+        )),
+        0,
+    )
+}
