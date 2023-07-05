@@ -31,7 +31,7 @@ pub enum WeightType {
     Linear,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum P2GSchemeType {
     MLSMPM,
     LSMPS,
@@ -40,7 +40,7 @@ pub enum P2GSchemeType {
     CompactOnlyVelocity,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum G2PSchemeType {
     MLSMPM,
     LSMPS,

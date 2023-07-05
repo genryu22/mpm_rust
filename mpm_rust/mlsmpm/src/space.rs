@@ -379,7 +379,7 @@ impl Space {
                             nodes.get_mut(&node.node.index).unwrap()
                         };
 
-                        let r_ij = node.dist / rs;
+                        let r_ij = -node.dist / rs;
                         let poly_r_ij = poly(r_ij);
                         let weight = node.weight;
 
@@ -390,12 +390,12 @@ impl Space {
                         params.f_vel += weight
                             * poly_r_ij.kronecker(&p.c.column(0).transpose())
                             * C(1, 0, 2, 1) as f64
-                            * -node.dist.x
+                            * node.dist.x
                             * rs;
                         params.f_vel += weight
                             * poly_r_ij.kronecker(&p.c.column(1).transpose())
                             * C(0, 1, 2, 1) as f64
-                            * -node.dist.y
+                            * node.dist.y
                             * rs;
 
                         let stress = vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];

@@ -20,6 +20,16 @@ impl Node {
         }
     }
 
+    pub fn new_with_vel(index: (usize, usize), v_star: Vector2f) -> Node {
+        Node {
+            v: Vector2::zeros(),
+            v_star,
+            force: Vector2::zeros(),
+            mass: 0.0,
+            index,
+        }
+    }
+
     pub fn reset(&mut self) {
         self.v = Vector2::zeros();
         self.v_star = Vector2::zeros();
