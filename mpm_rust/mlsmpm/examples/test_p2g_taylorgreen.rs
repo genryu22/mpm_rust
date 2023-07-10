@@ -5,7 +5,9 @@ fn main() {
     let p2g = [
         P2GSchemeType::MLSMPM,
         P2GSchemeType::LSMPS,
+        P2GSchemeType::LsmpsLinear,
         P2GSchemeType::CompactLsmps,
+        P2GSchemeType::CompactLsmpsLinear,
     ];
 
     for scheme_type in p2g {

@@ -307,6 +307,171 @@ impl Space {
                     }
                 });
             }
+            P2GSchemeType::LsmpsLinear => {
+                fn poly(r: Vector2<f64>) -> Vector3<f64> {
+                    vector![1., r.x, r.y]
+                }
+
+                let re = settings.cell_width() * 3.;
+                let rs = settings.cell_width();
+                let scale = Matrix3::<f64>::from_diagonal(&vector![1., 1. / rs, 1. / rs]);
+
+                struct LsmpsParams {
+                    m: Matrix3<f64>,
+                    f_vel: Matrix3x2<f64>,
+                    f_stress: Matrix3<f64>,
+                }
+
+                for p in self.particles.iter() {
+                    for node in NodeMutIterator::new(
+                        settings,
+                        &mut self.grid,
+                        p,
+                        &self.period_bounds,
+                        &self.period_bound_rect,
+                    ) {
+                        let mass_contrib = node.weight * p.mass;
+                        node.node.mass += mass_contrib;
+                    }
+                }
+
+                let mut nodes = HashMap::new();
+
+                for p in self.particles.iter_mut() {
+                    let stress = {
+                        let (density, volume) = calc_density_and_volume(
+                            settings,
+                            p,
+                            &self.grid,
+                            &self.period_bounds,
+                            &self.period_bound_rect,
+                        );
+
+                        let mut pressure = 0.;
+                        if settings.c != 0. && settings.eos_power != 0. {
+                            pressure = settings.rho_0 * settings.c * settings.c
+                                / settings.eos_power
+                                * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
+                            if pressure < 0. {
+                                pressure = 0.;
+                            }
+                        }
+
+                        p.pressure = pressure;
+                        let pressure = pressure;
+
+                        let dudv = p.c;
+                        let strain = dudv;
+                        let viscosity_term =
+                            settings.dynamic_viscosity * (strain + strain.transpose());
+
+                        (-pressure * Matrix2f::identity() + viscosity_term)
+                    };
+
+                    {
+                        fn weight_function() -> fn(f64, f64) -> f64 {
+                            fn quadratic_b_spline(x: f64) -> f64 {
+                                let x = x.abs();
+
+                                if 0. <= x && x <= 0.5 {
+                                    0.75 - x * x
+                                } else if 0.5 <= x && x <= 1.5 {
+                                    0.5 * (x - 1.5).powi(2)
+                                } else {
+                                    0.
+                                }
+                            }
+                            fn quadratic_b_spline_2d(x: f64, y: f64) -> f64 {
+                                quadratic_b_spline(x) * quadratic_b_spline(y)
+                            }
+
+                            quadratic_b_spline_2d
+                        }
+
+                        let effect_size = 3;
+                        (-effect_size..=effect_size)
+                            .flat_map(|gx| (-effect_size..=effect_size).map(move |gy| (gx, gy)))
+                            .for_each(|(gx, gy)| {
+                                let node_ipos =
+                                    p.x().map(|x| (x / settings.cell_width()).floor() as i64)
+                                        + vector![gx, gy];
+                                let node_pos = node_ipos.cast::<f64>() * settings.cell_width();
+                                let dist = node_pos - p.x();
+                                let node_index = if let Some(rect) = &self.period_bound_rect {
+                                    let x_min_index =
+                                        (rect.x_min / settings.cell_width()).round() as i64;
+                                    let x_max_index =
+                                        (rect.x_max / settings.cell_width()).round() as i64;
+                                    let y_min_index =
+                                        (rect.y_min / settings.cell_width()).round() as i64;
+                                    let y_max_index =
+                                        (rect.y_max / settings.cell_width()).round() as i64;
+
+                                    let origin = vector![x_min_index, y_min_index];
+                                    let node_ipos = node_ipos - origin;
+                                    let node_ipos = vector![
+                                        (node_ipos.x.rem_euclid(x_max_index - x_min_index)
+                                            + origin.x)
+                                            as U,
+                                        (node_ipos.y.rem_euclid(y_max_index - y_min_index)
+                                            + origin.y)
+                                            as U
+                                    ];
+
+                                    (node_ipos.x, node_ipos.y)
+                                } else {
+                                    (node_ipos.x as U, node_ipos.y as U)
+                                };
+
+                                let params = {
+                                    let index = node_index;
+                                    if !nodes.contains_key(&index) {
+                                        let params = LsmpsParams {
+                                            m: Matrix3::<f64>::zeros(),
+                                            f_vel: Matrix3x2::<f64>::zeros(),
+                                            f_stress: Matrix3::<f64>::zeros(),
+                                        };
+                                        nodes.insert(index, params);
+                                    }
+
+                                    nodes.get_mut(&node_index).unwrap()
+                                };
+                                let r_ij = dist / rs;
+                                let poly_r_ij = poly(r_ij);
+                                let weight = weight_function()(
+                                    dist.x / settings.cell_width(),
+                                    dist.y / settings.cell_width(),
+                                );
+
+                                params.m += weight * poly_r_ij * poly_r_ij.transpose();
+                                params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose());
+                                let stress =
+                                    vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
+                                params.f_stress +=
+                                    weight * poly_r_ij.kronecker(&stress.transpose());
+                            });
+                    }
+                }
+
+                self.grid.par_iter_mut().for_each(|node| {
+                    if !nodes.contains_key(&node.index) {
+                        return;
+                    }
+                    let params = nodes.get(&node.index).unwrap();
+                    let m_inverse = params.m.pseudo_inverse(1e-15).unwrap();
+
+                    {
+                        let res = scale * m_inverse * params.f_vel;
+                        node.v = node.mass * res.row(0).transpose();
+                    }
+
+                    {
+                        let res = scale * m_inverse * params.f_stress;
+                        node.force[0] = res[(1, 0)] + res[(2, 1)];
+                        node.force[1] = res[(1, 1)] + res[(2, 2)];
+                    }
+                });
+            }
             P2GSchemeType::LsmpsOnlyForce => todo!(),
             P2GSchemeType::CompactLsmps => {
                 for p in self.particles.iter() {
@@ -486,6 +651,200 @@ impl Space {
                         params.f_stress += weight
                             * poly_r_ij.kronecker(&stress.transpose())
                             * C(0, 0, 2, 0) as f64;
+                    }
+                }
+
+                self.grid.par_iter_mut().for_each(|node| {
+                    if !nodes.contains_key(&node.index) {
+                        return;
+                    }
+                    let params = nodes.get(&node.index).unwrap();
+                    let m_inverse = params.m.pseudo_inverse(1e-15).unwrap();
+
+                    {
+                        let res = scale_vel * m_inverse * params.f_vel;
+                        node.v = node.mass * res.row(0).transpose();
+                    }
+
+                    {
+                        let res = scale_stress * m_inverse * params.f_stress;
+                        node.force[0] = res[(1, 0)] + res[(2, 1)];
+                        node.force[1] = res[(1, 1)] + res[(2, 2)];
+                    }
+                });
+            }
+            P2GSchemeType::CompactLsmpsLinear => {
+                for p in self.particles.iter() {
+                    for node in NodeMutIterator::new(
+                        settings,
+                        &mut self.grid,
+                        p,
+                        &self.period_bounds,
+                        &self.period_bound_rect,
+                    ) {
+                        let mass_contrib = node.weight * p.mass;
+                        node.node.mass += mass_contrib;
+                    }
+                }
+
+                fn factorial(num: usize) -> usize {
+                    match num {
+                        0 | 1 => 1,
+                        _ => factorial(num - 1) * num,
+                    }
+                }
+
+                fn C(bx: usize, by: usize, p: usize, q: usize) -> i32 {
+                    let b = bx + by;
+                    if b == 0 {
+                        1
+                    } else if b == q {
+                        (-1 as i32).pow(b as u32)
+                            * (factorial(b) / (factorial(bx) * factorial(by)) * factorial(p)
+                                / factorial(p + q)) as i32
+                    } else {
+                        (-1 as i32).pow(b as u32)
+                            * (factorial(b) / (factorial(bx) * factorial(by))
+                                * q
+                                * (factorial(p + q - b))
+                                / factorial(p + q)) as i32
+                    }
+                }
+
+                fn S(ax: usize, ay: usize, rs: f64, p: usize, q: usize) -> f64 {
+                    let a = ax + ay;
+                    let sum = [(0, 0), (1, 0), (0, 1)]
+                        .map(|(bx, by)| {
+                            let b = bx + by;
+                            if b > q || bx > ax || by > ay {
+                                0.
+                            } else {
+                                C(bx, by, p, q) as f64
+                                    / (factorial(ax - bx) * factorial(ay - by)) as f64
+                            }
+                        })
+                        .iter()
+                        .sum::<f64>();
+                    1. / (sum * rs.powi(a as i32))
+                }
+
+                fn poly(r: Vector2<f64>) -> Vector3<f64> {
+                    vector![1., r.x, r.y]
+                }
+
+                let re = settings.cell_width() * 3.;
+                let rs = settings.cell_width();
+                let scale_stress = Matrix3::<f64>::from_diagonal(&vector![
+                    S(0, 0, rs, 1, 0),
+                    S(1, 0, rs, 1, 0),
+                    S(0, 1, rs, 1, 0)
+                ]);
+                let scale_vel = Matrix3::<f64>::from_diagonal(&vector![
+                    S(0, 0, rs, 1, 1),
+                    S(1, 0, rs, 1, 1),
+                    S(0, 1, rs, 1, 1)
+                ]);
+
+                struct LsmpsParams {
+                    m: Matrix3<f64>,
+                    f_vel: Matrix3x2<f64>,
+                    f_stress: Matrix3<f64>,
+                }
+
+                let mut nodes = HashMap::new();
+
+                for p in self.particles.iter_mut() {
+                    let stress = {
+                        let (density, volume) = calc_density_and_volume(
+                            settings,
+                            p,
+                            &self.grid,
+                            &self.period_bounds,
+                            &self.period_bound_rect,
+                        );
+
+                        let mut pressure = 0.;
+                        if settings.c != 0. && settings.eos_power != 0. {
+                            pressure = settings.rho_0 * settings.c * settings.c
+                                / settings.eos_power
+                                * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
+                            if pressure < 0. {
+                                pressure = 0.;
+                            }
+                        }
+
+                        // pressure = {
+                        //     let PI = std::f64::consts::PI;
+                        //     let L = 1.;
+                        //     let rho = 1.;
+                        //     let U = 1.;
+                        //     let nu = 1e-2;
+
+                        //     let (x, y) = (p.x.x - 5., p.x.y - 5.);
+
+                        //     rho * U * U / 4.
+                        //         * f64::exp(
+                        //             -4. * PI * PI * (self.steps as f64) * settings.dt * nu
+                        //                 / (L * L),
+                        //         )
+                        //         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+                        // };
+
+                        p.pressure = pressure;
+                        let pressure = pressure;
+
+                        let dudv = p.c;
+                        let strain = dudv;
+                        let viscosity_term =
+                            settings.dynamic_viscosity * (strain + strain.transpose());
+
+                        (-pressure * Matrix2f::identity() + viscosity_term)
+                    };
+
+                    for node in NodeIterator::new(
+                        settings,
+                        &self.grid,
+                        p,
+                        &self.period_bounds,
+                        &self.period_bound_rect,
+                    ) {
+                        let params = {
+                            let index = node.node.index;
+                            if !nodes.contains_key(&index) {
+                                let params = LsmpsParams {
+                                    m: Matrix3::<f64>::zeros(),
+                                    f_vel: Matrix3x2::<f64>::zeros(),
+                                    f_stress: Matrix3::<f64>::zeros(),
+                                };
+                                nodes.insert(index, params);
+                            }
+
+                            nodes.get_mut(&node.node.index).unwrap()
+                        };
+
+                        let r_ij = -node.dist / rs;
+                        let poly_r_ij = poly(r_ij);
+                        let weight = node.weight;
+
+                        params.m += weight * poly_r_ij * poly_r_ij.transpose();
+
+                        params.f_vel +=
+                            weight * poly_r_ij.kronecker(&p.v.transpose()) * C(0, 0, 1, 1) as f64;
+                        params.f_vel += weight
+                            * poly_r_ij.kronecker(&p.c.column(0).transpose())
+                            * C(1, 0, 1, 1) as f64
+                            * node.dist.x
+                            * rs;
+                        params.f_vel += weight
+                            * poly_r_ij.kronecker(&p.c.column(1).transpose())
+                            * C(0, 1, 1, 1) as f64
+                            * node.dist.y
+                            * rs;
+
+                        let stress = vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
+                        params.f_stress += weight
+                            * poly_r_ij.kronecker(&stress.transpose())
+                            * C(0, 0, 1, 0) as f64;
                     }
                 }
 
@@ -694,6 +1053,7 @@ impl Space {
                     * (vector![0., settings.gravity]
                         + match settings.p2g_scheme {
                             P2GSchemeType::LSMPS
+                            | P2GSchemeType::LsmpsLinear
                             | P2GSchemeType::LsmpsOnlyForce
                             | P2GSchemeType::CompactLsmps => n.force,
                             _ => n.force / n.mass,

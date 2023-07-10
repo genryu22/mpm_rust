@@ -35,8 +35,10 @@ pub enum WeightType {
 pub enum P2GSchemeType {
     MLSMPM,
     LSMPS,
+    LsmpsLinear,
     LsmpsOnlyForce,
     CompactLsmps,
+    CompactLsmpsLinear,
     CompactOnlyVelocity,
 }
 
