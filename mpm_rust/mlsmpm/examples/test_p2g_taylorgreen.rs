@@ -3,13 +3,13 @@ use rand::Rng;
 
 fn main() {
     let p2g = [
-        //P2GSchemeType::MLSMPM,
+        P2GSchemeType::MLSMPM,
         P2GSchemeType::LSMPS,
-        //P2GSchemeType::CompactLsmps,
+        P2GSchemeType::CompactLsmps,
     ];
 
     for scheme_type in p2g {
-        let count = 1;
+        let count = 10;
         let result = (0..count).map(|_| fun_name(scheme_type, G2PSchemeType::MLSMPM));
         println!(
             "schemeType: {:?}, average = {}, (min, max) = ({}, {})",
@@ -127,8 +127,8 @@ pub fn new_for_taylor_green(settings: &Settings) -> Space {
             let mut x = p_dist * (i_x as f64 + 0.5) as f64 + pos_x_min;
             let mut y = p_dist * (i_y as f64 + 0.5) as f64 + pos_x_min;
             if true {
-                x += rng.gen_range(-1.0..=1.0) * p_dist * 0.01;
-                y += rng.gen_range(-1.0..=1.0) * p_dist * 0.01;
+                x += rng.gen_range(-1.0..=1.0) * p_dist * 0.1;
+                y += rng.gen_range(-1.0..=1.0) * p_dist * 0.1;
             }
             let velocity = Vector2::new(
                 f64::sin(PI * (x - 5.) / half_domain_size)

@@ -172,36 +172,120 @@ impl Space {
                         // volumeを含めているが、正しいか不明
                     };
 
-                    for node in NodeIterator::new(
-                        settings,
-                        &self.grid,
-                        p,
-                        &self.period_bounds,
-                        &self.period_bound_rect,
-                    ) {
-                        let params = {
-                            let index = node.node.index;
-                            if !nodes.contains_key(&index) {
-                                let params = LsmpsParams {
-                                    m: Matrix6::<f64>::zeros(),
-                                    f_vel: Matrix6x2::<f64>::zeros(),
-                                    f_stress: Matrix6x3::<f64>::zeros(),
-                                };
-                                nodes.insert(index, params);
+                    {
+                        fn weight_function() -> fn(f64, f64) -> f64 {
+                            fn quadratic_b_spline(x: f64) -> f64 {
+                                let x = x.abs();
+
+                                if 0. <= x && x <= 0.5 {
+                                    0.75 - x * x
+                                } else if 0.5 <= x && x <= 1.5 {
+                                    0.5 * (x - 1.5).powi(2)
+                                } else {
+                                    0.
+                                }
+                            }
+                            fn quadratic_b_spline_2d(x: f64, y: f64) -> f64 {
+                                quadratic_b_spline(x) * quadratic_b_spline(y)
                             }
 
-                            nodes.get_mut(&node.node.index).unwrap()
-                        };
+                            quadratic_b_spline_2d
+                        }
 
-                        let r_ij = node.dist / rs;
-                        let poly_r_ij = poly(r_ij);
-                        let weight = node.weight;
+                        let effect_size = 3;
+                        (-effect_size..=effect_size)
+                            .flat_map(|gx| (-effect_size..=effect_size).map(move |gy| (gx, gy)))
+                            .for_each(|(gx, gy)| {
+                                let node_ipos =
+                                    p.x().map(|x| (x / settings.cell_width()).floor() as i64)
+                                        + vector![gx, gy];
+                                let node_pos = node_ipos.cast::<f64>() * settings.cell_width();
+                                let dist = node_pos - p.x();
+                                let node_index = if let Some(rect) = &self.period_bound_rect {
+                                    let x_min_index =
+                                        (rect.x_min / settings.cell_width()).round() as i64;
+                                    let x_max_index =
+                                        (rect.x_max / settings.cell_width()).round() as i64;
+                                    let y_min_index =
+                                        (rect.y_min / settings.cell_width()).round() as i64;
+                                    let y_max_index =
+                                        (rect.y_max / settings.cell_width()).round() as i64;
 
-                        params.m += weight * poly_r_ij * poly_r_ij.transpose();
-                        params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose());
-                        let stress = vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
-                        params.f_stress += weight * poly_r_ij.kronecker(&stress.transpose());
+                                    let origin = vector![x_min_index, y_min_index];
+                                    let node_ipos = node_ipos - origin;
+                                    let node_ipos = vector![
+                                        (node_ipos.x.rem_euclid(x_max_index - x_min_index)
+                                            + origin.x)
+                                            as U,
+                                        (node_ipos.y.rem_euclid(y_max_index - y_min_index)
+                                            + origin.y)
+                                            as U
+                                    ];
+
+                                    (node_ipos.x, node_ipos.y)
+                                } else {
+                                    (node_ipos.x as U, node_ipos.y as U)
+                                };
+
+                                let params = {
+                                    let index = node_index;
+                                    if !nodes.contains_key(&index) {
+                                        let params = LsmpsParams {
+                                            m: Matrix6::<f64>::zeros(),
+                                            f_vel: Matrix6x2::<f64>::zeros(),
+                                            f_stress: Matrix6x3::<f64>::zeros(),
+                                        };
+                                        nodes.insert(index, params);
+                                    }
+
+                                    nodes.get_mut(&node_index).unwrap()
+                                };
+                                let r_ij = dist / rs;
+                                let poly_r_ij = poly(r_ij);
+                                let weight = weight_function()(
+                                    dist.x / settings.cell_width(),
+                                    dist.y / settings.cell_width(),
+                                );
+
+                                params.m += weight * poly_r_ij * poly_r_ij.transpose();
+                                params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose());
+                                let stress =
+                                    vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
+                                params.f_stress +=
+                                    weight * poly_r_ij.kronecker(&stress.transpose());
+                            });
                     }
+
+                    // for node in NodeIterator::new(
+                    //     settings,
+                    //     &self.grid,
+                    //     p,
+                    //     &self.period_bounds,
+                    //     &self.period_bound_rect,
+                    // ) {
+                    //     let params = {
+                    //         let index = node.node.index;
+                    //         if !nodes.contains_key(&index) {
+                    //             let params = LsmpsParams {
+                    //                 m: Matrix6::<f64>::zeros(),
+                    //                 f_vel: Matrix6x2::<f64>::zeros(),
+                    //                 f_stress: Matrix6x3::<f64>::zeros(),
+                    //             };
+                    //             nodes.insert(index, params);
+                    //         }
+
+                    //         nodes.get_mut(&node.node.index).unwrap()
+                    //     };
+
+                    //     let r_ij = node.dist / rs;
+                    //     let poly_r_ij = poly(r_ij);
+                    //     let weight = node.weight;
+
+                    //     params.m += weight * poly_r_ij * poly_r_ij.transpose();
+                    //     params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose());
+                    //     let stress = vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
+                    //     params.f_stress += weight * poly_r_ij.kronecker(&stress.transpose());
+                    // }
                 }
 
                 self.grid.par_iter_mut().for_each(|node| {
@@ -858,5 +942,9 @@ impl Space {
 
     pub fn get_nodes(&self) -> Vec<Node> {
         self.grid.clone()
+    }
+
+    pub fn get_particles(&self) -> Vec<Particle> {
+        self.particles.clone()
     }
 }
