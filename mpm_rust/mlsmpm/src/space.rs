@@ -108,7 +108,7 @@ impl Space {
                     vector![1., r.x, r.y, r.x * r.x, r.x * r.y, r.y * r.y]
                 }
 
-                let re = settings.cell_width() * 3.;
+                let re = settings.cell_width() * 2.;
                 let rs = settings.cell_width();
                 let scale = Matrix6::<f64>::from_diagonal(&vector![
                     1.,
@@ -185,14 +185,31 @@ impl Space {
                                     0.
                                 }
                             }
+
+                            fn qubic_b_spline(x: f64) -> f64 {
+                                let x = x.abs();
+
+                                if 0. <= x && x <= 1. {
+                                    0.5 * x * x * x - x * x + 2. / 3.
+                                } else if 1. <= x && x <= 2. {
+                                    (2. - x).powi(3) / 6.
+                                } else {
+                                    0.
+                                }
+                            }
+
+                            fn qubic_b_spline_2d(x: f64, y: f64) -> f64 {
+                                qubic_b_spline(x) * qubic_b_spline(y)
+                            }
+
                             fn quadratic_b_spline_2d(x: f64, y: f64) -> f64 {
                                 quadratic_b_spline(x) * quadratic_b_spline(y)
                             }
 
-                            quadratic_b_spline_2d
+                            qubic_b_spline_2d
                         }
 
-                        let effect_size = 3;
+                        let effect_size = 10;
                         (-effect_size..=effect_size)
                             .flat_map(|gx| (-effect_size..=effect_size).map(move |gy| (gx, gy)))
                             .for_each(|(gx, gy)| {
@@ -201,6 +218,9 @@ impl Space {
                                         + vector![gx, gy];
                                 let node_pos = node_ipos.cast::<f64>() * settings.cell_width();
                                 let dist = node_pos - p.x();
+                                if dist.norm() > re {
+                                    return;
+                                }
                                 let node_index = if let Some(rect) = &self.period_bound_rect {
                                     let x_min_index =
                                         (rect.x_min / settings.cell_width()).round() as i64;
@@ -246,6 +266,7 @@ impl Space {
                                     dist.x / settings.cell_width(),
                                     dist.y / settings.cell_width(),
                                 );
+                                // let weight = (1. - (dist / re).norm()).powi(2);
 
                                 params.m += weight * poly_r_ij * poly_r_ij.transpose();
                                 params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose());
@@ -293,7 +314,7 @@ impl Space {
                         return;
                     }
                     let params = nodes.get(&node.index).unwrap();
-                    let m_inverse = params.m.pseudo_inverse(1e-15).unwrap();
+                    let m_inverse = params.m.try_inverse().unwrap();
 
                     {
                         let res = scale * m_inverse * params.f_vel;
@@ -487,40 +508,38 @@ impl Space {
                     }
                 }
 
-                fn factorial(num: usize) -> usize {
+                fn factorial(num: usize) -> f64 {
                     match num {
-                        0 | 1 => 1,
-                        _ => factorial(num - 1) * num,
+                        0 | 1 => 1.,
+                        _ => factorial(num - 1) * num as f64,
                     }
                 }
 
-                fn C(bx: usize, by: usize, p: usize, q: usize) -> i32 {
+                fn C(bx: usize, by: usize, p: usize, q: usize) -> f64 {
                     let b = bx + by;
                     if b == 0 {
-                        1
+                        1.
                     } else if b == q {
-                        (-1 as i32).pow(b as u32)
-                            * (factorial(b) / (factorial(bx) * factorial(by)) * factorial(p)
-                                / factorial(p + q)) as i32
+                        (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by))
+                            * factorial(p)
+                            / factorial(p + q)
                     } else {
-                        (-1 as i32).pow(b as u32)
-                            * (factorial(b) / (factorial(bx) * factorial(by))
-                                * q
-                                * (factorial(p + q - b))
-                                / factorial(p + q)) as i32
+                        (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by))
+                            * q as f64
+                            * factorial(p + q - b)
+                            / factorial(p + q)
                     }
                 }
 
                 fn S(ax: usize, ay: usize, rs: f64, p: usize, q: usize) -> f64 {
                     let a = ax + ay;
-                    let sum = [(0, 0), (1, 0), (0, 1), (2, 0), (1, 1), (0, 2)]
+                    let sum = [(0, 0), (1, 0), (0, 1)]
                         .map(|(bx, by)| {
                             let b = bx + by;
                             if b > q || bx > ax || by > ay {
                                 0.
                             } else {
-                                C(bx, by, p, q) as f64
-                                    / (factorial(ax - bx) * factorial(ay - by)) as f64
+                                C(bx, by, p, q) / (factorial(ax - bx) * factorial(ay - by))
                             }
                         })
                         .iter()
@@ -639,13 +658,11 @@ impl Space {
                         params.f_vel += weight
                             * poly_r_ij.kronecker(&p.c.column(0).transpose())
                             * C(1, 0, 2, 1) as f64
-                            * node.dist.x
-                            * rs;
+                            * -node.dist.x;
                         params.f_vel += weight
                             * poly_r_ij.kronecker(&p.c.column(1).transpose())
                             * C(0, 1, 2, 1) as f64
-                            * node.dist.y
-                            * rs;
+                            * -node.dist.y;
 
                         let stress = vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
                         params.f_stress += weight
@@ -659,7 +676,7 @@ impl Space {
                         return;
                     }
                     let params = nodes.get(&node.index).unwrap();
-                    let m_inverse = params.m.pseudo_inverse(1e-15).unwrap();
+                    let m_inverse = params.m.try_inverse().unwrap();
 
                     {
                         let res = scale_vel * m_inverse * params.f_vel;
@@ -687,27 +704,26 @@ impl Space {
                     }
                 }
 
-                fn factorial(num: usize) -> usize {
+                fn factorial(num: usize) -> f64 {
                     match num {
-                        0 | 1 => 1,
-                        _ => factorial(num - 1) * num,
+                        0 | 1 => 1.,
+                        _ => factorial(num - 1) * num as f64,
                     }
                 }
 
-                fn C(bx: usize, by: usize, p: usize, q: usize) -> i32 {
+                fn C(bx: usize, by: usize, p: usize, q: usize) -> f64 {
                     let b = bx + by;
                     if b == 0 {
-                        1
+                        1.
                     } else if b == q {
-                        (-1 as i32).pow(b as u32)
-                            * (factorial(b) / (factorial(bx) * factorial(by)) * factorial(p)
-                                / factorial(p + q)) as i32
+                        (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by))
+                            * factorial(p)
+                            / factorial(p + q)
                     } else {
-                        (-1 as i32).pow(b as u32)
-                            * (factorial(b) / (factorial(bx) * factorial(by))
-                                * q
-                                * (factorial(p + q - b))
-                                / factorial(p + q)) as i32
+                        (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by))
+                            * q as f64
+                            * factorial(p + q - b)
+                            / factorial(p + q)
                     }
                 }
 
@@ -719,8 +735,7 @@ impl Space {
                             if b > q || bx > ax || by > ay {
                                 0.
                             } else {
-                                C(bx, by, p, q) as f64
-                                    / (factorial(ax - bx) * factorial(ay - by)) as f64
+                                C(bx, by, p, q) / (factorial(ax - bx) * factorial(ay - by))
                             }
                         })
                         .iter()
@@ -829,22 +844,19 @@ impl Space {
                         params.m += weight * poly_r_ij * poly_r_ij.transpose();
 
                         params.f_vel +=
-                            weight * poly_r_ij.kronecker(&p.v.transpose()) * C(0, 0, 1, 1) as f64;
+                            weight * poly_r_ij.kronecker(&p.v.transpose()) * C(0, 0, 1, 1);
                         params.f_vel += weight
                             * poly_r_ij.kronecker(&p.c.column(0).transpose())
-                            * C(1, 0, 1, 1) as f64
-                            * node.dist.x
-                            * rs;
+                            * C(1, 0, 1, 1)
+                            * -node.dist.x;
                         params.f_vel += weight
                             * poly_r_ij.kronecker(&p.c.column(1).transpose())
-                            * C(0, 1, 1, 1) as f64
-                            * node.dist.y
-                            * rs;
+                            * C(0, 1, 1, 1)
+                            * -node.dist.y;
 
                         let stress = vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
-                        params.f_stress += weight
-                            * poly_r_ij.kronecker(&stress.transpose())
-                            * C(0, 0, 1, 0) as f64;
+                        params.f_stress +=
+                            weight * poly_r_ij.kronecker(&stress.transpose()) * C(0, 0, 1, 0);
                     }
                 }
 
@@ -853,7 +865,7 @@ impl Space {
                         return;
                     }
                     let params = nodes.get(&node.index).unwrap();
-                    let m_inverse = params.m.pseudo_inverse(1e-15).unwrap();
+                    let m_inverse = params.m.try_inverse().unwrap();
 
                     {
                         let res = scale_vel * m_inverse * params.f_vel;
