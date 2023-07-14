@@ -24,27 +24,32 @@ struct WindowSize(f32);
 
 pub fn run(
     snapshot_receiver: mpsc::Receiver<Snapshot>,
+    step_sender: Option<mpsc::Sender<usize>>,
     store_data: fn(&Snapshot),
     camera_size: f32,
 ) {
-    App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                resolution: bevy::window::WindowResolution::new(1920., 1080.),
-                ..default()
-            }),
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            resolution: bevy::window::WindowResolution::new(1920., 1080.),
             ..default()
-        }))
-        .add_plugin(PointsPlugin)
-        .insert_resource(ClearColor(Color::rgb(0.01, 0.02, 0.08)))
-        .insert_non_send_resource(snapshot_receiver)
-        .insert_non_send_resource(store_data)
-        .insert_resource(WindowSize(camera_size))
-        .add_startup_system(setup)
-        .add_system(update)
-        .add_system(move_camera)
-        .add_system(rotate_camera)
-        .run();
+        }),
+        ..default()
+    }))
+    .add_plugin(PointsPlugin)
+    .insert_resource(ClearColor(Color::rgb(0.01, 0.02, 0.08)))
+    .insert_non_send_resource(snapshot_receiver)
+    .insert_non_send_resource(store_data)
+    .insert_resource(WindowSize(camera_size))
+    .add_startup_system(setup)
+    .add_system(update)
+    .add_system(move_camera)
+    .add_system(rotate_camera)
+    .add_system(step);
+    if let Some(step_sender) = step_sender {
+        app.insert_non_send_resource(step_sender);
+    }
+    app.run();
 }
 
 fn setup(
@@ -167,6 +172,21 @@ fn rotate_camera(
         Quat::from_axis_angle(Vec3::Y, yaw) * Quat::from_axis_angle(Vec3::X, pitch);
 }
 
+fn step(world: &mut World) {
+    let step_sender = world.get_non_send_resource::<mpsc::Sender<usize>>();
+    if step_sender.is_none() {
+        return;
+    }
+    let keys = world.get_resource::<Input<KeyCode>>();
+    if keys.is_none() {
+        return;
+    }
+
+    if keys.unwrap().just_pressed(KeyCode::Return) {
+        step_sender.unwrap().send(0).unwrap();
+    }
+}
+
 fn update(world: &mut World) {
     let snapshot = {
         let receiver = world.get_non_send_resource::<mpsc::Receiver<Snapshot>>();
@@ -174,7 +194,7 @@ fn update(world: &mut World) {
             return;
         }
 
-        if false {
+        if true {
             receiver.unwrap().try_recv()
         } else {
             receiver
@@ -220,7 +240,7 @@ fn update(world: &mut World) {
     }));
 
     fn convert_particle_to_scaler(particle: &mlsmpm::Particle) -> f64 {
-        particle.pressure()
+        particle.v_norm()
     }
 
     let (scaler_min, scaler_max) = {
@@ -234,6 +254,8 @@ fn update(world: &mut World) {
 
         (min, max)
     };
+
+    println!("{} {}", scaler_min, scaler_max);
 
     points_mesh.colors = Some(
         snapshot

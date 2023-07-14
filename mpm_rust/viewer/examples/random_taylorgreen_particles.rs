@@ -28,7 +28,7 @@ fn main() {
 
     let (tx, rx) = mpsc::channel();
     tx.send(snapshot).unwrap();
-    window_bevy::run(rx, |_| {}, 500.);
+    window_bevy::run(rx, None, |_| {}, 500.);
 }
 
 pub fn new_for_taylor_green(settings: &Settings) -> Space {

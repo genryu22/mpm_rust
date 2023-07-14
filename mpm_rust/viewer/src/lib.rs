@@ -104,8 +104,6 @@ pub fn run_window_bevy(space_size: f64, settings: Settings, space: Space, window
     let (step_sender, step_receiver) = mpsc::channel();
     let (data_sender, data_receiver) = mpsc::channel();
 
-    step_sender.send(0).unwrap();
-
     thread::spawn(move || {
         let calc = Calculator::new(&settings, space);
         data_sender
@@ -122,6 +120,7 @@ pub fn run_window_bevy(space_size: f64, settings: Settings, space: Space, window
 
     window_bevy::run(
         data_receiver,
+        Some(step_sender),
         |snapshot| {
             if false {
                 write_to_files(snapshot).unwrap()

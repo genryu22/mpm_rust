@@ -7,6 +7,7 @@ fn main() {
         P2GSchemeType::LSMPS,
         P2GSchemeType::LsmpsLinear,
         P2GSchemeType::CompactLsmps,
+        P2GSchemeType::CompactOnlyVelocity,
         P2GSchemeType::CompactLsmpsLinear,
     ];
 
@@ -129,8 +130,8 @@ pub fn new_for_taylor_green(settings: &Settings) -> Space {
             let mut x = p_dist * (i_x as f64 + 0.5) as f64 + pos_x_min;
             let mut y = p_dist * (i_y as f64 + 0.5) as f64 + pos_x_min;
             if true {
-                x += rng.gen_range(-1.0..=1.0) * p_dist * 0.1;
-                y += rng.gen_range(-1.0..=1.0) * p_dist * 0.1;
+                x += rng.gen_range(-1.0..=1.0) * p_dist * 0.2;
+                y += rng.gen_range(-1.0..=1.0) * p_dist * 0.2;
             }
             let velocity = Vector2::new(
                 f64::sin(PI * (x - 5.) / half_domain_size)
