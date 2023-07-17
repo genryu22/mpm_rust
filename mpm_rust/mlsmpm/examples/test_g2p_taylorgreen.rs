@@ -6,6 +6,7 @@ fn main() {
         G2PSchemeType::MLSMPM,
         G2PSchemeType::LSMPS,
         G2PSchemeType::LsmpsLinear,
+        G2PSchemeType::CompactLsmps,
     ];
 
     for scheme_type in g2p {
@@ -122,7 +123,25 @@ pub fn new_for_taylor_green(settings: &Settings) -> Space {
                 * f64::sin(PI * (y - 5.) / half_domain_size),
         );
 
-        grid.push(Node::new_with_vel((idx_x, idx_y), velocity));
+        let c = {
+            let k = PI / half_domain_size;
+            let c11 = k
+                * f64::cos(PI * (x - 5.) / half_domain_size)
+                * f64::cos(PI * (y - 5.) / half_domain_size);
+            let c12 = -k
+                * f64::sin(PI * (x - 5.) / half_domain_size)
+                * f64::sin(PI * (y - 5.) / half_domain_size);
+            let c21 = k
+                * f64::sin(PI * (x - 5.) / half_domain_size)
+                * f64::sin(PI * (y - 5.) / half_domain_size);
+            let c22 = -k
+                * f64::cos(PI * (x - 5.) / half_domain_size)
+                * f64::cos(PI * (y - 5.) / half_domain_size);
+
+            Matrix2::new(c11, c12, c21, c22)
+        };
+
+        grid.push(Node::new_with_vel_c((idx_x, idx_y), velocity, c));
     }
 
     Space::new(

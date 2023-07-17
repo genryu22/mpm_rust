@@ -53,22 +53,20 @@ fn mlsmpm(settings: &Settings, space: &mut Space) {
                 pressure = 0.;
             }
         }
-        // pressure = {
-        //     let PI = std::f64::consts::PI;
-        //     let L = 1.;
-        //     let rho = 1.;
-        //     let U = 1.;
-        //     let nu = 1e-2;
 
-        //     let (x, y) = (p.x.x - 5., p.x.y - 5.);
+        pressure = {
+            let PI = std::f64::consts::PI;
+            let L = 1.;
+            let rho = 1.;
+            let U = 1.;
+            let nu = 1e-2;
 
-        //     rho * U * U / 4.
-        //         * f64::exp(
-        //             -4. * PI * PI * (space.steps as f64) * settings.dt * nu
-        //                 / (L * L),
-        //         )
-        //         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
-        // };
+            let (x, y) = (p.x.x - 5., p.x.y - 5.);
+
+            rho * U * U / 4.
+                * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
+                * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+        };
 
         p.pressure = pressure;
         let pressure = pressure;
@@ -147,6 +145,20 @@ fn lsmps(settings: &Settings, space: &mut Space) {
                 }
             }
 
+            pressure = {
+                let PI = std::f64::consts::PI;
+                let L = 1.;
+                let rho = 1.;
+                let U = 1.;
+                let nu = 1e-2;
+
+                let (x, y) = (p.x.x - 5., p.x.y - 5.);
+
+                rho * U * U / 4.
+                    * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
+                    * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+            };
+
             p.pressure = pressure;
             let pressure = pressure;
 
@@ -155,113 +167,7 @@ fn lsmps(settings: &Settings, space: &mut Space) {
             let viscosity_term = settings.dynamic_viscosity * (strain + strain.transpose());
 
             (-pressure * Matrix2f::identity() + viscosity_term)
-            // volumeを含めているが、正しいか不明
         };
-
-        // {
-        //     fn weight_function() -> fn(f64, f64) -> f64 {
-        //         fn quadratic_b_spline(x: f64) -> f64 {
-        //             let x = x.abs();
-
-        //             if 0. <= x && x <= 0.5 {
-        //                 0.75 - x * x
-        //             } else if 0.5 <= x && x <= 1.5 {
-        //                 0.5 * (x - 1.5).powi(2)
-        //             } else {
-        //                 0.
-        //             }
-        //         }
-
-        //         fn qubic_b_spline(x: f64) -> f64 {
-        //             let x = x.abs();
-
-        //             if 0. <= x && x <= 1. {
-        //                 0.5 * x * x * x - x * x + 2. / 3.
-        //             } else if 1. <= x && x <= 2. {
-        //                 (2. - x).powi(3) / 6.
-        //             } else {
-        //                 0.
-        //             }
-        //         }
-
-        //         fn qubic_b_spline_2d(x: f64, y: f64) -> f64 {
-        //             qubic_b_spline(x) * qubic_b_spline(y)
-        //         }
-
-        //         fn quadratic_b_spline_2d(x: f64, y: f64) -> f64 {
-        //             quadratic_b_spline(x) * quadratic_b_spline(y)
-        //         }
-
-        //         qubic_b_spline_2d
-        //     }
-
-        //     let effect_size = 10;
-        //     (-effect_size..=effect_size)
-        //         .flat_map(|gx| (-effect_size..=effect_size).map(move |gy| (gx, gy)))
-        //         .for_each(|(gx, gy)| {
-        //             let node_ipos =
-        //                 p.x().map(|x| (x / settings.cell_width()).floor() as i64)
-        //                     + vector![gx, gy];
-        //             let node_pos = node_ipos.cast::<f64>() * settings.cell_width();
-        //             let dist = node_pos - p.x();
-        //             if dist.norm() > re {
-        //                 return;
-        //             }
-        //             let node_index = if let Some(rect) = &space.period_bound_rect {
-        //                 let x_min_index =
-        //                     (rect.x_min / settings.cell_width()).round() as i64;
-        //                 let x_max_index =
-        //                     (rect.x_max / settings.cell_width()).round() as i64;
-        //                 let y_min_index =
-        //                     (rect.y_min / settings.cell_width()).round() as i64;
-        //                 let y_max_index =
-        //                     (rect.y_max / settings.cell_width()).round() as i64;
-
-        //                 let origin = vector![x_min_index, y_min_index];
-        //                 let node_ipos = node_ipos - origin;
-        //                 let node_ipos = vector![
-        //                     (node_ipos.x.rem_euclid(x_max_index - x_min_index)
-        //                         + origin.x)
-        //                         as U,
-        //                     (node_ipos.y.rem_euclid(y_max_index - y_min_index)
-        //                         + origin.y)
-        //                         as U
-        //                 ];
-
-        //                 (node_ipos.x, node_ipos.y)
-        //             } else {
-        //                 (node_ipos.x as U, node_ipos.y as U)
-        //             };
-
-        //             let params = {
-        //                 let index = node_index;
-        //                 if !nodes.contains_key(&index) {
-        //                     let params = LsmpsParams {
-        //                         m: Matrix6::<f64>::zeros(),
-        //                         f_vel: Matrix6x2::<f64>::zeros(),
-        //                         f_stress: Matrix6x3::<f64>::zeros(),
-        //                     };
-        //                     nodes.insert(index, params);
-        //                 }
-
-        //                 nodes.get_mut(&node_index).unwrap()
-        //             };
-        //             let r_ij = dist / rs;
-        //             let poly_r_ij = poly(r_ij);
-        //             let weight = weight_function()(
-        //                 dist.x / settings.cell_width(),
-        //                 dist.y / settings.cell_width(),
-        //             );
-        //             // let weight = (1. - (dist / re).norm()).powi(2);
-
-        //             params.m += weight * poly_r_ij * poly_r_ij.transpose();
-        //             params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose());
-        //             let stress =
-        //                 vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
-        //             params.f_stress +=
-        //                 weight * poly_r_ij.kronecker(&stress.transpose());
-        //         });
-        // }
 
         for node in NodeIterator::new(
             settings,
@@ -364,6 +270,20 @@ fn lsmps_linear(settings: &Settings, space: &mut Space) {
                 }
             }
 
+            pressure = {
+                let PI = std::f64::consts::PI;
+                let L = 1.;
+                let rho = 1.;
+                let U = 1.;
+                let nu = 1e-2;
+
+                let (x, y) = (p.x.x - 5., p.x.y - 5.);
+
+                rho * U * U / 4.
+                    * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
+                    * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+            };
+
             p.pressure = pressure;
             let pressure = pressure;
 
@@ -374,77 +294,34 @@ fn lsmps_linear(settings: &Settings, space: &mut Space) {
             (-pressure * Matrix2f::identity() + viscosity_term)
         };
 
-        {
-            fn weight_function() -> fn(f64, f64) -> f64 {
-                fn quadratic_b_spline(x: f64) -> f64 {
-                    let x = x.abs();
-
-                    if 0. <= x && x <= 0.5 {
-                        0.75 - x * x
-                    } else if 0.5 <= x && x <= 1.5 {
-                        0.5 * (x - 1.5).powi(2)
-                    } else {
-                        0.
-                    }
-                }
-                fn quadratic_b_spline_2d(x: f64, y: f64) -> f64 {
-                    quadratic_b_spline(x) * quadratic_b_spline(y)
-                }
-
-                quadratic_b_spline_2d
-            }
-
-            let effect_size = 3;
-            (-effect_size..=effect_size)
-                .flat_map(|gx| (-effect_size..=effect_size).map(move |gy| (gx, gy)))
-                .for_each(|(gx, gy)| {
-                    let node_ipos =
-                        p.x().map(|x| (x / settings.cell_width()).floor() as i64) + vector![gx, gy];
-                    let node_pos = node_ipos.cast::<f64>() * settings.cell_width();
-                    let dist = node_pos - p.x();
-                    let node_index = if let Some(rect) = &space.period_bound_rect {
-                        let x_min_index = (rect.x_min / settings.cell_width()).round() as i64;
-                        let x_max_index = (rect.x_max / settings.cell_width()).round() as i64;
-                        let y_min_index = (rect.y_min / settings.cell_width()).round() as i64;
-                        let y_max_index = (rect.y_max / settings.cell_width()).round() as i64;
-
-                        let origin = vector![x_min_index, y_min_index];
-                        let node_ipos = node_ipos - origin;
-                        let node_ipos = vector![
-                            (node_ipos.x.rem_euclid(x_max_index - x_min_index) + origin.x) as U,
-                            (node_ipos.y.rem_euclid(y_max_index - y_min_index) + origin.y) as U
-                        ];
-
-                        (node_ipos.x, node_ipos.y)
-                    } else {
-                        (node_ipos.x as U, node_ipos.y as U)
+        for node in NodeIterator::new(
+            settings,
+            &space.grid,
+            p,
+            &space.period_bounds,
+            &space.period_bound_rect,
+        ) {
+            let params = {
+                let index = node.node.index;
+                if !nodes.contains_key(&index) {
+                    let params = LsmpsParams {
+                        m: Matrix3::<f64>::zeros(),
+                        f_vel: Matrix3x2::<f64>::zeros(),
+                        f_stress: Matrix3::<f64>::zeros(),
                     };
+                    nodes.insert(index, params);
+                }
 
-                    let params = {
-                        let index = node_index;
-                        if !nodes.contains_key(&index) {
-                            let params = LsmpsParams {
-                                m: Matrix3::<f64>::zeros(),
-                                f_vel: Matrix3x2::<f64>::zeros(),
-                                f_stress: Matrix3::<f64>::zeros(),
-                            };
-                            nodes.insert(index, params);
-                        }
+                nodes.get_mut(&node.node.index).unwrap()
+            };
+            let r_ij = -node.dist / rs;
+            let poly_r_ij = poly(r_ij);
+            let weight = node.weight;
 
-                        nodes.get_mut(&node_index).unwrap()
-                    };
-                    let r_ij = dist / rs;
-                    let poly_r_ij = poly(r_ij);
-                    let weight = weight_function()(
-                        dist.x / settings.cell_width(),
-                        dist.y / settings.cell_width(),
-                    );
-
-                    params.m += weight * poly_r_ij * poly_r_ij.transpose();
-                    params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose());
-                    let stress = vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
-                    params.f_stress += weight * poly_r_ij.kronecker(&stress.transpose());
-                });
+            params.m += weight * poly_r_ij * poly_r_ij.transpose();
+            params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose());
+            let stress = vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
+            params.f_stress += weight * poly_r_ij.kronecker(&stress.transpose());
         }
     }
 
@@ -763,22 +640,19 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
                 }
             }
 
-            // pressure = {
-            //     let PI = std::f64::consts::PI;
-            //     let L = 1.;
-            //     let rho = 1.;
-            //     let U = 1.;
-            //     let nu = 1e-2;
+            pressure = {
+                let PI = std::f64::consts::PI;
+                let L = 1.;
+                let rho = 1.;
+                let U = 1.;
+                let nu = 1e-2;
 
-            //     let (x, y) = (p.x.x - 5., p.x.y - 5.);
+                let (x, y) = (p.x.x - 5., p.x.y - 5.);
 
-            //     rho * U * U / 4.
-            //         * f64::exp(
-            //             -4. * PI * PI * (space.steps as f64) * settings.dt * nu
-            //                 / (L * L),
-            //         )
-            //         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
-            // };
+                rho * U * U / 4.
+                    * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
+                    * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+            };
 
             p.pressure = pressure;
             let pressure = pressure;
@@ -950,22 +824,19 @@ fn compact_lsmps_linear(settings: &Settings, space: &mut Space) {
                 }
             }
 
-            // pressure = {
-            //     let PI = std::f64::consts::PI;
-            //     let L = 1.;
-            //     let rho = 1.;
-            //     let U = 1.;
-            //     let nu = 1e-2;
+            pressure = {
+                let PI = std::f64::consts::PI;
+                let L = 1.;
+                let rho = 1.;
+                let U = 1.;
+                let nu = 1e-2;
 
-            //     let (x, y) = (p.x.x - 5., p.x.y - 5.);
+                let (x, y) = (p.x.x - 5., p.x.y - 5.);
 
-            //     rho * U * U / 4.
-            //         * f64::exp(
-            //             -4. * PI * PI * (space.steps as f64) * settings.dt * nu
-            //                 / (L * L),
-            //         )
-            //         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
-            // };
+                rho * U * U / 4.
+                    * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
+                    * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+            };
 
             p.pressure = pressure;
             let pressure = pressure;

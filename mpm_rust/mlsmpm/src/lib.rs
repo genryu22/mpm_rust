@@ -38,9 +38,9 @@ impl<'a> Calculator<'a> {
     pub fn start(&mut self, count: u32) {
         for _i in 0..count {
             self.update();
-            if _i % (count / 10) == 0 {
-                println!("{} step", _i);
-            }
+            // if _i % (count / 10) == 0 {
+            //     println!("{} step", _i);
+            // }
         }
     }
 

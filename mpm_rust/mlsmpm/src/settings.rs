@@ -47,6 +47,7 @@ pub enum G2PSchemeType {
     MLSMPM,
     LSMPS,
     LsmpsLinear,
+    CompactLsmps,
 }
 
 impl Settings {

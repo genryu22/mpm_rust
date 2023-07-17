@@ -7,6 +7,7 @@ pub struct Node {
     pub(super) force: Vector2f,
     pub mass: f64,
     pub(super) index: (usize, usize),
+    pub(super) c: Matrix2f,
 }
 
 impl Node {
@@ -17,6 +18,7 @@ impl Node {
             force: Vector2::zeros(),
             mass: 0.0,
             index,
+            c: Matrix2::zeros(),
         }
     }
 
@@ -27,6 +29,18 @@ impl Node {
             force: Vector2::zeros(),
             mass: 0.0,
             index,
+            c: Matrix2::zeros(),
+        }
+    }
+
+    pub fn new_with_vel_c(index: (usize, usize), v_star: Vector2f, c: Matrix2f) -> Node {
+        Node {
+            v: Vector2::zeros(),
+            v_star,
+            force: Vector2::zeros(),
+            mass: 0.0,
+            index,
+            c,
         }
     }
 

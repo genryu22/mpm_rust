@@ -139,6 +139,11 @@ impl Space {
                 }
             }
         }
+
+        let current_grid = self.grid.clone();
+        self.grid.par_iter_mut().for_each(|node| {
+            node.c = util::calc_deriv_v(settings, node, &current_grid, &self.period_bound_rect);
+        });
     }
 
     pub fn g2p(&mut self, settings: &Settings) {

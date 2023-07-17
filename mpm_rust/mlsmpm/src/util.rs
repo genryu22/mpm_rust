@@ -142,6 +142,54 @@ impl<'a, 'b, 'c, 'd> NodeIterator<'a, 'b, 'd> {
     }
 }
 
+pub fn calc_deriv_v(
+    settings: &Settings,
+    node: &Node,
+    grid: &Vec<Node>,
+    period_bound_rect: &Option<PeriodicBoundaryRect>,
+) -> Matrix2f {
+    if period_bound_rect.is_none() {
+        panic!();
+    }
+
+    fn get_node(
+        settings: &Settings,
+        rect: &PeriodicBoundaryRect,
+        node_ipos: Vector2<i64>,
+    ) -> (U, U) {
+        let x_min_index = (rect.x_min / settings.cell_width()).round() as i64;
+        let x_max_index = (rect.x_max / settings.cell_width()).round() as i64;
+        let y_min_index = (rect.y_min / settings.cell_width()).round() as i64;
+        let y_max_index = (rect.y_max / settings.cell_width()).round() as i64;
+
+        let origin = vector![x_min_index, y_min_index];
+        let node_ipos = node_ipos - origin;
+        let node_ipos = vector![
+            (node_ipos.x.rem_euclid(x_max_index - x_min_index) + origin.x) as U,
+            (node_ipos.y.rem_euclid(y_max_index - y_min_index) + origin.y) as U
+        ];
+
+        (node_ipos.x, node_ipos.y)
+    }
+
+    let rect = period_bound_rect.as_ref().unwrap();
+
+    let u = |gx, gy| {
+        let index = get_node(
+            settings,
+            &rect,
+            Vector2::new(node.index.0 as i64 + gx, node.index.1 as i64 + gy),
+        );
+
+        grid[index.0 + index.1 * (settings.grid_width + 1)].v_star
+    };
+
+    let dx = (u(1, 0) - u(-1, 0)) / (2. * settings.cell_width());
+    let dy = (u(0, 1) - u(0, -1)) / (2. * settings.cell_width());
+
+    Matrix2f::from_columns(&[dx, dy])
+}
+
 fn calc_weight_dist_index(
     settings: &Settings,
     particle_position: &Vector2f,
