@@ -77,13 +77,15 @@ fn fun_name(p2g: P2GSchemeType, g2p: G2PSchemeType) -> f64 {
             nodes
                 .iter()
                 .map(|(x, y, node)| {
-                    ((*node).v / node.mass
-                        - true_vel(
-                            *x as f64 * cell_width,
-                            *y as f64 * cell_width,
-                            half_domain_size,
-                            PI,
-                        ))
+                    ((match p2g {
+                        P2GSchemeType::MLSMPM => (*node).v / node.mass,
+                        _ => (*node).v,
+                    }) - true_vel(
+                        *x as f64 * cell_width,
+                        *y as f64 * cell_width,
+                        half_domain_size,
+                        PI,
+                    ))
                     .norm_squared()
                 })
                 .sum::<f64>()

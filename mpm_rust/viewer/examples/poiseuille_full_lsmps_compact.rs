@@ -3,8 +3,8 @@ use mlsmpm::*;
 fn main() {
     let settings = Settings {
         dt: 5e-3,
-        gravity: 0.,           //1e-2,
-        dynamic_viscosity: 0., //1e-2,
+        gravity: -1e-2,
+        dynamic_viscosity: 1e-2,
         alpha: 0.,
         affine: true,
         space_width: 10.,
@@ -15,7 +15,7 @@ fn main() {
         boundary_mirror: false,
         vx_zero: true,
         weight_type: WeightType::QuadraticBSpline,
-        p2g_scheme: P2GSchemeType::LSMPS,
+        p2g_scheme: P2GSchemeType::CompactLsmps,
         g2p_scheme: G2PSchemeType::LSMPS,
     };
 

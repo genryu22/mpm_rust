@@ -314,7 +314,7 @@ impl Space {
                             nodes.get_mut(&node.node.index).unwrap()
                         };
 
-                        let r_ij = node.dist / rs;
+                        let r_ij = -node.dist / rs;
                         let poly_r_ij = poly(r_ij);
                         let weight = node.weight;
 
@@ -682,7 +682,7 @@ impl Space {
 
                                     nodes.get_mut(&node_index).unwrap()
                                 };
-                                let r_ij = dist / rs;
+                                let r_ij = -dist / rs;
                                 let poly_r_ij = poly(r_ij);
                                 let weight = weight_function()(
                                     dist.x / settings.cell_width(),
@@ -895,17 +895,17 @@ impl Space {
                         return;
                     }
                     let params = nodes.get(&node.index).unwrap();
-                    let m_inverse = (params.m + Matrix6::identity() * 0.).try_inverse().unwrap();
+                    if let Some(m_inverse) = (params.m + Matrix6::identity() * 0.).try_inverse() {
+                        {
+                            let res = scale_vel * m_inverse * params.f_vel;
+                            node.v = res.row(0).transpose();
+                        }
 
-                    {
-                        let res = scale_vel * m_inverse * params.f_vel;
-                        node.v = res.row(0).transpose();
-                    }
-
-                    {
-                        let res = scale_stress * m_inverse * params.f_stress;
-                        node.force[0] = res[(1, 0)] + res[(2, 1)];
-                        node.force[1] = res[(1, 1)] + res[(2, 2)];
+                        {
+                            let res = scale_stress * m_inverse * params.f_stress;
+                            node.force[0] = res[(1, 0)] + res[(2, 1)];
+                            node.force[1] = res[(1, 1)] + res[(2, 2)];
+                        }
                     }
                 });
             }
@@ -1233,7 +1233,7 @@ impl Space {
                             nodes.get_mut(&node.node.index).unwrap()
                         };
 
-                        let r_ij = node.dist / rs;
+                        let r_ij = -node.dist / rs;
                         let poly_r_ij = poly(r_ij);
                         let weight = node.weight;
 
@@ -1432,39 +1432,6 @@ impl Space {
                         params.f_vel += weight * poly_r_ij.kronecker(&n.node.v_star.transpose());
                     }
 
-                    // let m = Matrix4::new(
-                    //     params.m.m11,
-                    //     params.m.m12,
-                    //     params.m.m13,
-                    //     params.m.m16,
-                    //     params.m.m21,
-                    //     params.m.m22,
-                    //     params.m.m23,
-                    //     params.m.m26,
-                    //     params.m.m31,
-                    //     params.m.m32,
-                    //     params.m.m33,
-                    //     params.m.m36,
-                    //     params.m.m61,
-                    //     params.m.m62,
-                    //     params.m.m63,
-                    //     params.m.m66,
-                    // );
-
-                    // if let Some(m_inverted) = m.try_inverse() {
-                    //     let res = Matrix4::<f64>::from_diagonal(&vector![
-                    //         scale.m11, scale.m22, scale.m33, scale.m66
-                    //     ]) * m_inverted
-                    //         * Matrix4x2::new(
-                    //             params.f_vel.m11,
-                    //             params.f_vel.m12,
-                    //             params.f_vel.m21,
-                    //             params.f_vel.m22,
-                    //             params.f_vel.m31,
-                    //             params.f_vel.m32,
-                    //             params.f_vel.m61,
-                    //             params.f_vel.m62,
-                    //         );
                     if let Some(m_inverted) = params.m.try_inverse() {
                         let res = scale * m_inverted * params.f_vel;
                         p.v = res.row(0).transpose();
