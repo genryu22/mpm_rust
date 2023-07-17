@@ -54,19 +54,19 @@ fn mlsmpm(settings: &Settings, space: &mut Space) {
             }
         }
 
-        pressure = {
-            let PI = std::f64::consts::PI;
-            let L = 1.;
-            let rho = 1.;
-            let U = 1.;
-            let nu = 1e-2;
+        // pressure = {
+        //     let PI = std::f64::consts::PI;
+        //     let L = 1.;
+        //     let rho = 1.;
+        //     let U = 1.;
+        //     let nu = 1e-2;
 
-            let (x, y) = (p.x.x - 5., p.x.y - 5.);
+        //     let (x, y) = (p.x.x - 5., p.x.y - 5.);
 
-            rho * U * U / 4.
-                * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
-                * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
-        };
+        //     rho * U * U / 4.
+        //         * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
+        //         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+        // };
 
         p.pressure = pressure;
         let pressure = pressure;
@@ -145,19 +145,19 @@ fn lsmps(settings: &Settings, space: &mut Space) {
                 }
             }
 
-            pressure = {
-                let PI = std::f64::consts::PI;
-                let L = 1.;
-                let rho = 1.;
-                let U = 1.;
-                let nu = 1e-2;
+            // pressure = {
+            //     let PI = std::f64::consts::PI;
+            //     let L = 1.;
+            //     let rho = 1.;
+            //     let U = 1.;
+            //     let nu = 1e-2;
 
-                let (x, y) = (p.x.x - 5., p.x.y - 5.);
+            //     let (x, y) = (p.x.x - 5., p.x.y - 5.);
 
-                rho * U * U / 4.
-                    * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
-                    * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
-            };
+            //     rho * U * U / 4.
+            //         * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
+            //         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+            // };
 
             p.pressure = pressure;
             let pressure = pressure;
@@ -270,19 +270,19 @@ fn lsmps_linear(settings: &Settings, space: &mut Space) {
                 }
             }
 
-            pressure = {
-                let PI = std::f64::consts::PI;
-                let L = 1.;
-                let rho = 1.;
-                let U = 1.;
-                let nu = 1e-2;
+            // pressure = {
+            //     let PI = std::f64::consts::PI;
+            //     let L = 1.;
+            //     let rho = 1.;
+            //     let U = 1.;
+            //     let nu = 1e-2;
 
-                let (x, y) = (p.x.x - 5., p.x.y - 5.);
+            //     let (x, y) = (p.x.x - 5., p.x.y - 5.);
 
-                rho * U * U / 4.
-                    * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
-                    * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
-            };
+            //     rho * U * U / 4.
+            //         * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
+            //         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+            // };
 
             p.pressure = pressure;
             let pressure = pressure;
@@ -330,17 +330,17 @@ fn lsmps_linear(settings: &Settings, space: &mut Space) {
             return;
         }
         let params = nodes.get(&node.index).unwrap();
-        let m_inverse = params.m.try_inverse().unwrap();
+        if let Some(m_inverse) = (params.m + Matrix3::identity() * 0.).try_inverse() {
+            {
+                let res = scale * m_inverse * params.f_vel;
+                node.v = res.row(0).transpose();
+            }
 
-        {
-            let res = scale * m_inverse * params.f_vel;
-            node.v = res.row(0).transpose();
-        }
-
-        {
-            let res = scale * m_inverse * params.f_stress;
-            node.force[0] = res[(1, 0)] + res[(2, 1)];
-            node.force[1] = res[(1, 1)] + res[(2, 2)];
+            {
+                let res = scale * m_inverse * params.f_stress;
+                node.force[0] = res[(1, 0)] + res[(2, 1)];
+                node.force[1] = res[(1, 1)] + res[(2, 2)];
+            }
         }
     });
 }
@@ -640,19 +640,19 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
                 }
             }
 
-            pressure = {
-                let PI = std::f64::consts::PI;
-                let L = 1.;
-                let rho = 1.;
-                let U = 1.;
-                let nu = 1e-2;
+            // pressure = {
+            //     let PI = std::f64::consts::PI;
+            //     let L = 1.;
+            //     let rho = 1.;
+            //     let U = 1.;
+            //     let nu = 1e-2;
 
-                let (x, y) = (p.x.x - 5., p.x.y - 5.);
+            //     let (x, y) = (p.x.x - 5., p.x.y - 5.);
 
-                rho * U * U / 4.
-                    * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
-                    * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
-            };
+            //     rho * U * U / 4.
+            //         * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
+            //         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+            // };
 
             p.pressure = pressure;
             let pressure = pressure;
@@ -824,19 +824,19 @@ fn compact_lsmps_linear(settings: &Settings, space: &mut Space) {
                 }
             }
 
-            pressure = {
-                let PI = std::f64::consts::PI;
-                let L = 1.;
-                let rho = 1.;
-                let U = 1.;
-                let nu = 1e-2;
+            // pressure = {
+            //     let PI = std::f64::consts::PI;
+            //     let L = 1.;
+            //     let rho = 1.;
+            //     let U = 1.;
+            //     let nu = 1e-2;
 
-                let (x, y) = (p.x.x - 5., p.x.y - 5.);
+            //     let (x, y) = (p.x.x - 5., p.x.y - 5.);
 
-                rho * U * U / 4.
-                    * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
-                    * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
-            };
+            //     rho * U * U / 4.
+            //         * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
+            //         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+            // };
 
             p.pressure = pressure;
             let pressure = pressure;
@@ -895,17 +895,17 @@ fn compact_lsmps_linear(settings: &Settings, space: &mut Space) {
             return;
         }
         let params = nodes.get(&node.index).unwrap();
-        let m_inverse = params.m.try_inverse().unwrap();
+        if let Some(m_inverse) = (params.m + Matrix3::identity() * 0.).try_inverse() {
+            {
+                let res = scale_vel * m_inverse * params.f_vel;
+                node.v = res.row(0).transpose();
+            }
 
-        {
-            let res = scale_vel * m_inverse * params.f_vel;
-            node.v = res.row(0).transpose();
-        }
-
-        {
-            let res = scale_stress * m_inverse * params.f_stress;
-            node.force[0] = res[(1, 0)] + res[(2, 1)];
-            node.force[1] = res[(1, 1)] + res[(2, 2)];
+            {
+                let res = scale_stress * m_inverse * params.f_stress;
+                node.force[0] = res[(1, 0)] + res[(2, 1)];
+                node.force[1] = res[(1, 1)] + res[(2, 2)];
+            }
         }
     });
 }

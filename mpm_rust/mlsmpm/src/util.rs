@@ -149,7 +149,7 @@ pub fn calc_deriv_v(
     period_bound_rect: &Option<PeriodicBoundaryRect>,
 ) -> Matrix2f {
     if period_bound_rect.is_none() {
-        panic!();
+        return Matrix2f::zeros();
     }
 
     fn get_node(
