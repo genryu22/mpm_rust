@@ -255,7 +255,7 @@ fn update(world: &mut World) {
         (min, max)
     };
 
-    println!("{} {}", scaler_min, scaler_max);
+    //println!("{} {}", scaler_min, scaler_max);
 
     points_mesh.colors = Some(
         snapshot
