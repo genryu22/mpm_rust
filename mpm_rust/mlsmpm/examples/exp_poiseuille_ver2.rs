@@ -18,6 +18,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             P2GSchemeType::CompactLsmpsLinear,
             G2PSchemeType::LsmpsLinear,
         ),
+        (
+            P2GSchemeType::CompactOnlyVelocity,
+            G2PSchemeType::LsmpsLinear,
+        ),
         (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
     ]
@@ -42,6 +46,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     weight_type: WeightType::QuadraticBSpline,
                     p2g_scheme,
                     g2p_scheme,
+                    pressure: Some(|_, _| 0.),
                 };
 
                 println!("{:?}", settings);

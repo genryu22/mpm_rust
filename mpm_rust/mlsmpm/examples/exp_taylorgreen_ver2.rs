@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]
     .par_iter()
     .map(|&(p2g_scheme, g2p_scheme)| {
-        let result = [25, 50, 100, 200, 250, 400, 500, 800]
+        let result = [25, 50, 100] //, 200, 250, 400, 500, 800]
             .par_iter()
             .map(|&grid_width| {
                 let settings = Settings {
@@ -43,11 +43,24 @@ fn main() -> Result<(), Box<dyn Error>> {
                     weight_type: WeightType::QuadraticBSpline,
                     p2g_scheme,
                     g2p_scheme,
+                    pressure: Some(|p, time| {
+                        let PI = std::f64::consts::PI;
+                        let L = 1.;
+                        let rho = 1.;
+                        let U = 1.;
+                        let nu = 1e-2;
+
+                        let (x, y) = (p.x().x - 5., p.x().y - 5.);
+
+                        rho * U * U / 4.
+                            * f64::exp(-4. * PI * PI * time * nu / (L * L))
+                            * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+                    }),
                 };
 
                 println!("{:?}", settings);
 
-                let time = 1e-2;
+                let time = 1e-1;
                 let v_time_steps = (time / settings.dt) as u32;
 
                 let space = new_for_taylor_green(&settings);

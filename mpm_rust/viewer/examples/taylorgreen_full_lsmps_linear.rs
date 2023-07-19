@@ -17,6 +17,19 @@ fn main() {
         weight_type: WeightType::QuadraticBSpline,
         p2g_scheme: P2GSchemeType::LsmpsLinear,
         g2p_scheme: G2PSchemeType::LsmpsLinear,
+        pressure: Some(|p, time| {
+            let PI = std::f64::consts::PI;
+            let L = 1.;
+            let rho = 1.;
+            let U = 1.;
+            let nu = 1e-2;
+
+            let (x, y) = (p.x().x - 5., p.x().y - 5.);
+
+            rho * U * U / 4.
+                * f64::exp(-4. * PI * PI * time * nu / (L * L))
+                * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+        }),
     };
 
     let space = new_for_taylor_green(&settings);

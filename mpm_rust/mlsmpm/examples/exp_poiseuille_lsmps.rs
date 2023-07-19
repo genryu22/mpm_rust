@@ -23,6 +23,7 @@ fn main() {
                 weight_type: WeightType::QuadraticBSpline,
                 p2g_scheme: P2GSchemeType::LSMPS,
                 g2p_scheme: G2PSchemeType::LSMPS,
+                pressure: Some(|_, _| 0.),
             };
 
             println!("{:?}", settings);

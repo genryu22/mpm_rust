@@ -17,6 +17,7 @@ fn main() {
         weight_type: mlsmpm::WeightType::QuadraticBSpline,
         p2g_scheme: P2GSchemeType::MLSMPM,
         g2p_scheme: G2PSchemeType::MLSMPM,
+        pressure: None,
     };
 
     println!("{:?}", settings);

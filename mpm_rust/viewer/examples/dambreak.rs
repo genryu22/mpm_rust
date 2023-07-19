@@ -17,6 +17,7 @@ fn main() {
         weight_type: WeightType::QuadraticBSpline,
         p2g_scheme: P2GSchemeType::MLSMPM,
         g2p_scheme: G2PSchemeType::MLSMPM,
+        pressure: None,
     };
 
     let space = new_for_dambreak(&settings);

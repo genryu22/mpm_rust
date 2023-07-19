@@ -22,6 +22,8 @@ pub struct Settings {
 
     pub p2g_scheme: P2GSchemeType,
     pub g2p_scheme: G2PSchemeType,
+
+    pub pressure: Option<fn(&Particle, f64) -> f64>,
 }
 
 #[derive(Debug)]

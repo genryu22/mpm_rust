@@ -45,31 +45,20 @@ fn mlsmpm(settings: &Settings, space: &mut Space) {
             &space.period_bound_rect,
         );
 
-        let mut pressure = 0.;
-        if settings.c != 0. && settings.eos_power != 0. {
-            pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
-                * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
-            if pressure < 0. {
-                pressure = 0.;
+        let pressure = match settings.pressure {
+            Some(pressure) => pressure(p, space.steps as f64 * settings.dt),
+            None => {
+                let pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
+                    * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
+                if pressure < 0. {
+                    0.
+                } else {
+                    pressure
+                }
             }
-        }
-
-        // pressure = {
-        //     let PI = std::f64::consts::PI;
-        //     let L = 1.;
-        //     let rho = 1.;
-        //     let U = 1.;
-        //     let nu = 1e-2;
-
-        //     let (x, y) = (p.x.x - 5., p.x.y - 5.);
-
-        //     rho * U * U / 4.
-        //         * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
-        //         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
-        // };
+        };
 
         p.pressure = pressure;
-        let pressure = pressure;
 
         let dudv = p.c;
         let strain = dudv;
@@ -136,31 +125,20 @@ fn lsmps(settings: &Settings, space: &mut Space) {
                 &space.period_bound_rect,
             );
 
-            let mut pressure = 0.;
-            if settings.c != 0. && settings.eos_power != 0. {
-                pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
-                    * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
-                if pressure < 0. {
-                    pressure = 0.;
+            let pressure = match settings.pressure {
+                Some(pressure) => pressure(p, space.steps as f64 * settings.dt),
+                None => {
+                    let pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
+                        * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
+                    if pressure < 0. {
+                        0.
+                    } else {
+                        pressure
+                    }
                 }
-            }
-
-            // pressure = {
-            //     let PI = std::f64::consts::PI;
-            //     let L = 1.;
-            //     let rho = 1.;
-            //     let U = 1.;
-            //     let nu = 1e-2;
-
-            //     let (x, y) = (p.x.x - 5., p.x.y - 5.);
-
-            //     rho * U * U / 4.
-            //         * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
-            //         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
-            // };
+            };
 
             p.pressure = pressure;
-            let pressure = pressure;
 
             let dudv = p.c;
             let strain = dudv;
@@ -261,31 +239,20 @@ fn lsmps_linear(settings: &Settings, space: &mut Space) {
                 &space.period_bound_rect,
             );
 
-            let mut pressure = 0.;
-            if settings.c != 0. && settings.eos_power != 0. {
-                pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
-                    * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
-                if pressure < 0. {
-                    pressure = 0.;
+            let pressure = match settings.pressure {
+                Some(pressure) => pressure(p, space.steps as f64 * settings.dt),
+                None => {
+                    let pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
+                        * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
+                    if pressure < 0. {
+                        0.
+                    } else {
+                        pressure
+                    }
                 }
-            }
-
-            // pressure = {
-            //     let PI = std::f64::consts::PI;
-            //     let L = 1.;
-            //     let rho = 1.;
-            //     let U = 1.;
-            //     let nu = 1e-2;
-
-            //     let (x, y) = (p.x.x - 5., p.x.y - 5.);
-
-            //     rho * U * U / 4.
-            //         * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
-            //         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
-            // };
+            };
 
             p.pressure = pressure;
-            let pressure = pressure;
 
             let dudv = p.c;
             let strain = dudv;
@@ -409,17 +376,20 @@ fn lsmps_only_force(settings: &Settings, space: &mut Space) {
                 &space.period_bound_rect,
             );
 
-            let mut pressure = 0.;
-            if settings.c != 0. && settings.eos_power != 0. {
-                pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
-                    * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
-                if pressure < 0. {
-                    pressure = 0.;
+            let pressure = match settings.pressure {
+                Some(pressure) => pressure(p, space.steps as f64 * settings.dt),
+                None => {
+                    let pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
+                        * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
+                    if pressure < 0. {
+                        0.
+                    } else {
+                        pressure
+                    }
                 }
-            }
+            };
 
             p.pressure = pressure;
-            let pressure = pressure;
 
             let dudv = p.c;
             let strain = dudv;
@@ -631,31 +601,20 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
                 &space.period_bound_rect,
             );
 
-            let mut pressure = 0.;
-            if settings.c != 0. && settings.eos_power != 0. {
-                pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
-                    * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
-                if pressure < 0. {
-                    pressure = 0.;
+            let pressure = match settings.pressure {
+                Some(pressure) => pressure(p, space.steps as f64 * settings.dt),
+                None => {
+                    let pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
+                        * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
+                    if pressure < 0. {
+                        0.
+                    } else {
+                        pressure
+                    }
                 }
-            }
-
-            // pressure = {
-            //     let PI = std::f64::consts::PI;
-            //     let L = 1.;
-            //     let rho = 1.;
-            //     let U = 1.;
-            //     let nu = 1e-2;
-
-            //     let (x, y) = (p.x.x - 5., p.x.y - 5.);
-
-            //     rho * U * U / 4.
-            //         * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
-            //         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
-            // };
+            };
 
             p.pressure = pressure;
-            let pressure = pressure;
 
             let dudv = p.c;
             let strain = dudv;
@@ -815,31 +774,20 @@ fn compact_lsmps_linear(settings: &Settings, space: &mut Space) {
                 &space.period_bound_rect,
             );
 
-            let mut pressure = 0.;
-            if settings.c != 0. && settings.eos_power != 0. {
-                pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
-                    * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
-                if pressure < 0. {
-                    pressure = 0.;
+            let pressure = match settings.pressure {
+                Some(pressure) => pressure(p, space.steps as f64 * settings.dt),
+                None => {
+                    let pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
+                        * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
+                    if pressure < 0. {
+                        0.
+                    } else {
+                        pressure
+                    }
                 }
-            }
-
-            // pressure = {
-            //     let PI = std::f64::consts::PI;
-            //     let L = 1.;
-            //     let rho = 1.;
-            //     let U = 1.;
-            //     let nu = 1e-2;
-
-            //     let (x, y) = (p.x.x - 5., p.x.y - 5.);
-
-            //     rho * U * U / 4.
-            //         * f64::exp(-4. * PI * PI * (space.steps as f64) * settings.dt * nu / (L * L))
-            //         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
-            // };
+            };
 
             p.pressure = pressure;
-            let pressure = pressure;
 
             let dudv = p.c;
             let strain = dudv;
@@ -933,17 +881,20 @@ fn compact_only_velocity(settings: &Settings, space: &mut Space) {
             &space.period_bound_rect,
         );
 
-        let mut pressure = 0.;
-        if settings.c != 0. && settings.eos_power != 0. {
-            pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
-                * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
-            if pressure < 0. {
-                pressure = 0.;
+        let pressure = match settings.pressure {
+            Some(pressure) => pressure(p, space.steps as f64 * settings.dt),
+            None => {
+                let pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
+                    * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
+                if pressure < 0. {
+                    0.
+                } else {
+                    pressure
+                }
             }
-        }
+        };
 
         p.pressure = pressure;
-        let pressure = pressure;
 
         let dudv = p.c;
         let strain = dudv;

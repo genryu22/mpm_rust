@@ -215,4 +215,8 @@ impl Space {
     pub fn get_particles(&self) -> Vec<Particle> {
         self.particles.clone()
     }
+
+    pub fn get_steps(&self) -> usize {
+        self.steps
+    }
 }

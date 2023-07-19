@@ -22,7 +22,7 @@ pub use node::*;
 pub use particle::*;
 pub use settings::*;
 pub use space::*;
-use util::*;
+pub use util::*;
 
 #[derive(Debug)]
 pub struct Calculator<'a> {

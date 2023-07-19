@@ -17,6 +17,7 @@ fn main() {
         weight_type: WeightType::QuadraticBSpline,
         p2g_scheme: P2GSchemeType::CompactLsmps,
         g2p_scheme: G2PSchemeType::LSMPS,
+        pressure: Some(|_, _| 0.),
     };
 
     let space = new_for_poiseuille(&settings);

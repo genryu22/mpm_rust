@@ -42,6 +42,7 @@ fn fun_name(p2g: P2GSchemeType, g2p: G2PSchemeType) -> f64 {
             weight_type: WeightType::QuadraticBSpline,
             p2g_scheme: p2g,
             g2p_scheme: g2p,
+            pressure: None,
         };
 
         let mut space = new_for_taylor_green(&settings);
