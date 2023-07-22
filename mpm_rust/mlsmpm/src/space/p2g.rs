@@ -98,6 +98,7 @@ fn lsmps(settings: &Settings, space: &mut Space) {
         m: Matrix6<f64>,
         f_vel: Matrix6x2<f64>,
         f_stress: Matrix6x3<f64>,
+        f_pressure: Vector6<f64>,
     }
 
     for p in space.particles.iter() {
@@ -116,7 +117,7 @@ fn lsmps(settings: &Settings, space: &mut Space) {
     let mut nodes = HashMap::new();
 
     for p in space.particles.iter_mut() {
-        let stress = {
+        let (stress, pressure) = {
             let (density, volume) = calc_density_and_volume(
                 settings,
                 p,
@@ -144,7 +145,7 @@ fn lsmps(settings: &Settings, space: &mut Space) {
             let strain = dudv;
             let viscosity_term = settings.dynamic_viscosity * (strain + strain.transpose());
 
-            (-pressure * Matrix2f::identity() + viscosity_term)
+            (-pressure * Matrix2f::identity() + viscosity_term, pressure)
         };
 
         for node in NodeIterator::new(
@@ -161,6 +162,7 @@ fn lsmps(settings: &Settings, space: &mut Space) {
                         m: Matrix6::<f64>::zeros(),
                         f_vel: Matrix6x2::<f64>::zeros(),
                         f_stress: Matrix6x3::<f64>::zeros(),
+                        f_pressure: Vector6::<f64>::zeros(),
                     };
                     nodes.insert(index, params);
                 }
@@ -176,6 +178,8 @@ fn lsmps(settings: &Settings, space: &mut Space) {
             params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose());
             let stress = vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
             params.f_stress += weight * poly_r_ij.kronecker(&stress.transpose());
+
+            params.f_pressure += weight * poly_r_ij.kronecker(&Matrix1::new(pressure));
         }
     }
 
@@ -188,13 +192,19 @@ fn lsmps(settings: &Settings, space: &mut Space) {
             {
                 let res = scale * m_inverse * params.f_vel;
                 node.v = res.row(0).transpose();
+
+                let pressure_res = scale * m_inverse * params.f_pressure;
+                node.force += -pressure_res.fixed_slice::<2, 1>(1, 0)
+                    + settings.dynamic_viscosity
+                        * settings.rho_0
+                        * vector![res[(3, 0)] + res[(5, 0)], res[(3, 1)] + res[(5, 1)]];
             }
 
-            {
-                let res = scale * m_inverse * params.f_stress;
-                node.force[0] = res[(1, 0)] + res[(2, 1)];
-                node.force[1] = res[(1, 1)] + res[(2, 2)];
-            }
+            // {
+            //     let res = scale * m_inverse * params.f_stress;
+            //     node.force[0] = res[(1, 0)] + res[(2, 1)];
+            //     node.force[1] = res[(1, 1)] + res[(2, 2)];
+            // }
         }
     });
 }
@@ -587,12 +597,13 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
         m: Matrix6<f64>,
         f_vel: Matrix6x2<f64>,
         f_stress: Matrix6x3<f64>,
+        f_pressure: Vector6<f64>,
     }
 
     let mut nodes = HashMap::new();
 
     for p in space.particles.iter_mut() {
-        let stress = {
+        let (stress, pressure) = {
             let (density, volume) = calc_density_and_volume(
                 settings,
                 p,
@@ -620,7 +631,7 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
             let strain = dudv;
             let viscosity_term = settings.dynamic_viscosity * (strain + strain.transpose());
 
-            (-pressure * Matrix2f::identity() + viscosity_term)
+            (-pressure * Matrix2f::identity() + viscosity_term, pressure)
         };
 
         for node in NodeIterator::new(
@@ -637,6 +648,7 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
                         m: Matrix6::<f64>::zeros(),
                         f_vel: Matrix6x2::<f64>::zeros(),
                         f_stress: Matrix6x3::<f64>::zeros(),
+                        f_pressure: Vector6::<f64>::zeros(),
                     };
                     nodes.insert(index, params);
                 }
@@ -663,6 +675,8 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
             let stress = vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
             params.f_stress +=
                 weight * poly_r_ij.kronecker(&stress.transpose()) * C(0, 0, 2, 0) as f64;
+
+            params.f_pressure += weight * poly_r_ij.kronecker(&Matrix1::new(pressure));
         }
     }
 
@@ -675,13 +689,19 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
             {
                 let res = scale_vel * m_inverse * params.f_vel;
                 node.v = res.row(0).transpose();
+
+                let pressure_res = scale_stress * m_inverse * params.f_pressure;
+                node.force += -pressure_res.fixed_slice::<2, 1>(1, 0)
+                    + settings.dynamic_viscosity
+                        * settings.rho_0
+                        * vector![res[(3, 0)] + res[(5, 0)], res[(3, 1)] + res[(5, 1)]];
             }
 
-            {
-                let res = scale_stress * m_inverse * params.f_stress;
-                node.force[0] = res[(1, 0)] + res[(2, 1)];
-                node.force[1] = res[(1, 1)] + res[(2, 2)];
-            }
+            // {
+            //     let res = scale_stress * m_inverse * params.f_stress;
+            //     node.force[0] = res[(1, 0)] + res[(2, 1)];
+            //     node.force[1] = res[(1, 1)] + res[(2, 2)];
+            // }
         }
     });
 }
@@ -1018,9 +1038,9 @@ fn compact_only_velocity(settings: &Settings, space: &mut Space) {
             return;
         }
         let params = nodes.get(&node.index).unwrap();
-        let m_inverse = params.m.try_inverse().unwrap();
-
-        let res = scale_vel * m_inverse * params.f_vel;
-        node.v = res.row(0).transpose();
+        if let Some(m_inverse) = (params.m + Matrix6::identity() * 0.).try_inverse() {
+            let res = scale_vel * m_inverse * params.f_vel;
+            node.v = res.row(0).transpose();
+        }
     });
 }
