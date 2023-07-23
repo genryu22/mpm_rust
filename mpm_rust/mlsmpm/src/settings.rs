@@ -19,6 +19,7 @@ pub struct Settings {
     pub vx_zero: bool,
 
     pub weight_type: WeightType,
+    pub effect_radius: usize,
 
     pub p2g_scheme: P2GSchemeType,
     pub g2p_scheme: G2PSchemeType,
@@ -31,6 +32,7 @@ pub enum WeightType {
     QuadraticBSpline,
     CubicBSpline,
     Linear,
+    Spike,
 }
 
 #[derive(Debug, Clone, Copy)]

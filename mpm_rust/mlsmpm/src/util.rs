@@ -56,7 +56,7 @@ impl<'a, 'b, 'c, 'd> NodeMutIterator<'a, 'b, 'd> {
         period_bounds: &'d Vec<PeriodicBoundary>,
         period_bound_rect: &'d Option<PeriodicBoundaryRect>,
     ) -> NodeMutIterator<'a, 'b, 'd> {
-        let radius: i32 = 3;
+        let radius: i32 = settings.effect_radius as i32;
         NodeMutIterator {
             settings,
             grid,
@@ -128,7 +128,7 @@ impl<'a, 'b, 'c, 'd> NodeIterator<'a, 'b, 'd> {
         period_bounds: &'d Vec<PeriodicBoundary>,
         period_bound_rect: &'d Option<PeriodicBoundaryRect>,
     ) -> NodeIterator<'a, 'b, 'd> {
-        let radius: i32 = 3;
+        let radius: i32 = settings.effect_radius as i32;
         NodeIterator {
             settings,
             grid,
@@ -204,6 +204,7 @@ fn calc_weight_dist_index(
         calc_cell_index_for_poiseuille(settings, period_bounds, period_bound_rect, node_ipos);
     let dist = node_ipos * settings.cell_width() - particle_position;
     let weight = weight_function(settings)(
+        settings,
         dist.x / settings.cell_width(),
         dist.y / settings.cell_width(),
     );
@@ -214,23 +215,34 @@ fn calc_weight_dist_index(
     }
 }
 
-fn weight_function(settings: &Settings) -> fn(f64, f64) -> f64 {
-    fn quadratic_b_spline_2d(x: f64, y: f64) -> f64 {
+fn weight_function(settings: &Settings) -> fn(settings: &Settings, f64, f64) -> f64 {
+    fn quadratic_b_spline_2d(_: &Settings, x: f64, y: f64) -> f64 {
         quadratic_b_spline(x) * quadratic_b_spline(y)
     }
 
-    fn qubic_b_spline_2d(x: f64, y: f64) -> f64 {
+    fn qubic_b_spline_2d(_: &Settings, x: f64, y: f64) -> f64 {
         qubic_b_spline(x) * qubic_b_spline(y)
     }
 
-    fn linear_2d(x: f64, y: f64) -> f64 {
+    fn linear_2d(_: &Settings, x: f64, y: f64) -> f64 {
         linear(x) * linear(y)
+    }
+
+    fn spike(settings: &Settings, x: f64, y: f64) -> f64 {
+        let dist = Vector2f::new(x, y);
+        let re = settings.effect_radius as f64;
+        if dist.norm() > re {
+            0.
+        } else {
+            (1. - (dist / re).norm()).powi(2)
+        }
     }
 
     match settings.weight_type {
         WeightType::QuadraticBSpline => quadratic_b_spline_2d,
         WeightType::CubicBSpline => qubic_b_spline_2d,
         WeightType::Linear => linear_2d,
+        WeightType::Spike => spike,
         _ => quadratic_b_spline_2d,
     }
 }

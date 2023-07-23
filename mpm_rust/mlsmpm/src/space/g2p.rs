@@ -82,9 +82,14 @@ fn lsmps(settings: &Settings, space: &mut Space) {
             &space.period_bounds,
             &space.period_bound_rect,
         ) {
+            if n.dist.norm() > re {
+                continue;
+            }
+
             let r_ij = n.dist / rs;
             let poly_r_ij = poly(r_ij);
             let weight = n.weight;
+            let weight = (1. - (n.dist / re).norm()).powi(2);
 
             params.m += weight * poly_r_ij * poly_r_ij.transpose();
             params.f_vel += weight * poly_r_ij.kronecker(&n.node.v_star.transpose());
@@ -98,7 +103,7 @@ fn lsmps(settings: &Settings, space: &mut Space) {
                 p.v.x = 0.;
             }
             p.x += res.row(0).transpose() * settings.dt;
-            p.c = Matrix2::new(res.m21, res.m31, res.m22, res.m32);
+            p.c = res.fixed_slice::<2, 2>(1, 0).transpose().into();
             //p.c = Matrix2::new(0., 0., -0.1, 0.);
         }
     });

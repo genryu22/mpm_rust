@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]
     .par_iter()
     .map(|&(p2g_scheme, g2p_scheme)| {
-        let result = [25, 50, 100] //, 200, 250, 400, 500, 800]
+        let result = [25, 50, 100, 200, 250, 400, 500, 800]
             .par_iter()
             .map(|&grid_width| {
                 let settings = Settings {
@@ -41,6 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     boundary_mirror: false,
                     vx_zero: false,
                     weight_type: WeightType::QuadraticBSpline,
+                    effect_radius: 3,
                     p2g_scheme,
                     g2p_scheme,
                     pressure: Some(|p, time| {
@@ -60,7 +61,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                 println!("{:?}", settings);
 
-                let time = 1e-1;
+                let time = 1e-2;
                 let v_time_steps = (time / settings.dt) as u32;
 
                 let space = new_for_taylor_green(&settings);

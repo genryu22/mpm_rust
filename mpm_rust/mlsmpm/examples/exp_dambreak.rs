@@ -17,6 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         boundary_mirror: true,
         vx_zero: false,
         weight_type: WeightType::QuadraticBSpline,
+        effect_radius: 3,
         p2g_scheme: P2GSchemeType::MLSMPM,
         g2p_scheme: G2PSchemeType::MLSMPM,
         pressure: None,

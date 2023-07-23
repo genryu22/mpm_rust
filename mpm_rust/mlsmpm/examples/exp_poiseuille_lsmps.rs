@@ -21,6 +21,7 @@ fn main() {
                 boundary_mirror: true,
                 vx_zero: true,
                 weight_type: WeightType::QuadraticBSpline,
+                effect_radius: 3,
                 p2g_scheme: P2GSchemeType::LSMPS,
                 g2p_scheme: G2PSchemeType::LSMPS,
                 pressure: Some(|_, _| 0.),

@@ -574,7 +574,7 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
         vector![1., r.x, r.y, r.x * r.x, r.x * r.y, r.y * r.y]
     }
 
-    let re = settings.cell_width() * 3.;
+    let re = settings.cell_width() * 5.;
     let rs = settings.cell_width();
     let scale_stress = Matrix6::<f64>::from_diagonal(&vector![
         S(0, 0, rs, 2, 0),
@@ -641,6 +641,10 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
             &space.period_bounds,
             &space.period_bound_rect,
         ) {
+            if node.dist.norm() > re {
+                continue;
+            }
+
             let params = {
                 let index = node.node.index;
                 if !nodes.contains_key(&index) {
@@ -658,7 +662,7 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
 
             let r_ij = -node.dist / rs;
             let poly_r_ij = poly(r_ij);
-            let weight = node.weight;
+            let weight = (1. - (node.dist / re).norm()).powi(2);
 
             params.m += weight * poly_r_ij * poly_r_ij.transpose();
 

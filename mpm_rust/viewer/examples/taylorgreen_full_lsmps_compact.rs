@@ -15,6 +15,7 @@ fn main() {
         boundary_mirror: false,
         vx_zero: false,
         weight_type: WeightType::QuadraticBSpline,
+        effect_radius: 10,
         p2g_scheme: P2GSchemeType::CompactLsmps,
         g2p_scheme: G2PSchemeType::LSMPS,
         pressure: Some(|p, time| {

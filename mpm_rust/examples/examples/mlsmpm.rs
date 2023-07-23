@@ -15,6 +15,7 @@ fn main() {
         boundary_mirror: false,
         vx_zero: false,
         weight_type: mlsmpm::WeightType::QuadraticBSpline,
+        effect_radius: 3,
         p2g_scheme: P2GSchemeType::MLSMPM,
         g2p_scheme: G2PSchemeType::MLSMPM,
         pressure: None,

@@ -38,6 +38,7 @@ fn fun_name(p2g: P2GSchemeType, g2p: G2PSchemeType) -> f64 {
             boundary_mirror: false,
             vx_zero: false,
             weight_type: WeightType::QuadraticBSpline,
+            effect_radius: 3,
             p2g_scheme: p2g,
             g2p_scheme: g2p,
             pressure: None,
