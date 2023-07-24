@@ -89,7 +89,7 @@ fn lsmps(settings: &Settings, space: &mut Space) {
             let r_ij = n.dist / rs;
             let poly_r_ij = poly(r_ij);
             let weight = n.weight;
-            let weight = (1. - (n.dist / re).norm()).powi(2);
+            // let weight = (1. - (n.dist / re).norm()).powi(2);
 
             params.m += weight * poly_r_ij * poly_r_ij.transpose();
             params.f_vel += weight * poly_r_ij.kronecker(&n.node.v_star.transpose());

@@ -10,27 +10,40 @@ fn main() -> Result<(), Box<dyn Error>> {
         fs::create_dir(folder)?;
     }
 
+    let time = 1e-2;
+
+    let PI = std::f64::consts::PI;
+    let half_domain_size = 1.;
+    let dynamic_viscosity = 1e-2;
+    fn true_vel(t: f64, x: f64, y: f64, U: f64, PI: f64, nu: f64) -> Vector2<f64> {
+        let exp_term = f64::exp(-2. * PI * PI * t / (U * U / nu));
+        Vector2::new(
+            U * exp_term * f64::sin(PI * (x - 5.) / U) * f64::cos(PI * (y - 5.) / U),
+            -U * exp_term * f64::cos(PI * (x - 5.) / U) * f64::sin(PI * (y - 5.) / U),
+        )
+    }
+
     let result = [
         (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
-        (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
-        (
-            P2GSchemeType::CompactLsmpsLinear,
-            G2PSchemeType::LsmpsLinear,
-        ),
+        // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
+        // (
+        //     P2GSchemeType::CompactLsmpsLinear,
+        //     G2PSchemeType::LsmpsLinear,
+        // ),
         (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
     ]
     .par_iter()
     .map(|&(p2g_scheme, g2p_scheme)| {
-        let result = [25, 50, 100, 200, 250, 400, 500, 800]
+        let result = [25, 50, 100, 200, 250, 400, 500]
             .par_iter()
             .map(|&grid_width| {
                 let settings = Settings {
                     dt: 1e-4,
                     gravity: 0.,
-                    dynamic_viscosity: 1e-2,
+                    dynamic_viscosity,
                     alpha: 0.,
                     affine: true,
                     space_width: 10.,
@@ -60,23 +73,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 };
 
                 println!("{:?}", settings);
-
-                let time = 1e-2;
                 let v_time_steps = (time / settings.dt) as u32;
 
                 let space = new_for_taylor_green(&settings);
                 let mut calc = Calculator::new(&settings, space);
                 calc.start(v_time_steps);
-
-                let PI = std::f64::consts::PI;
-                let half_domain_size = 1.;
-                fn true_vel(t: f64, x: f64, y: f64, U: f64, PI: f64, nu: f64) -> Vector2<f64> {
-                    let exp_term = f64::exp(-2. * PI * PI * t / (U * U / nu));
-                    Vector2::new(
-                        U * exp_term * f64::sin(PI * (x - 5.) / U) * f64::cos(PI * (y - 5.) / U),
-                        -U * exp_term * f64::cos(PI * (x - 5.) / U) * f64::sin(PI * (y - 5.) / U),
-                    )
-                }
 
                 let particles = calc.get_particles();
                 let l2_error = f64::sqrt(
@@ -114,7 +115,24 @@ fn main() -> Result<(), Box<dyn Error>> {
                             .sum::<f64>(),
                 );
 
-                (settings.cell_width() / 2., l2_error)
+                (
+                    settings.cell_width() / 2.,
+                    l2_error,
+                    calc.get_grid()
+                        .iter()
+                        .enumerate()
+                        .map(|(index, node)| {
+                            (
+                                Vector2::<f64>::new(
+                                    (index % (settings.grid_width + 1)) as f64,
+                                    (index / (settings.grid_width + 1)) as f64,
+                                ) * settings.cell_width(),
+                                node.clone(),
+                            )
+                        })
+                        .filter(|(pos, _)| 4. <= pos.x && pos.x <= 6. && 4. <= pos.y && pos.y <= 6.)
+                        .collect::<Vec<_>>(),
+                )
             })
             .collect::<Vec<_>>();
 
@@ -126,8 +144,29 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut writer =
             csv::Writer::from_path(folder.join(format!("{:?}_{:?}.csv", p2g_scheme, g2p_shceme)))?;
         writer.write_record(&["res", "l2_error"])?;
-        for (res, l2_error) in result {
+        for (index, (res, l2_error, grid)) in result.iter().enumerate() {
             writer.write_record(&[res.to_string(), l2_error.to_string()])?;
+
+            if index == result.len() - 1 {
+                let mut writer = csv::Writer::from_path(folder.join(format!(
+                    "final_result_{:?}_{:?}.csv",
+                    p2g_scheme, g2p_shceme
+                )))?;
+                writer.write_record(&["x", "y", "vx", "vy", "t_vx", "t_vy"])?;
+                for (pos, n) in grid {
+                    let true_vel =
+                        true_vel(time, pos.x, pos.y, half_domain_size, PI, dynamic_viscosity);
+                    writer.write_record(&[
+                        pos.x.to_string(),
+                        pos.y.to_string(),
+                        n.v.x.to_string(),
+                        n.v.y.to_string(),
+                        true_vel.x.to_string(),
+                        true_vel.y.to_string(),
+                    ])?;
+                }
+                writer.flush()?;
+            }
         }
         writer.flush()?;
     }

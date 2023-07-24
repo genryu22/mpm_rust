@@ -10,20 +10,29 @@ fn main() -> Result<(), Box<dyn Error>> {
         fs::create_dir(folder)?;
     }
 
+    let g = -1e-2;
+    let dynamic_viscosity = 1e-2;
+
+    fn true_vel(x: f64, y: f64, g: f64, nu: f64) -> Vector2<f64> {
+        let max = 1.5 * g * 1. * 1. / ((nu / 1.) * 12.);
+
+        Vector2::new(0., -max / 0.25 * (x - 5.).powi(2) + max)
+    }
+
     let result = [
         (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
-        (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
-        (
-            P2GSchemeType::CompactLsmpsLinear,
-            G2PSchemeType::LsmpsLinear,
-        ),
-        (
-            P2GSchemeType::CompactOnlyVelocity,
-            G2PSchemeType::LsmpsLinear,
-        ),
+        // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
+        // (
+        //     P2GSchemeType::CompactLsmpsLinear,
+        //     G2PSchemeType::LsmpsLinear,
+        // ),
+        // (
+        //     P2GSchemeType::CompactOnlyVelocity,
+        //     G2PSchemeType::LsmpsLinear,
+        // ),
         (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
     ]
     .par_iter()
     .map(|&(p2g_scheme, g2p_scheme)| {
@@ -32,8 +41,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             .map(|&grid_width| {
                 let settings = Settings {
                     dt: 5e-3,
-                    gravity: -1e-2,
-                    dynamic_viscosity: 1e-2,
+                    gravity: g,
+                    dynamic_viscosity,
                     alpha: 0.,
                     affine: true,
                     space_width: 10.,
@@ -51,12 +60,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                 };
 
                 println!("{:?}", settings);
-
-                fn true_vel(x: f64, y: f64, g: f64, nu: f64) -> Vector2<f64> {
-                    let max = 1.5 * g * 1. * 1. / ((nu / 1.) * 12.);
-
-                    Vector2::new(0., -max / 0.25 * (x - 5.).powi(2) + max)
-                }
 
                 let v_time_steps = (1. / settings.dynamic_viscosity / settings.dt).ceil() as u32;
 
@@ -95,7 +98,26 @@ fn main() -> Result<(), Box<dyn Error>> {
                             .sum::<f64>(),
                 );
 
-                (settings.cell_width() / 2., l2_error)
+                (
+                    settings.cell_width() / 2.,
+                    l2_error,
+                    calc.get_grid()
+                        .iter()
+                        .enumerate()
+                        .map(|(index, node)| {
+                            (
+                                Vector2::<f64>::new(
+                                    (index % (settings.grid_width + 1)) as f64,
+                                    (index / (settings.grid_width + 1)) as f64,
+                                ) * settings.cell_width(),
+                                node.clone(),
+                            )
+                        })
+                        .filter(|(pos, _)| {
+                            4.5 <= pos.x && pos.x <= 5.5 && 4.5 <= pos.y && pos.y <= 5.5
+                        })
+                        .collect::<Vec<_>>(),
+                )
             })
             .collect::<Vec<_>>();
 
@@ -107,8 +129,28 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut writer =
             csv::Writer::from_path(folder.join(format!("{:?}_{:?}.csv", p2g_scheme, g2p_shceme)))?;
         writer.write_record(&["res", "l2_error"])?;
-        for (res, l2_error) in result {
+        for (index, (res, l2_error, grid)) in result.iter().enumerate() {
             writer.write_record(&[res.to_string(), l2_error.to_string()])?;
+
+            if index == result.len() - 1 {
+                let mut writer = csv::Writer::from_path(folder.join(format!(
+                    "final_result_{:?}_{:?}.csv",
+                    p2g_scheme, g2p_shceme
+                )))?;
+                writer.write_record(&["x", "y", "vx", "vy", "t_vx", "t_vy"])?;
+                for (pos, n) in grid {
+                    let true_vel = true_vel(pos.x, pos.y, g, dynamic_viscosity);
+                    writer.write_record(&[
+                        pos.x.to_string(),
+                        pos.y.to_string(),
+                        n.v.x.to_string(),
+                        n.v.y.to_string(),
+                        true_vel.x.to_string(),
+                        true_vel.y.to_string(),
+                    ])?;
+                }
+                writer.flush()?;
+            }
         }
         writer.flush()?;
     }

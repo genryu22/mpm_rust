@@ -194,17 +194,17 @@ fn lsmps(settings: &Settings, space: &mut Space) {
                 node.v = res.row(0).transpose();
 
                 let pressure_res = scale * m_inverse * params.f_pressure;
-                node.force += -pressure_res.fixed_slice::<2, 1>(1, 0)
+                node.force = -pressure_res.fixed_slice::<2, 1>(1, 0)
                     + settings.dynamic_viscosity
                         * settings.rho_0
                         * vector![res[(3, 0)] + res[(5, 0)], res[(3, 1)] + res[(5, 1)]];
             }
 
-            // {
-            //     let res = scale * m_inverse * params.f_stress;
-            //     node.force[0] = res[(1, 0)] + res[(2, 1)];
-            //     node.force[1] = res[(1, 1)] + res[(2, 2)];
-            // }
+            {
+                let res = scale * m_inverse * params.f_stress;
+                node.force[0] = res[(1, 0)] + res[(2, 1)];
+                node.force[1] = res[(1, 1)] + res[(2, 2)];
+            }
         }
     });
 }
@@ -663,6 +663,7 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
             let r_ij = -node.dist / rs;
             let poly_r_ij = poly(r_ij);
             let weight = (1. - (node.dist / re).norm()).powi(2);
+            let weight = node.weight;
 
             params.m += weight * poly_r_ij * poly_r_ij.transpose();
 
@@ -695,17 +696,17 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
                 node.v = res.row(0).transpose();
 
                 let pressure_res = scale_stress * m_inverse * params.f_pressure;
-                node.force += -pressure_res.fixed_slice::<2, 1>(1, 0)
+                node.force = -pressure_res.fixed_slice::<2, 1>(1, 0)
                     + settings.dynamic_viscosity
                         * settings.rho_0
                         * vector![res[(3, 0)] + res[(5, 0)], res[(3, 1)] + res[(5, 1)]];
             }
 
-            // {
-            //     let res = scale_stress * m_inverse * params.f_stress;
-            //     node.force[0] = res[(1, 0)] + res[(2, 1)];
-            //     node.force[1] = res[(1, 1)] + res[(2, 2)];
-            // }
+            {
+                let res = scale_stress * m_inverse * params.f_stress;
+                node.force[0] = res[(1, 0)] + res[(2, 1)];
+                node.force[1] = res[(1, 1)] + res[(2, 2)];
+            }
         }
     });
 }
