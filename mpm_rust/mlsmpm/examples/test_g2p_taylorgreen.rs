@@ -7,10 +7,11 @@ fn main() {
         G2PSchemeType::LSMPS,
         G2PSchemeType::LsmpsLinear,
         G2PSchemeType::CompactLsmps,
+        G2PSchemeType::Lsmps3rd,
     ];
 
     for scheme_type in g2p {
-        let count = 100;
+        let count = 10;
         let result = (0..count).map(|_| fun_name(P2GSchemeType::MLSMPM, scheme_type));
         println!(
             "schemeType: {:?}, average = {}, (min, max) = ({}, {})",
@@ -38,7 +39,7 @@ fn fun_name(p2g: P2GSchemeType, g2p: G2PSchemeType) -> f64 {
             boundary_mirror: false,
             vx_zero: false,
             weight_type: WeightType::QuadraticBSpline,
-            effect_radius: 3,
+            effect_radius: 10,
             p2g_scheme: p2g,
             g2p_scheme: g2p,
             pressure: None,

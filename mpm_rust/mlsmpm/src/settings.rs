@@ -40,6 +40,7 @@ pub enum P2GSchemeType {
     MLSMPM,
     LSMPS,
     LsmpsLinear,
+    Lsmps3rd,
     LsmpsOnlyForce,
     CompactLsmps,
     CompactLsmpsLinear,
@@ -50,6 +51,7 @@ pub enum P2GSchemeType {
 pub enum G2PSchemeType {
     MLSMPM,
     LSMPS,
+    Lsmps3rd,
     LsmpsLinear,
     CompactLsmps,
 }

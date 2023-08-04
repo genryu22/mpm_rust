@@ -61,6 +61,7 @@ impl Space {
             match settings.p2g_scheme {
                 P2GSchemeType::LSMPS
                 | P2GSchemeType::LsmpsLinear
+                | P2GSchemeType::Lsmps3rd
                 | P2GSchemeType::CompactLsmps
                 | P2GSchemeType::CompactLsmpsLinear => {
                     n.v_star = n.v

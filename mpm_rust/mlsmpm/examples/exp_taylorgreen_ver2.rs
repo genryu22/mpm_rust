@@ -1,6 +1,7 @@
 use std::{error::Error, fs, path::Path};
 
 use mlsmpm::*;
+use mlsmpm_macro::lsmps_poly;
 use rand::Rng;
 use rayon::prelude::*;
 
@@ -24,16 +25,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let result = [
-        (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
+        // (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
         // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
         // (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
         // (
         //     P2GSchemeType::CompactLsmpsLinear,
         //     G2PSchemeType::LsmpsLinear,
         // ),
-        (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
+        // (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
     ]
     .par_iter()
     .map(|&(p2g_scheme, g2p_scheme)| {
@@ -54,7 +56,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     boundary_mirror: false,
                     vx_zero: false,
                     weight_type: WeightType::QuadraticBSpline,
-                    effect_radius: 3,
+                    effect_radius: 10,
                     p2g_scheme,
                     g2p_scheme,
                     pressure: Some(|p, time| {

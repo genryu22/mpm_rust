@@ -3068,6 +3068,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "csv",
+ "mlsmpm_macro",
  "nalgebra 0.31.4",
  "rand",
  "rayon",
@@ -3078,6 +3079,13 @@ name = "mlsmpm_3d"
 version = "0.1.0"
 dependencies = [
  "nalgebra 0.32.2",
+]
+
+[[package]]
+name = "mlsmpm_macro"
+version = "0.1.0"
+dependencies = [
+ "quote",
 ]
 
 [[package]]
@@ -3949,9 +3957,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.49"
+version = "1.0.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57a8eca9f9c4ffde41714334dee777596264c7825420f521abc92b5b5deb63a5"
+checksum = "18fb31db3f9bddb2ea821cde30a9f70117e3f119938b5ee630b7403aa6e2ead9"
 dependencies = [
  "unicode-ident",
 ]
@@ -3973,9 +3981,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.23"
+version = "1.0.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8856d8364d252a14d474036ea1358d63c9e6965c8e5c1885c18f73d70bff9c7b"
+checksum = "50f3b39ccfb720540debaa0164757101c08ecb8d326b15358ce76a62c7e85965"
 dependencies = [
  "proc-macro2",
 ]

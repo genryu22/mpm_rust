@@ -11,6 +11,7 @@ pub fn g2p(g2p_scheme: &G2PSchemeType) -> fn(settings: &Settings, space: &mut Sp
         G2PSchemeType::LSMPS => lsmps,
         G2PSchemeType::LsmpsLinear => lsmps_linear,
         G2PSchemeType::CompactLsmps => compact_lsmps,
+        G2PSchemeType::Lsmps3rd => lsmps_3rd,
     }
 }
 
@@ -90,6 +91,60 @@ fn lsmps(settings: &Settings, space: &mut Space) {
             let poly_r_ij = poly(r_ij);
             let weight = n.weight;
             // let weight = (1. - (n.dist / re).norm()).powi(2);
+
+            params.m += weight * poly_r_ij * poly_r_ij.transpose();
+            params.f_vel += weight * poly_r_ij.kronecker(&n.node.v_star.transpose());
+        }
+
+        if let Some(m_inverted) = params.m.try_inverse() {
+            let res = scale * m_inverted * params.f_vel;
+            p.v = res.row(0).transpose();
+
+            if settings.vx_zero {
+                p.v.x = 0.;
+            }
+            p.x += res.row(0).transpose() * settings.dt;
+            p.c = res.fixed_slice::<2, 2>(1, 0).transpose().into();
+            //p.c = Matrix2::new(0., 0., -0.1, 0.);
+        }
+    });
+}
+
+fn lsmps_3rd(settings: &Settings, space: &mut Space) {
+    space.particles.par_iter_mut().for_each(|p| {
+        p.v = Vector2f::zeros();
+        p.c = Matrix2f::zeros();
+
+        mlsmpm_macro::lsmps_poly!(3);
+
+        let re = settings.cell_width() * 7.;
+        let rs = settings.cell_width();
+
+        mlsmpm_macro::lsmps_scale!(3);
+        let scale = scale(rs);
+
+        mlsmpm_macro::lsmps_params_g2p!(3);
+
+        let mut params = LsmpsParams {
+            m: SMatrix::zeros(),
+            f_vel: SMatrix::zeros(),
+        };
+
+        for n in NodeIterator::new(
+            settings,
+            &space.grid,
+            p,
+            &space.period_bounds,
+            &space.period_bound_rect,
+        ) {
+            if n.dist.norm() > re {
+                continue;
+            }
+
+            let r_ij = n.dist / rs;
+            let poly_r_ij = poly(r_ij);
+            // let weight = n.weight;
+            let weight = (1. - (n.dist / re).norm()).powi(2);
 
             params.m += weight * poly_r_ij * poly_r_ij.transpose();
             params.f_vel += weight * poly_r_ij.kronecker(&n.node.v_star.transpose());
