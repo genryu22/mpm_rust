@@ -9,7 +9,9 @@ pub fn g2p(g2p_scheme: &G2PSchemeType) -> fn(settings: &Settings, space: &mut Sp
     match g2p_scheme {
         G2PSchemeType::MLSMPM => mlsmpm,
         G2PSchemeType::LSMPS => lsmps,
+        G2PSchemeType::Lsmps2ndMacro => lsmps_macro,
         G2PSchemeType::LsmpsLinear => lsmps_linear,
+        G2PSchemeType::LsmpsLinearMacro => lsmps_linear_macro,
         G2PSchemeType::CompactLsmps => compact_lsmps,
         G2PSchemeType::Lsmps3rd => lsmps_3rd,
     }
@@ -91,6 +93,60 @@ fn lsmps(settings: &Settings, space: &mut Space) {
             let poly_r_ij = poly(r_ij);
             let weight = n.weight;
             // let weight = (1. - (n.dist / re).norm()).powi(2);
+
+            params.m += weight * poly_r_ij * poly_r_ij.transpose();
+            params.f_vel += weight * poly_r_ij.kronecker(&n.node.v_star.transpose());
+        }
+
+        if let Some(m_inverted) = params.m.try_inverse() {
+            let res = scale * m_inverted * params.f_vel;
+            p.v = res.row(0).transpose();
+
+            if settings.vx_zero {
+                p.v.x = 0.;
+            }
+            p.x += res.row(0).transpose() * settings.dt;
+            p.c = res.fixed_slice::<2, 2>(1, 0).transpose().into();
+            //p.c = Matrix2::new(0., 0., -0.1, 0.);
+        }
+    });
+}
+
+fn lsmps_macro(settings: &Settings, space: &mut Space) {
+    space.particles.par_iter_mut().for_each(|p| {
+        p.v = Vector2f::zeros();
+        p.c = Matrix2f::zeros();
+
+        mlsmpm_macro::lsmps_poly!(2);
+
+        let re = settings.cell_width() * 5.;
+        let rs = settings.cell_width();
+
+        mlsmpm_macro::lsmps_scale!(2);
+        let scale = scale(rs);
+
+        mlsmpm_macro::lsmps_params_g2p!(2);
+
+        let mut params = LsmpsParams {
+            m: SMatrix::zeros(),
+            f_vel: SMatrix::zeros(),
+        };
+
+        for n in NodeIterator::new(
+            settings,
+            &space.grid,
+            p,
+            &space.period_bounds,
+            &space.period_bound_rect,
+        ) {
+            if n.dist.norm() > re {
+                continue;
+            }
+
+            let r_ij = n.dist / rs;
+            let poly_r_ij = poly(r_ij);
+            // let weight = n.weight;
+            let weight = (1. - (n.dist / re).norm()).powi(2);
 
             params.m += weight * poly_r_ij * poly_r_ij.transpose();
             params.f_vel += weight * poly_r_ij.kronecker(&n.node.v_star.transpose());
@@ -212,6 +268,60 @@ fn lsmps_linear(settings: &Settings, space: &mut Space) {
             p.x += res.row(0).transpose() * settings.dt;
             p.c = Matrix2::new(res.m21, res.m31, res.m22, res.m32);
             // println!("{}", p.c);
+        }
+    });
+}
+
+fn lsmps_linear_macro(settings: &Settings, space: &mut Space) {
+    space.particles.par_iter_mut().for_each(|p| {
+        p.v = Vector2f::zeros();
+        p.c = Matrix2f::zeros();
+
+        mlsmpm_macro::lsmps_poly!(1);
+
+        let re = settings.cell_width() * 3.;
+        let rs = settings.cell_width();
+
+        mlsmpm_macro::lsmps_scale!(1);
+        let scale = scale(rs);
+
+        mlsmpm_macro::lsmps_params_g2p!(1);
+
+        let mut params = LsmpsParams {
+            m: SMatrix::zeros(),
+            f_vel: SMatrix::zeros(),
+        };
+
+        for n in NodeIterator::new(
+            settings,
+            &space.grid,
+            p,
+            &space.period_bounds,
+            &space.period_bound_rect,
+        ) {
+            if n.dist.norm() > re {
+                continue;
+            }
+
+            let r_ij = n.dist / rs;
+            let poly_r_ij = poly(r_ij);
+            let weight = n.weight;
+            // let weight = (1. - (n.dist / re).norm()).powi(2);
+
+            params.m += weight * poly_r_ij * poly_r_ij.transpose();
+            params.f_vel += weight * poly_r_ij.kronecker(&n.node.v_star.transpose());
+        }
+
+        if let Some(m_inverted) = params.m.try_inverse() {
+            let res = scale * m_inverted * params.f_vel;
+            p.v = res.row(0).transpose();
+
+            if settings.vx_zero {
+                p.v.x = 0.;
+            }
+            p.x += res.row(0).transpose() * settings.dt;
+            p.c = res.fixed_slice::<2, 2>(1, 0).transpose().into();
+            //p.c = Matrix2::new(0., 0., -0.1, 0.);
         }
     });
 }

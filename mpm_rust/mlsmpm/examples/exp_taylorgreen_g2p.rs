@@ -6,7 +6,7 @@ use rand::Rng;
 use rayon::prelude::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let folder = Path::new("exp_taylorgreen_ver2");
+    let folder = Path::new("exp_taylorgreen_g2p");
     if !folder.exists() {
         fs::create_dir(folder)?;
     }
@@ -25,17 +25,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let result = [
-        (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
+        // (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
         // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
-        // (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
-        // (
-        //     P2GSchemeType::CompactLsmpsLinear,
-        //     G2PSchemeType::LsmpsLinear,
-        // ),
-        (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
-        (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
-        // (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
+        // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinearMacro),
+        // (P2GSchemeType::MLSMPM, G2PSchemeType::LSMPS),
+        (P2GSchemeType::MLSMPM, G2PSchemeType::Lsmps2ndMacro),
+        // (P2GSchemeType::MLSMPM, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::MLSMPM, G2PSchemeType::CompactLsmps),
     ]
     .par_iter()
     .map(|&(p2g_scheme, g2p_scheme)| {
