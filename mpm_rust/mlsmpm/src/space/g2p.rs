@@ -173,7 +173,7 @@ fn lsmps_3rd(settings: &Settings, space: &mut Space) {
 
         mlsmpm_macro::lsmps_poly!(3);
 
-        let re = settings.cell_width() * 7.;
+        let re = settings.cell_width() * settings.effect_radius as f64;
         let rs = settings.cell_width();
 
         mlsmpm_macro::lsmps_scale!(3);
