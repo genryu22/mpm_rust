@@ -26,21 +26,21 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let result = [
         (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
-        // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
-        // (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
-        // (
-        //     P2GSchemeType::CompactLsmpsLinear,
-        //     G2PSchemeType::LsmpsLinear,
-        // ),
+        (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
+        (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
+        (
+            P2GSchemeType::CompactLsmpsLinear,
+            G2PSchemeType::LsmpsLinear,
+        ),
         (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
-        (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
+        //(P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
-        // (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
+        (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
     ]
-    .par_iter()
+    .iter()
     .map(|&(p2g_scheme, g2p_scheme)| {
-        let result = [25, 50, 100, 200, 250, 400, 500]
-            .par_iter()
+        let result = [500, 1000, 2000, 4000] //[25, 50, 100, 200, 250, 400, 500]
+            .iter()
             .map(|&grid_width| {
                 let settings = Settings {
                     dt: 1e-4,
@@ -149,7 +149,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         for (index, (res, l2_error, grid)) in result.iter().enumerate() {
             writer.write_record(&[res.to_string(), l2_error.to_string()])?;
 
-            if index == result.len() - 1 {
+            if index == 2 {
+                //result.len() - 1 {
                 let mut writer = csv::Writer::from_path(folder.join(format!(
                     "final_result_{:?}_{:?}.csv",
                     p2g_scheme, g2p_shceme
