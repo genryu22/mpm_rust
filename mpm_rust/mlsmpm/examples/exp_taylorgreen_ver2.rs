@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         )
     }
 
-    let result = [
+    [
         (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
         (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
         (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
@@ -33,13 +33,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             G2PSchemeType::LsmpsLinear,
         ),
         (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
-        //(P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
+        (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
     ]
     .iter()
-    .map(|&(p2g_scheme, g2p_scheme)| {
-        let result = [500, 1000, 2000, 4000] //[25, 50, 100, 200, 250, 400, 500]
+    .for_each(|&(p2g_scheme, g2p_scheme)| {
+        let results = [1000, 2000]
             .iter()
             .map(|&grid_width| {
                 let settings = Settings {
@@ -117,61 +117,92 @@ fn main() -> Result<(), Box<dyn Error>> {
                             .sum::<f64>(),
                 );
 
-                (
-                    settings.cell_width() / 2.,
-                    l2_error,
-                    calc.get_grid()
-                        .iter()
-                        .enumerate()
-                        .map(|(index, node)| {
-                            (
-                                Vector2::<f64>::new(
-                                    (index % (settings.grid_width + 1)) as f64,
-                                    (index / (settings.grid_width + 1)) as f64,
-                                ) * settings.cell_width(),
-                                node.clone(),
-                            )
-                        })
-                        .filter(|(pos, _)| 4. <= pos.x && pos.x <= 6. && 4. <= pos.y && pos.y <= 6.)
-                        .collect::<Vec<_>>(),
+                write_final_result(
+                    folder,
+                    time,
+                    half_domain_size,
+                    PI,
+                    dynamic_viscosity,
+                    p2g_scheme,
+                    g2p_scheme,
+                    (
+                        grid_width,
+                        calc.get_grid()
+                            .iter()
+                            .enumerate()
+                            .map(|(index, node)| {
+                                (
+                                    Vector2::<f64>::new(
+                                        (index % (settings.grid_width + 1)) as f64,
+                                        (index / (settings.grid_width + 1)) as f64,
+                                    ) * settings.cell_width(),
+                                    node.clone(),
+                                )
+                            })
+                            .filter(|(pos, _)| {
+                                4. <= pos.x && pos.x <= 6. && 4. <= pos.y && pos.y <= 6.
+                            })
+                            .collect::<Vec<_>>(),
+                    ),
                 )
+                .unwrap();
+
+                (settings.cell_width() / 2., l2_error)
             })
             .collect::<Vec<_>>();
 
-        (p2g_scheme, g2p_scheme, result)
-    })
-    .collect::<Vec<_>>();
+        write_l2_errors(folder, p2g_scheme, g2p_scheme, results).unwrap();
+    });
 
-    for (p2g_scheme, g2p_shceme, result) in result {
-        let mut writer =
-            csv::Writer::from_path(folder.join(format!("{:?}_{:?}.csv", p2g_scheme, g2p_shceme)))?;
+    fn write_l2_errors(
+        folder: &Path,
+        p2g_scheme: P2GSchemeType,
+        g2p_scheme: G2PSchemeType,
+        results: Vec<(f64, f64)>,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut writer = csv::Writer::from_path(
+            folder.join(format!("errors_{:?}_{:?}.csv", p2g_scheme, g2p_scheme)),
+        )?;
         writer.write_record(&["res", "l2_error"])?;
-        for (index, (res, l2_error, grid)) in result.iter().enumerate() {
+        for (res, l2_error) in results {
             writer.write_record(&[res.to_string(), l2_error.to_string()])?;
-
-            if index == 2 {
-                //result.len() - 1 {
-                let mut writer = csv::Writer::from_path(folder.join(format!(
-                    "final_result_{:?}_{:?}.csv",
-                    p2g_scheme, g2p_shceme
-                )))?;
-                writer.write_record(&["x", "y", "vx", "vy", "t_vx", "t_vy"])?;
-                for (pos, n) in grid {
-                    let true_vel =
-                        true_vel(time, pos.x, pos.y, half_domain_size, PI, dynamic_viscosity);
-                    writer.write_record(&[
-                        pos.x.to_string(),
-                        pos.y.to_string(),
-                        n.v.x.to_string(),
-                        n.v.y.to_string(),
-                        true_vel.x.to_string(),
-                        true_vel.y.to_string(),
-                    ])?;
-                }
-                writer.flush()?;
-            }
         }
         writer.flush()?;
+
+        Ok(())
+    }
+
+    fn write_final_result(
+        folder: &Path,
+        time: f64,
+        half_domain_size: f64,
+        PI: f64,
+        dynamic_viscosity: f64,
+        p2g_scheme: P2GSchemeType,
+        g2p_shceme: G2PSchemeType,
+        result: (usize, Vec<(Vector2<f64>, Node)>),
+    ) -> Result<(), Box<dyn Error>> {
+        let (res, grid) = result;
+
+        let mut writer = csv::Writer::from_path(folder.join(format!(
+            "final_dist_{:?}_{:?}_{:}.csv",
+            p2g_scheme, g2p_shceme, res
+        )))?;
+        writer.write_record(&["x", "y", "vx", "vy", "t_vx", "t_vy"])?;
+        for (pos, n) in grid {
+            let true_vel = true_vel(time, pos.x, pos.y, half_domain_size, PI, dynamic_viscosity);
+            writer.write_record(&[
+                pos.x.to_string(),
+                pos.y.to_string(),
+                n.v.x.to_string(),
+                n.v.y.to_string(),
+                true_vel.x.to_string(),
+                true_vel.y.to_string(),
+            ])?;
+        }
+        writer.flush()?;
+
+        Ok(())
     }
 
     Ok(())

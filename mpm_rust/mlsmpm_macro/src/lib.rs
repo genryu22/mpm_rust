@@ -1,6 +1,7 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
+use quote::quote;
+use syn::{parse::Parser, punctuated::Punctuated, Expr, ExprLit, Lit, Token};
 
 fn multi_index(a: usize) -> (Vec<usize>, usize) {
     let mut res = vec![];
@@ -97,6 +98,69 @@ pub fn lsmps_params(input: TokenStream) -> TokenStream {
 pub fn lsmps_params_g2p(input: TokenStream) -> TokenStream {
     let input: usize = input.to_string().parse().unwrap();
     let (mut res, size) = multi_index(input);
+
+    quote! {
+        struct LsmpsParams {
+            m: SMatrix<f64, #size, #size>,
+            f_vel: SMatrix<f64, #size, 2>,
+        }
+    }
+    .into()
+}
+
+fn factorial(num: usize) -> f64 {
+    match num {
+        0 | 1 => 1.,
+        _ => factorial(num - 1) * num as f64,
+    }
+}
+
+fn c(bx: usize, by: usize, p: usize, q: usize) -> f64 {
+    let b = bx + by;
+    if b == 0 {
+        1.
+    } else if b == q {
+        (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by)) * factorial(p)
+            / factorial(p + q)
+    } else {
+        (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by))
+            * q as f64
+            * factorial(p + q - b)
+            / factorial(p + q)
+    }
+}
+
+fn parse_two_usize(input: TokenStream) -> (usize, usize) {
+    let parser = Punctuated::<Expr, Token![,]>::parse_separated_nonempty;
+    let input = parser.parse(input).unwrap();
+    let p = if let Expr::Lit(expr_lit) = input.first().unwrap() {
+        if let Lit::Int(litint) = &expr_lit.lit {
+            litint.base10_parse::<usize>().unwrap()
+        } else {
+            panic!();
+        }
+    } else {
+        panic!();
+    };
+    let q = if let Expr::Lit(expr_lit) = input.last().unwrap() {
+        if let Lit::Int(litint) = &expr_lit.lit {
+            litint.base10_parse::<usize>().unwrap()
+        } else {
+            panic!();
+        }
+    } else {
+        panic!();
+    };
+
+    (p, q)
+}
+
+#[proc_macro]
+pub fn compact_lsmps_s(input: TokenStream) -> TokenStream {
+    let (p, q) = parse_two_usize(input);
+    println!("{}, {}", p, q);
+
+    let (mut res, size) = multi_index(p);
 
     quote! {
         struct LsmpsParams {
