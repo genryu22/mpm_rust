@@ -24,29 +24,40 @@ fn main() -> Result<(), Box<dyn Error>> {
         )
     }
 
+    const SPACE_WIDTH: f64 = 10.;
+    const SMALL_WIDTH: usize = 500;
+    const BIG_WIDTH: usize = 1000;
+
+    println!(
+        "初期の粒子配置間隔を {}m から {}m に変えたときのl2エラーの収束次数",
+        SPACE_WIDTH / SMALL_WIDTH as f64 / 2.,
+        SPACE_WIDTH / BIG_WIDTH as f64 / 2.
+    );
+
     [
-        (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
-        (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
-        (
-            P2GSchemeType::CompactLsmpsLinear,
-            G2PSchemeType::LsmpsLinear,
-        ),
-        (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
-        (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
+        // (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
+        // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
+        // (
+        //     P2GSchemeType::CompactLsmpsLinear,
+        //     G2PSchemeType::LsmpsLinear,
+        // ),
+        // (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
+        (P2GSchemeType::Lsmps4th, G2PSchemeType::Lsmps4th),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
     ]
     .iter()
     .for_each(|&(p2g_scheme, g2p_scheme)| {
-        let result = [500, 1000].map(|grid_width| {
+        let result = [SMALL_WIDTH, BIG_WIDTH].map(|grid_width| {
             let settings = Settings {
                 dt: 1e-4,
                 gravity: 0.,
                 dynamic_viscosity,
                 alpha: 0.,
                 affine: true,
-                space_width: 10.,
+                space_width: SPACE_WIDTH,
                 grid_width,
                 rho_0: 1.,
                 c: 1e1,

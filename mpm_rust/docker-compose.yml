@@ -5,6 +5,6 @@ services:
     volumes:
       - ./:/usr/app/mpm_rust
     working_dir: /usr/app/mpm_rust
-    entrypoint: cargo run --release -p mlsmpm --example exp_taylorgreen_ver2
+    entrypoint: cargo run --release -p mlsmpm --example exp_taylorgreen_order
     stdin_open: true
     tty: true

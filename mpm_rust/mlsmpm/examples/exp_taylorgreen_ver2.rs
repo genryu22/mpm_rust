@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]
     .iter()
     .for_each(|&(p2g_scheme, g2p_scheme)| {
-        let results = [1000, 2000]
+        let results = [250, 500, 1000, 2000, 4000]
             .iter()
             .map(|&grid_width| {
                 let settings = Settings {
