@@ -11,6 +11,7 @@ pub fn p2g(p2g_scheme: &P2GSchemeType) -> fn(settings: &Settings, space: &mut Sp
         P2GSchemeType::LSMPS => lsmps,
         P2GSchemeType::LsmpsLinear => lsmps_linear,
         P2GSchemeType::Lsmps3rd => lsmps_3rd,
+        P2GSchemeType::Lsmps4th => lsmps_4th,
         P2GSchemeType::LsmpsOnlyForce => lsmps_only_force,
         P2GSchemeType::CompactLsmps => compact_lsmps,
         P2GSchemeType::CompactLsmpsLinear => compact_lsmps_linear,
@@ -332,6 +333,8 @@ fn lsmps_3rd(settings: &Settings, space: &mut Space) {
         }
     });
 }
+
+mlsmpm_macro::lsmps_p2g_func!(4);
 
 fn lsmps_linear(settings: &Settings, space: &mut Space) {
     fn poly(r: Vector2<f64>) -> Vector3<f64> {

@@ -14,6 +14,7 @@ pub fn g2p(g2p_scheme: &G2PSchemeType) -> fn(settings: &Settings, space: &mut Sp
         G2PSchemeType::LsmpsLinearMacro => lsmps_linear_macro,
         G2PSchemeType::CompactLsmps => compact_lsmps,
         G2PSchemeType::Lsmps3rd => lsmps_3rd,
+        G2PSchemeType::Lsmps4th => lsmps_4th,
     }
 }
 
@@ -219,6 +220,8 @@ fn lsmps_3rd(settings: &Settings, space: &mut Space) {
         }
     });
 }
+
+mlsmpm_macro::lsmps_g2p_func!(4);
 
 fn lsmps_linear(settings: &Settings, space: &mut Space) {
     space.particles.par_iter_mut().for_each(|p| {

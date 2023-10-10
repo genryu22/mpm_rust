@@ -1,6 +1,6 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{quote, format_ident};
 use syn::{parse::Parser, punctuated::Punctuated, Expr, ExprLit, Lit, Token};
 
 fn multi_index(a: usize) -> (Vec<usize>, usize) {
@@ -44,7 +44,7 @@ fn multi_index_factorial(a: usize) -> (Vec<f64>, usize) {
 
 #[proc_macro]
 pub fn lsmps_poly(input: TokenStream) -> TokenStream {
-    let input: usize = input.to_string().parse().unwrap();
+    let input: usize = parse_one_usize(input);
     let (mut res, size) = multi_index(input);
     quote! {
         fn poly(r: Vector2<f64>) -> SVector<f64, #size> {
@@ -62,7 +62,7 @@ pub fn lsmps_poly(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn lsmps_scale(input: TokenStream) -> TokenStream {
-    let input: usize = input.to_string().parse().unwrap();
+    let input: usize = parse_one_usize(input);
     let (mut res, size) = multi_index_factorial(input);
 
     quote! {
@@ -80,7 +80,7 @@ pub fn lsmps_scale(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn lsmps_params(input: TokenStream) -> TokenStream {
-    let input: usize = input.to_string().parse().unwrap();
+    let input: usize = parse_one_usize(input);
     let (mut res, size) = multi_index(input);
 
     quote! {
@@ -96,7 +96,7 @@ pub fn lsmps_params(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn lsmps_params_g2p(input: TokenStream) -> TokenStream {
-    let input: usize = input.to_string().parse().unwrap();
+    let input: usize = parse_one_usize(input);
     let (mut res, size) = multi_index(input);
 
     quote! {
@@ -128,6 +128,21 @@ fn c(bx: usize, by: usize, p: usize, q: usize) -> f64 {
             * factorial(p + q - b)
             / factorial(p + q)
     }
+}
+
+fn parse_one_usize(input: TokenStream) -> usize {
+    let input: Expr = syn::parse(input).unwrap();
+    let p = if let Expr::Lit(expr_lit) = input {
+        if let Lit::Int(litint) = &expr_lit.lit {
+            litint.base10_parse::<usize>().unwrap()
+        } else {
+            panic!();
+        }
+    } else {
+        panic!();
+    };
+
+    p
 }
 
 fn parse_two_usize(input: TokenStream) -> (usize, usize) {
@@ -166,6 +181,207 @@ pub fn compact_lsmps_s(input: TokenStream) -> TokenStream {
         struct LsmpsParams {
             m: SMatrix<f64, #size, #size>,
             f_vel: SMatrix<f64, #size, 2>,
+        }
+    }
+    .into()
+}
+
+#[proc_macro]
+pub fn test_lsmps(input: TokenStream) -> TokenStream {
+    quote! {
+        fn lsmps_4th(settings: &Settings, space: &mut Space) {
+        }
+    }.into()
+}
+
+#[proc_macro]
+pub fn lsmps_p2g_func(input: TokenStream) -> TokenStream {
+    let p = parse_one_usize(input);
+    let func_name = format_ident!("lsmps_{}th", p);
+    quote! {
+        fn #func_name(settings: &Settings, space: &mut Space) {
+            mlsmpm_macro::lsmps_poly!(#p);
+        
+            let re = settings.cell_width() * settings.effect_radius as f64;
+            let rs = settings.cell_width();
+            mlsmpm_macro::lsmps_scale!(#p);
+            let scale = scale(rs);
+        
+            mlsmpm_macro::lsmps_params!(#p);
+        
+            for p in space.particles.iter() {
+                for node in NodeMutIterator::new(
+                    settings,
+                    &mut space.grid,
+                    p,
+                    &space.period_bounds,
+                    &space.period_bound_rect,
+                ) {
+                    let mass_contrib = node.weight * p.mass;
+                    node.node.mass += mass_contrib;
+                }
+            }
+        
+            let mut nodes = HashMap::new();
+        
+            for p in space.particles.iter_mut() {
+                let (stress, pressure) = {
+                    let (density, volume) = calc_density_and_volume(
+                        settings,
+                        p,
+                        &space.grid,
+                        &space.period_bounds,
+                        &space.period_bound_rect,
+                    );
+        
+                    let pressure = match settings.pressure {
+                        Some(pressure) => pressure(p, space.steps as f64 * settings.dt),
+                        None => {
+                            let pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
+                                * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
+                            if pressure < 0. {
+                                0.
+                            } else {
+                                pressure
+                            }
+                        }
+                    };
+        
+                    p.pressure = pressure;
+        
+                    let dudv = p.c;
+                    let strain = dudv;
+                    let viscosity_term = settings.dynamic_viscosity * (strain + strain.transpose());
+        
+                    (-pressure * Matrix2f::identity() + viscosity_term, pressure)
+                };
+        
+                for node in NodeIterator::new(
+                    settings,
+                    &space.grid,
+                    p,
+                    &space.period_bounds,
+                    &space.period_bound_rect,
+                ) {
+                    if node.dist.norm() > re {
+                        continue;
+                    }
+        
+                    let params = {
+                        let index = node.node.index;
+                        if !nodes.contains_key(&index) {
+                            let params = LsmpsParams {
+                                m: SMatrix::zeros(),
+                                f_vel: SMatrix::zeros(),
+                                f_stress: SMatrix::zeros(),
+                                f_pressure: SVector::zeros(),
+                            };
+                            nodes.insert(index, params);
+                        }
+        
+                        nodes.get_mut(&node.node.index).unwrap()
+                    };
+        
+                    let r_ij = -node.dist / rs;
+                    let poly_r_ij = poly(r_ij);
+                    // let weight = n.weight;
+                    let weight = (1. - (node.dist / re).norm()).powi(2);
+        
+                    params.m += weight * poly_r_ij * poly_r_ij.transpose();
+                    params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose());
+                    let stress = vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
+                    params.f_stress += weight * poly_r_ij.kronecker(&stress.transpose());
+        
+                    params.f_pressure += weight * poly_r_ij.kronecker(&Matrix1::new(pressure));
+                }
+            }
+        
+            space.grid.par_iter_mut().for_each(|node| {
+                if !nodes.contains_key(&node.index) {
+                    return;
+                }
+                let params = nodes.get(&node.index).unwrap();
+                if let Some(m_inverse) = (params.m + SMatrix::identity() * 0.).try_inverse() {
+                    {
+                        let res = scale * m_inverse * params.f_vel;
+                        node.v = res.row(0).transpose();
+        
+                        let pressure_res = scale * m_inverse * params.f_pressure;
+                        node.force = -pressure_res.fixed_slice::<2, 1>(1, 0)
+                            + settings.dynamic_viscosity
+                                * settings.rho_0
+                                * vector![res[(3, 0)] + res[(5, 0)], res[(3, 1)] + res[(5, 1)]];
+                    }
+        
+                    // {
+                    //     let res = scale * m_inverse * params.f_stress;
+                    //     node.force[0] = res[(1, 0)] + res[(2, 1)];
+                    //     node.force[1] = res[(1, 1)] + res[(2, 2)];
+                    // }
+                }
+            });
+        }
+    }
+    .into()
+}
+
+#[proc_macro]
+pub fn lsmps_g2p_func(input: TokenStream) -> TokenStream {
+    let p = parse_one_usize(input);
+    let func_name = format_ident!("lsmps_{}th", p);
+    quote! {
+        fn #func_name(settings: &Settings, space: &mut Space) {
+            space.particles.par_iter_mut().for_each(|p| {
+                p.v = Vector2f::zeros();
+                p.c = Matrix2f::zeros();
+        
+                mlsmpm_macro::lsmps_poly!(#p);
+        
+                let re = settings.cell_width() * settings.effect_radius as f64;
+                let rs = settings.cell_width();
+        
+                mlsmpm_macro::lsmps_scale!(#p);
+                let scale = scale(rs);
+        
+                mlsmpm_macro::lsmps_params_g2p!(#p);
+        
+                let mut params = LsmpsParams {
+                    m: SMatrix::zeros(),
+                    f_vel: SMatrix::zeros(),
+                };
+        
+                for n in NodeIterator::new(
+                    settings,
+                    &space.grid,
+                    p,
+                    &space.period_bounds,
+                    &space.period_bound_rect,
+                ) {
+                    if n.dist.norm() > re {
+                        continue;
+                    }
+        
+                    let r_ij = n.dist / rs;
+                    let poly_r_ij = poly(r_ij);
+                    // let weight = n.weight;
+                    let weight = (1. - (n.dist / re).norm()).powi(2);
+        
+                    params.m += weight * poly_r_ij * poly_r_ij.transpose();
+                    params.f_vel += weight * poly_r_ij.kronecker(&n.node.v_star.transpose());
+                }
+        
+                if let Some(m_inverted) = params.m.try_inverse() {
+                    let res = scale * m_inverted * params.f_vel;
+                    p.v = res.row(0).transpose();
+        
+                    if settings.vx_zero {
+                        p.v.x = 0.;
+                    }
+                    p.x += res.row(0).transpose() * settings.dt;
+                    p.c = res.fixed_slice::<2, 2>(1, 0).transpose().into();
+                    //p.c = Matrix2::new(0., 0., -0.1, 0.);
+                }
+            });
         }
     }
     .into()

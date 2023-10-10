@@ -8,6 +8,7 @@ fn main() {
         G2PSchemeType::LsmpsLinear,
         G2PSchemeType::CompactLsmps,
         G2PSchemeType::Lsmps3rd,
+        G2PSchemeType::Lsmps4th,
     ];
 
     for scheme_type in g2p {
