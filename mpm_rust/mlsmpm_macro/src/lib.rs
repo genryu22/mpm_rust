@@ -108,28 +108,6 @@ pub fn lsmps_params_g2p(input: TokenStream) -> TokenStream {
     .into()
 }
 
-fn factorial(num: usize) -> f64 {
-    match num {
-        0 | 1 => 1.,
-        _ => factorial(num - 1) * num as f64,
-    }
-}
-
-fn c(bx: usize, by: usize, p: usize, q: usize) -> f64 {
-    let b = bx + by;
-    if b == 0 {
-        1.
-    } else if b == q {
-        (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by)) * factorial(p)
-            / factorial(p + q)
-    } else {
-        (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by))
-            * q as f64
-            * factorial(p + q - b)
-            / factorial(p + q)
-    }
-}
-
 fn parse_one_usize(input: TokenStream) -> usize {
     let input: Expr = syn::parse(input).unwrap();
     let p = if let Expr::Lit(expr_lit) = input {
@@ -171,16 +149,77 @@ fn parse_two_usize(input: TokenStream) -> (usize, usize) {
 }
 
 #[proc_macro]
-pub fn compact_lsmps_s(input: TokenStream) -> TokenStream {
+pub fn compact_lsmps_func(input: TokenStream) -> TokenStream {
     let (p, q) = parse_two_usize(input);
-    println!("{}, {}", p, q);
 
-    let (mut res, size) = multi_index(p);
+    let c_func_name = format_ident!("c_{}_{}", p, q);
 
     quote! {
-        struct LsmpsParams {
-            m: SMatrix<f64, #size, #size>,
-            f_vel: SMatrix<f64, #size, 2>,
+        fn #c_func_name(bx: usize, by: usize) -> f64 {
+            fn factorial(num: usize) -> f64 {
+                match num {
+                    0 | 1 => 1.,
+                    _ => factorial(num - 1) * num as f64,
+                }
+            }
+            
+            let b = bx + by;
+            if b == 0 {
+                1.
+            } else if b == #q {
+                (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by)) * factorial(#p)
+                    / factorial(#p + #q)
+            } else {
+                (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by))
+                    * #q as f64
+                    * factorial(#p + #q - b)
+                    / factorial(#p + #q)
+            }
+        }
+    }.into()
+}
+
+#[proc_macro]
+pub fn compact_lsmps_scale(input: TokenStream) -> TokenStream {
+    let (p, q) = parse_two_usize(input);
+
+    let (p_res, p_size) = multi_index(p);
+    let (q_res, q_size) = multi_index(q);
+
+    let func_name = format_ident!("scale_{}_{}", p, q);
+    let c_func_name = format_ident!("c_{}_{}", p, q);
+
+    quote! {
+        fn #func_name(rs: f64) -> SMatrix::<f64, #p_size, #p_size> {
+            fn factorial(num: usize) -> f64 {
+                match num {
+                    0 | 1 => 1.,
+                    _ => factorial(num - 1) * num as f64,
+                }
+            }
+            
+            let alpha = [#(#p_res,)*];
+            let beta = [#(#q_res,)*];
+            let mut res = SVector::<f64, #p_size>::zeros();
+            for i in 0..#p_size {
+                res[i] = {
+                    let (ax, ay) = (alpha[i*2], alpha[i*2+1]);
+                    let a = ax + ay;
+                    let sum = (0..#q_size)
+                        .map(|j| {
+                            let (bx, by) = (beta[j*2], beta[j*2+1]);
+                            let b = bx + by;
+                            if b > #q_size || bx > ax || by > ay {
+                                0.
+                            } else {
+                                #c_func_name(bx, by) / (factorial(ax - bx) * factorial(ay - by))
+                            }
+                        })
+                        .sum::<f64>();
+                    1. / (sum * rs.powi(a as i32))
+                }
+            }
+            SMatrix::<f64, #p_size, #p_size>::from_diagonal(&res)
         }
     }
     .into()

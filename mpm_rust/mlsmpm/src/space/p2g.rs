@@ -658,67 +658,19 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
         }
     }
 
-    fn factorial(num: usize) -> f64 {
-        match num {
-            0 | 1 => 1.,
-            _ => factorial(num - 1) * num as f64,
-        }
-    }
-
-    fn C(bx: usize, by: usize, p: usize, q: usize) -> f64 {
-        let b = bx + by;
-        if b == 0 {
-            1.
-        } else if b == q {
-            (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by))
-                * factorial(p)
-                / factorial(p + q)
-        } else {
-            (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by))
-                * q as f64
-                * factorial(p + q - b)
-                / factorial(p + q)
-        }
-    }
-
-    fn S(ax: usize, ay: usize, rs: f64, p: usize, q: usize) -> f64 {
-        let a = ax + ay;
-        let sum = [(0, 0), (1, 0), (0, 1)]
-            .map(|(bx, by)| {
-                let b = bx + by;
-                if b > q || bx > ax || by > ay {
-                    0.
-                } else {
-                    C(bx, by, p, q) / (factorial(ax - bx) * factorial(ay - by))
-                }
-            })
-            .iter()
-            .sum::<f64>();
-        1. / (sum * rs.powi(a as i32))
-    }
-
-    fn poly(r: Vector2<f64>) -> Vector6<f64> {
-        vector![1., r.x, r.y, r.x * r.x, r.x * r.y, r.y * r.y]
-    }
+    mlsmpm_macro::lsmps_poly!(2);
 
     let re = settings.cell_width() * 5.;
     let rs = settings.cell_width();
-    let scale_stress = Matrix6::<f64>::from_diagonal(&vector![
-        S(0, 0, rs, 2, 0),
-        S(1, 0, rs, 2, 0),
-        S(0, 1, rs, 2, 0),
-        S(2, 0, rs, 2, 0),
-        S(1, 1, rs, 2, 0),
-        S(0, 2, rs, 2, 0)
-    ]);
-    let scale_vel = Matrix6::<f64>::from_diagonal(&vector![
-        S(0, 0, rs, 2, 1),
-        S(1, 0, rs, 2, 1),
-        S(0, 1, rs, 2, 1),
-        S(2, 0, rs, 2, 1),
-        S(1, 1, rs, 2, 1),
-        S(0, 2, rs, 2, 1)
-    ]);
+
+    mlsmpm_macro::compact_lsmps_func!(2, 0);
+    mlsmpm_macro::compact_lsmps_func!(2, 1);
+
+    mlsmpm_macro::compact_lsmps_scale!(2, 0);
+    mlsmpm_macro::compact_lsmps_scale!(2, 1);
+
+    let scale_stress = scale_2_0(rs);
+    let scale_vel = scale_2_1(rs);
 
     struct LsmpsParams {
         m: Matrix6<f64>,
@@ -789,26 +741,27 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
 
             let r_ij = -node.dist / rs;
             let poly_r_ij = poly(r_ij);
+            //let weight = node.weight;
             let weight = (1. - (node.dist / re).norm()).powi(2);
-            let weight = node.weight;
 
             params.m += weight * poly_r_ij * poly_r_ij.transpose();
 
-            params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose()) * C(0, 0, 2, 1) as f64;
+            params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose()) * c_2_1(0, 0) as f64;
             params.f_vel += weight
                 * poly_r_ij.kronecker(&p.c.column(0).transpose())
-                * C(1, 0, 2, 1) as f64
+                * c_2_1(1, 0) as f64
                 * -node.dist.x;
             params.f_vel += weight
                 * poly_r_ij.kronecker(&p.c.column(1).transpose())
-                * C(0, 1, 2, 1) as f64
+                * c_2_1(0, 1) as f64
                 * -node.dist.y;
 
-            let stress = vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
-            params.f_stress +=
-                weight * poly_r_ij.kronecker(&stress.transpose()) * C(0, 0, 2, 0) as f64;
+            // let stress = vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
+            // params.f_stress +=
+            //     weight * poly_r_ij.kronecker(&stress.transpose()) * c_2_0(0, 0) as f64;
 
-            params.f_pressure += weight * poly_r_ij.kronecker(&Matrix1::new(pressure));
+            params.f_pressure +=
+                weight * poly_r_ij.kronecker(&Matrix1::new(pressure)) * c_2_0(0, 0) as f64;
         }
     }
 
