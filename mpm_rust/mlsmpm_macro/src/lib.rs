@@ -46,6 +46,9 @@ fn multi_index_factorial(a: usize) -> (Vec<f64>, usize) {
 pub fn lsmps_poly(input: TokenStream) -> TokenStream {
     let input: usize = parse_one_usize(input);
     let (mut res, size) = multi_index(input);
+
+    println!("p={}, n of alpha(|alpha|=p) = {}", input, size);
+
     quote! {
         fn poly(r: Vector2<f64>) -> SVector<f64, #size> {
             let d = [#(#res,)*];
@@ -148,6 +151,54 @@ fn parse_two_usize(input: TokenStream) -> (usize, usize) {
     (p, q)
 }
 
+fn parse_four_usize(input: TokenStream) -> [usize; 4] {
+    let parser = Punctuated::<Expr, Token![,]>::parse_separated_nonempty;
+    let input = parser.parse(input).unwrap();
+    assert_eq!(input.len(), 4);
+    let mut res = [0; 4];
+    for i in 0..4 {
+        res[i] = if let Expr::Lit(expr_lit) = input.first().unwrap() {
+            if let Lit::Int(litint) = &expr_lit.lit {
+                litint.base10_parse::<usize>().unwrap()
+            } else {
+                panic!();
+            }
+        } else {
+            panic!();
+        };
+    }
+
+    res
+}
+
+#[proc_macro]
+pub fn compact_c(input: TokenStream) -> TokenStream {
+    let [p, q, bx, by] = parse_four_usize(input);
+
+    quote! {{
+        fn factorial(num: usize) -> f64 {
+            match num {
+                0 | 1 => 1.,
+                _ => factorial(num - 1) * num as f64,
+            }
+        }
+
+        let b = #bx + #by;
+
+        if b == 0 {
+            1.
+        } else if b == #q {
+            (-1. as f64).powi(b as i32) * factorial(b) / (factorial(#bx) * factorial(#by)) * factorial(#p)
+                / factorial(#p + #q)
+        } else {
+            (-1. as f64).powi(b as i32) * factorial(b) / (factorial(#bx) * factorial(#by))
+                * #q as f64
+                * factorial(#p + #q - b)
+                / factorial(#p + #q)
+        }
+    }}.into()
+}
+
 #[proc_macro]
 pub fn compact_lsmps_func(input: TokenStream) -> TokenStream {
     let (p, q) = parse_two_usize(input);
@@ -162,8 +213,9 @@ pub fn compact_lsmps_func(input: TokenStream) -> TokenStream {
                     _ => factorial(num - 1) * num as f64,
                 }
             }
-            
+    
             let b = bx + by;
+    
             if b == 0 {
                 1.
             } else if b == #q {
