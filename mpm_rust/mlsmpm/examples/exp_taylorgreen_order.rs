@@ -25,8 +25,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     const SPACE_WIDTH: f64 = 10.;
-    const SMALL_WIDTH: usize = 500;
-    const BIG_WIDTH: usize = 1000;
+    const SMALL_WIDTH: usize = 1000;
+    const BIG_WIDTH: usize = 2000;
 
     println!(
         "初期の粒子配置間隔を {}m から {}m に変えたときのl2エラーの収束次数",
@@ -35,24 +35,24 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     [
-        // (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
-        // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
-        // (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
-        // (
-        //     P2GSchemeType::CompactLsmpsLinear,
-        //     G2PSchemeType::LsmpsLinear,
-        // ),
-        // (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
-        // (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
+        (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
+        //(P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
+        (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
+        (
+            P2GSchemeType::CompactLsmpsLinear,
+            G2PSchemeType::LsmpsLinear,
+        ),
+        (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
         (P2GSchemeType::Lsmps4th, G2PSchemeType::Lsmps4th),
-        // (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
-        // (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
+        (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
+        (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
     ]
     .iter()
-    .for_each(|&(p2g_scheme, g2p_scheme)| {
+    .map(|&(p2g_scheme, g2p_scheme)| {
         let result = [SMALL_WIDTH, BIG_WIDTH].map(|grid_width| {
             let settings = Settings {
-                dt: 1e-4,
+                dt: 1e-5,
                 gravity: 0.,
                 dynamic_viscosity,
                 alpha: 0.,
@@ -65,7 +65,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 boundary_mirror: false,
                 vx_zero: false,
                 weight_type: WeightType::QuadraticBSpline,
-                effect_radius: 10,
+                effect_radius: 4,
                 p2g_scheme,
                 g2p_scheme,
                 pressure: Some(|p, time| {
@@ -82,6 +82,16 @@ fn main() -> Result<(), Box<dyn Error>> {
                         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
                 }),
             };
+
+            println!("{:?}", settings);
+
+            println!(
+                "Δt must be smaller than {}",
+                f64::min(
+                    settings.cell_width() / 2.,
+                    settings.cell_width().powi(2) / 10. / settings.dynamic_viscosity
+                )
+            );
 
             let v_time_steps = (time / settings.dt) as u32;
 
@@ -121,12 +131,17 @@ fn main() -> Result<(), Box<dyn Error>> {
             (1. / grid_width as f64, l2_error)
         });
 
-        println!(
+        format!(
             "{:?}_{:?}: {}",
             p2g_scheme,
             g2p_scheme,
             f64::log10(result[0].1 / result[1].1) / f64::log10(result[0].0 / result[1].0)
-        );
+        )
+    })
+    .collect::<Vec<_>>()
+    .iter()
+    .for_each(|res_log| {
+        println!("{}", res_log);
     });
 
     Ok(())
