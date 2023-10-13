@@ -42,11 +42,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             P2GSchemeType::CompactLsmpsLinear,
             G2PSchemeType::LsmpsLinear,
         ),
+        (P2GSchemeType::CompactLsmpsLinear, G2PSchemeType::LSMPS),
         (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
         (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
         (P2GSchemeType::Lsmps4th, G2PSchemeType::Lsmps4th),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
+        (P2GSchemeType::CompactLsmps, G2PSchemeType::Lsmps3rd),
     ]
     .iter()
     .map(|&(p2g_scheme, g2p_scheme)| {
