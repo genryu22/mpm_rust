@@ -19,6 +19,21 @@ fn multi_index(a: usize) -> (Vec<usize>, usize) {
     (res, size)
 }
 
+fn multi_index_array(a: usize) -> (Vec<[usize; 2]>, usize) {
+    let mut res = vec![];
+    for i in 0..=a {
+        for dy in 0..=i {
+            for dx in 0..=i {
+                if dx + dy == i {
+                    res.push([dx, dy]);
+                }
+            }
+        }
+    }
+    let size = res.len() / 2;
+    (res, size)
+}
+
 fn multi_index_factorial(a: usize) -> (Vec<f64>, usize) {
     fn factorial(num: usize) -> f64 {
         match num {
@@ -51,7 +66,8 @@ pub fn lsmps_poly(input: TokenStream) -> TokenStream {
 
     quote! {
         fn poly(r: Vector2<f64>) -> SVector<f64, #size> {
-            let d = [#(#res,)*];
+            let d = [#(#res),*];
+
             let mut res = SVector::<f64, #size>::zeros();
             for i in 0..#size {
                 res[i] = r[0].powi(d[i*2] as i32) * r[1].powi(d[i*2 + 1] as i32);
@@ -70,7 +86,7 @@ pub fn lsmps_scale(input: TokenStream) -> TokenStream {
 
     quote! {
         fn scale(rs: f64) -> SMatrix::<f64, #size, #size> {
-            let d = [#(#res,)*];
+            let d = [#(#res),*];
             let mut res = SVector::<f64, #size>::zeros();
             for i in 0..#size {
                 res[i] = d[i*2] * rs.powf(-d[i*2 + 1]);
