@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     [
         (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
-        //(P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
+        (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
         (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
         (
             P2GSchemeType::CompactLsmpsLinear,
@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     .map(|&(p2g_scheme, g2p_scheme)| {
         let result = [SMALL_WIDTH, BIG_WIDTH].map(|grid_width| {
             let settings = Settings {
-                dt: 1e-5,
+                dt: 5e-5,
                 gravity: 0.,
                 dynamic_viscosity,
                 alpha: 0.,
@@ -88,8 +88,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!(
                 "Δt must be smaller than {}",
                 f64::min(
-                    settings.cell_width() / 2.,
-                    settings.cell_width().powi(2) / 10. / settings.dynamic_viscosity
+                    (settings.cell_width() / 2.) / 2. / 1.,
+                    (settings.cell_width() / 2.).powi(2) / 10. / settings.dynamic_viscosity
                 )
             );
 
