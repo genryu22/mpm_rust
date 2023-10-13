@@ -25,26 +25,26 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     [
-        // (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
-        // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
-        // (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
-        // (
-        //     P2GSchemeType::CompactLsmpsLinear,
-        //     G2PSchemeType::LsmpsLinear,
-        // ),
-        // (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
-        // (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
+        (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
+        (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
+        (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
+        (
+            P2GSchemeType::CompactLsmpsLinear,
+            G2PSchemeType::LsmpsLinear,
+        ),
+        (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
         (P2GSchemeType::Lsmps4th, G2PSchemeType::Lsmps4th),
-        // (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
-        // (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
+        (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
+        (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
     ]
     .iter()
     .for_each(|&(p2g_scheme, g2p_scheme)| {
-        let results = [250, 500, 1000]
+        let results = [250, 500, 1000, 2000, 4000]
             .iter()
             .map(|&grid_width| {
                 let settings = Settings {
-                    dt: 1e-3,
+                    dt: 1e-5,
                     gravity: 0.,
                     dynamic_viscosity,
                     alpha: 0.,
@@ -57,7 +57,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     boundary_mirror: false,
                     vx_zero: false,
                     weight_type: WeightType::QuadraticBSpline,
-                    effect_radius: 15,
+                    effect_radius: 4,
                     p2g_scheme,
                     g2p_scheme,
                     pressure: Some(|p, time| {
