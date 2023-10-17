@@ -69,6 +69,12 @@ fn sin_vel_2nd_grad(x: f64) -> f64 {
     -16. * PI * PI * f64::sin(PI * x * 4.)
 }
 
+mlsmpm_macro::test_dissipation_lsmps_func!(1, 3);
+mlsmpm_macro::test_dissipation_lsmps_func!(2, 3);
+mlsmpm_macro::test_dissipation_lsmps_func!(3, 6);
+mlsmpm_macro::test_dissipation_lsmps_func!(4, 6);
+mlsmpm_macro::test_dissipation_lsmps_func!(6, 10);
+
 fn main() -> Result<(), Box<dyn Error>> {
     let folder = Path::new("exp_dissipation");
     if !folder.exists() {
@@ -79,8 +85,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         fn(&Vec<Particle>, &mut Vec<Node>, f64, usize),
         fn(&mut Vec<Particle>, &Vec<Node>, f64, usize),
         &str,
-    ); 2] = [
+    ); 7] = [
         (mlsmpm_p2g, mlsmpm_g2p, "mlsmpm"),
+        (lsmps_p2g_1, lsmps_g2p_1, "lsmps_1"),
+        (lsmps_p2g_2, lsmps_g2p_2, "lsmps_2"),
+        (lsmps_p2g_3, lsmps_g2p_3, "lsmps_3"),
+        (lsmps_p2g_4, lsmps_g2p_4, "lsmps_4"),
+        (lsmps_p2g_6, lsmps_g2p_6, "lsmps_6"),
         (compact_lsmps_p2g, compact_g2p, "compact_lsmps"),
     ];
 
@@ -90,7 +101,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let grid_size = 300;
             let (mut particles, mut grid, cell_width) =
                 init(1, grid_size, sin_vel, sin_vel_grad, sin_vel_2nd_grad);
-            for _ in 0..300 {
+            for _ in 0..1000 {
                 p2g(&particles, &mut grid, cell_width, grid_size);
                 particles.par_iter_mut().for_each(|p| p.v = 0.);
                 g2p(&mut particles, &grid, cell_width, grid_size);
@@ -205,143 +216,6 @@ fn mlsmpm_g2p(particles: &mut Vec<Particle>, grid: &Vec<Node>, cell_width: f64, 
     });
 }
 
-fn lsmps_p2g(particles: &Vec<Particle>, grid: &mut Vec<Node>, cell_width: f64, grid_size: usize) {
-    fn poly(r: f64) -> Vector3<f64> {
-        vector![1., r, r * r]
-    }
-
-    let rs = cell_width;
-    let scale = Matrix3::<f64>::from_diagonal(&vector![1., 1. / rs, 2. / rs / rs]);
-
-    struct LsmpsParams {
-        m: Matrix3<f64>,
-        f_vel: Vector3<f64>,
-    }
-
-    let params = particles
-        .par_iter()
-        .flat_map(|p| {
-            let e = 10;
-            (-e..=e)
-                .map(|gx| {
-                    let base_node = (p.x / cell_width).floor() as i32;
-                    (
-                        (base_node + gx) as f64 * cell_width,
-                        (base_node + gx).rem_euclid(grid_size as i32 + 1) as usize,
-                    )
-                })
-                .filter(|(n_pos, _)| (n_pos - p.x).abs() <= e as f64 * cell_width)
-                .map(|(n_pos, n_index)| {
-                    let dist = n_pos - p.x;
-                    let r_ij = -dist / rs;
-                    let poly_r_ij = poly(r_ij);
-                    //let weight = quadratic_b_spline(dist / cell_width);
-                    let weight = (1. - (dist / (e as f64 * cell_width)).abs()).powi(2);
-
-                    (
-                        n_index,
-                        LsmpsParams {
-                            m: weight * poly_r_ij * poly_r_ij.transpose(),
-                            f_vel: weight * poly_r_ij.kronecker(&Vector1::new(p.v)),
-                        },
-                    )
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
-
-    let mut params_sums = {
-        let mut params_sums = vec![];
-        for _ in 0..grid.len() {
-            params_sums.push(LsmpsParams {
-                m: Matrix3::zeros(),
-                f_vel: Vector3::zeros(),
-            });
-        }
-        params_sums
-    };
-    for (n_index, params) in params {
-        params_sums[n_index].m += params.m;
-        params_sums[n_index].f_vel += params.f_vel;
-    }
-
-    for (index, vel) in params_sums
-        .par_iter_mut()
-        .map(|params| {
-            if let Some(m_inverse) = params.m.try_inverse() {
-                let res = scale * m_inverse * params.f_vel;
-                res.row(0).transpose().x
-            } else {
-                0.
-            }
-        })
-        .enumerate()
-        .collect::<Vec<_>>()
-    {
-        grid[index].v = vel;
-    }
-}
-
-fn lsmps_g2p(particles: &mut Vec<Particle>, grid: &Vec<Node>, cell_width: f64, grid_size: usize) {
-    fn poly(r: f64) -> Vector3<f64> {
-        vector![1., r, r * r]
-    }
-
-    let rs = cell_width;
-    let scale = Matrix3::<f64>::from_diagonal(&vector![1., 1. / rs, 2. / rs / rs]);
-
-    struct LsmpsParams {
-        m: Matrix3<f64>,
-        f_vel: Vector3<f64>,
-    }
-
-    impl std::iter::Sum for LsmpsParams {
-        fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-            iter.reduce(|mut acc, e| {
-                acc.m += e.m;
-                acc.f_vel += e.f_vel;
-                acc
-            })
-            .unwrap_or(LsmpsParams {
-                m: Matrix3::zeros(),
-                f_vel: Vector3::zeros(),
-            })
-        }
-    }
-
-    particles.iter_mut().for_each(|p| {
-        let e = 10;
-        let params = (-e..=e)
-            .map(|gx| {
-                let base_node = (p.x / cell_width).floor() as i32;
-                (
-                    (base_node + gx) as f64 * cell_width,
-                    (base_node + gx).rem_euclid(grid_size as i32 + 1) as usize,
-                )
-            })
-            .filter(|(n_pos, _)| (n_pos - p.x).abs() <= e as f64 * cell_width)
-            .map(|(n_pos, n_index)| {
-                let dist = n_pos - p.x;
-                let r_ij = dist / rs;
-                let poly_r_ij = poly(r_ij);
-                //let weight = quadratic_b_spline(dist / cell_width);
-                let weight = (1. - (dist / (e as f64 * cell_width)).abs()).powi(2);
-
-                LsmpsParams {
-                    m: weight * poly_r_ij * poly_r_ij.transpose(),
-                    f_vel: weight * poly_r_ij.kronecker(&Vector1::new(grid[n_index].v)),
-                }
-            })
-            .sum::<LsmpsParams>();
-
-        if let Some(m_inverted) = params.m.try_inverse() {
-            let res = scale * m_inverted * params.f_vel;
-            p.v = res.row(0).x;
-            p.c = res.row(1).x;
-        }
-    });
-}
-
 fn compact_lsmps_p2g(
     particles: &Vec<Particle>,
     grid: &mut Vec<Node>,
@@ -391,7 +265,7 @@ fn compact_lsmps_p2g(
         vector![1., r, r * r]
     }
 
-    let re = cell_width * 5.;
+    let re = cell_width * 3.;
     let rs = cell_width;
     let scale = Matrix3::<f64>::from_diagonal(&vector![
         S(0, 0, rs, 2, 1),
@@ -517,7 +391,7 @@ fn compact_g2p(particles: &mut Vec<Particle>, grid: &Vec<Node>, cell_width: f64,
         vector![1., r, r * r]
     }
 
-    let re = cell_width * 5.;
+    let re = cell_width * 3.;
     let rs = cell_width;
     let scale = Matrix3::<f64>::from_diagonal(&vector![
         S(0, 0, rs, 2, 1),

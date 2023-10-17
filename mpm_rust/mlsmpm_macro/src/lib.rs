@@ -19,6 +19,15 @@ fn multi_index(a: usize) -> (Vec<usize>, usize) {
     (res, size)
 }
 
+fn multi_index_1d(a: usize) -> (Vec<usize>, usize) {
+    let mut res = vec![];
+    for i in 0..=a {
+         res.push(i);
+    }
+    let size = res.len();
+    (res, size)
+}
+
 fn multi_index_array(a: usize) -> (Vec<[usize; 2]>, usize) {
     let mut res = vec![];
     for i in 0..=a {
@@ -57,6 +66,23 @@ fn multi_index_factorial(a: usize) -> (Vec<f64>, usize) {
     (res, size)
 }
 
+fn multi_index_factorial_1d(a: usize) -> (Vec<f64>, usize) {
+    fn factorial(num: usize) -> f64 {
+        match num {
+            0 | 1 => 1.,
+            _ => factorial(num - 1) * num as f64,
+        }
+    }
+
+    let mut res = vec![];
+    for i in 0..=a {
+        res.push(factorial(i));
+        res.push(i as f64);
+    }
+    let size = res.len() / 2;
+    (res, size)
+}
+
 #[proc_macro]
 pub fn lsmps_poly(input: TokenStream) -> TokenStream {
     let input: usize = parse_one_usize(input);
@@ -71,6 +97,26 @@ pub fn lsmps_poly(input: TokenStream) -> TokenStream {
             let mut res = SVector::<f64, #size>::zeros();
             for i in 0..#size {
                 res[i] = r[0].powi(d[i*2] as i32) * r[1].powi(d[i*2 + 1] as i32);
+            }
+
+            res
+        }
+    }
+    .into()
+}
+
+#[proc_macro]
+pub fn lsmps_poly_1d(input: TokenStream) -> TokenStream {
+    let input: usize = parse_one_usize(input);
+    let (res, size) = multi_index_1d(input);
+
+    quote! {
+        fn poly(r: f64) -> SVector<f64, #size> {
+            let d = [#(#res),*];
+
+            let mut res = SVector::<f64, #size>::zeros();
+            for i in 0..#size {
+                res[i] = r.powi(d[i] as i32);
             }
 
             res
@@ -98,6 +144,24 @@ pub fn lsmps_scale(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
+pub fn lsmps_scale_1d(input: TokenStream) -> TokenStream {
+    let input: usize = parse_one_usize(input);
+    let (res, size) = multi_index_factorial_1d(input);
+
+    quote! {
+        fn scale(rs: f64) -> SMatrix::<f64, #size, #size> {
+            let d = [#(#res),*];
+            let mut res = SVector::<f64, #size>::zeros();
+            for i in 0..#size {
+                res[i] = d[i*2] * rs.powf(-d[i*2 + 1]);
+            }
+            SMatrix::<f64, #size, #size>::from_diagonal(&res)
+        }
+    }
+    .into()
+}
+
+#[proc_macro]
 pub fn lsmps_params(input: TokenStream) -> TokenStream {
     let input: usize = parse_one_usize(input);
     let (mut res, size) = multi_index(input);
@@ -108,6 +172,20 @@ pub fn lsmps_params(input: TokenStream) -> TokenStream {
             f_vel: SMatrix<f64, #size, 2>,
             f_stress: SMatrix<f64, #size, 3>,
             f_pressure: SVector<f64, #size>,
+        }
+    }
+    .into()
+}
+
+#[proc_macro]
+pub fn lsmps_params_1d(input: TokenStream) -> TokenStream {
+    let input: usize = parse_one_usize(input);
+    let (res, size) = multi_index_1d(input);
+
+    quote! {
+        struct LsmpsParams {
+            m: SMatrix<f64, #size, #size>,
+            f_vel: SVector<f64, #size>,
         }
     }
     .into()
@@ -493,3 +571,138 @@ pub fn lsmps_g2p_func(input: TokenStream) -> TokenStream {
     }
     .into()
 }
+
+#[proc_macro]
+pub fn test_dissipation_lsmps_func(input: TokenStream) -> TokenStream {
+    let (p, e) = parse_two_usize(input);
+    let p2g_func_name = format_ident!("lsmps_p2g_{}", p);
+    let g2p_func_name = format_ident!("lsmps_g2p_{}", p);
+    quote! {
+        fn #p2g_func_name(particles: &Vec<Particle>, grid: &mut Vec<Node>, cell_width: f64, grid_size: usize) {
+            mlsmpm_macro::lsmps_poly_1d!(#p);
+            mlsmpm_macro::lsmps_scale_1d!(#p);
+            mlsmpm_macro::lsmps_params_1d!(#p);
+        
+            let rs = cell_width;
+            let scale = scale(rs);
+        
+            let params = particles
+                .par_iter()
+                .flat_map(|p| {
+                    let e = #e as i32;
+                    (-e..=e)
+                        .map(|gx| {
+                            let base_node = (p.x / cell_width).floor() as i32;
+                            (
+                                (base_node + gx) as f64 * cell_width,
+                                (base_node + gx).rem_euclid(grid_size as i32 + 1) as usize,
+                            )
+                        })
+                        .filter(|(n_pos, _)| (n_pos - p.x).abs() <= e as f64 * cell_width)
+                        .map(|(n_pos, n_index)| {
+                            let dist = n_pos - p.x;
+                            let r_ij = -dist / rs;
+                            let poly_r_ij = poly(r_ij);
+                            let weight = (1. - (dist / (e as f64 * cell_width)).abs()).powi(2);
+        
+                            (
+                                n_index,
+                                LsmpsParams {
+                                    m: weight * poly_r_ij * poly_r_ij.transpose(),
+                                    f_vel: weight * poly_r_ij.kronecker(&Vector1::new(p.v)),
+                                },
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+        
+            let mut params_sums = {
+                let mut params_sums = vec![];
+                for _ in 0..grid.len() {
+                    params_sums.push(LsmpsParams {
+                        m: SMatrix::zeros(),
+                        f_vel: SVector::zeros(),
+                    });
+                }
+                params_sums
+            };
+            for (n_index, params) in params {
+                params_sums[n_index].m += params.m;
+                params_sums[n_index].f_vel += params.f_vel;
+            }
+        
+            for (index, vel) in params_sums
+                .par_iter_mut()
+                .map(|params| {
+                    if let Some(m_inverse) = params.m.try_inverse() {
+                        let res = scale * m_inverse * params.f_vel;
+                        res.row(0).transpose().x
+                    } else {
+                        0.
+                    }
+                })
+                .enumerate()
+                .collect::<Vec<_>>()
+            {
+                grid[index].v = vel;
+            }
+        }
+
+        fn #g2p_func_name(particles: &mut Vec<Particle>, grid: &Vec<Node>, cell_width: f64, grid_size: usize) {
+            mlsmpm_macro::lsmps_poly_1d!(#p);
+            mlsmpm_macro::lsmps_scale_1d!(#p);
+            mlsmpm_macro::lsmps_params_1d!(#p);
+        
+            let rs = cell_width;
+            let scale = scale(rs);
+        
+            impl std::iter::Sum for LsmpsParams {
+                fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+                    iter.reduce(|mut acc, e| {
+                        acc.m += e.m;
+                        acc.f_vel += e.f_vel;
+                        acc
+                    })
+                    .unwrap_or(LsmpsParams {
+                        m: SMatrix::zeros(),
+                        f_vel: SVector::zeros(),
+                    })
+                }
+            }
+        
+            particles.iter_mut().for_each(|p| {
+                let e = #e as i32;
+                let params = (-e..=e)
+                    .map(|gx| {
+                        let base_node = (p.x / cell_width).floor() as i32;
+                        (
+                            (base_node + gx) as f64 * cell_width,
+                            (base_node + gx).rem_euclid(grid_size as i32 + 1) as usize,
+                        )
+                    })
+                    .filter(|(n_pos, _)| (n_pos - p.x).abs() <= e as f64 * cell_width)
+                    .map(|(n_pos, n_index)| {
+                        let dist = n_pos - p.x;
+                        let r_ij = dist / rs;
+                        let poly_r_ij = poly(r_ij);
+                        let weight = (1. - (dist / (e as f64 * cell_width)).abs()).powi(2);
+        
+                        LsmpsParams {
+                            m: weight * poly_r_ij * poly_r_ij.transpose(),
+                            f_vel: weight * poly_r_ij.kronecker(&Vector1::new(grid[n_index].v)),
+                        }
+                    })
+                    .sum::<LsmpsParams>();
+        
+                if let Some(m_inverted) = params.m.try_inverse() {
+                    let res = scale * m_inverted * params.f_vel;
+                    p.v = res.row(0).x;
+                    p.c = res.row(1).x;
+                }
+            });
+        }
+    }
+    .into()
+}
+
