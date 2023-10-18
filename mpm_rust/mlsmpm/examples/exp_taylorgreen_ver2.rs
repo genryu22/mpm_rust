@@ -39,6 +39,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::Lsmps3rd),
+        (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::Lsmps3rd),
     ]
     .iter()
     .for_each(|&(p2g_scheme, g2p_scheme)| {
@@ -59,7 +60,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     boundary_mirror: false,
                     vx_zero: false,
                     weight_type: WeightType::QuadraticBSpline,
-                    effect_radius: 4,
+                    effect_radius: 3,
                     p2g_scheme,
                     g2p_scheme,
                     pressure: Some(|p, time| {

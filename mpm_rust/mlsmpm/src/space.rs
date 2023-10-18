@@ -62,6 +62,7 @@ impl Space {
                 P2GSchemeType::LSMPS
                 | P2GSchemeType::LsmpsLinear
                 | P2GSchemeType::Lsmps3rd
+                | P2GSchemeType::Lsmps4th
                 | P2GSchemeType::CompactLsmps
                 | P2GSchemeType::CompactLsmpsLinear => {
                     n.v_star = n.v
