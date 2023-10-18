@@ -6,7 +6,7 @@ use rand::Rng;
 use rayon::prelude::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let folder = Path::new("exp_taylorgreen_ver2_forward");
+    let folder = Path::new("exp_taylorgreen_reset");
     if !folder.exists() {
         fs::create_dir(folder)?;
     }
@@ -46,11 +46,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]
     .iter()
     .for_each(|&(p2g_scheme, g2p_scheme)| {
-        let results = [250, 500, 1000, 2000]
+        let results = [250, 500, 1000]
             .iter()
             .map(|&grid_width| {
                 let settings = Settings {
-                    dt: 1e-5,
+                    dt: 1e-4,
                     gravity: 0.,
                     dynamic_viscosity,
                     alpha: 0.,
@@ -79,6 +79,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                             * f64::exp(-4. * PI * PI * time * nu / (L * L))
                             * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
                     }),
+                    reset_particle_position: true,
                     ..Default::default()
                 };
 

@@ -146,6 +146,12 @@ impl Space {
         self.grid.par_iter_mut().for_each(|node| {
             node.c = util::calc_deriv_v(settings, node, &current_grid, &self.period_bound_rect);
         });
+
+        if settings.reset_particle_position {
+            self.particles.par_iter_mut().for_each(|p| {
+                p.x = p.init_x;
+            });
+        }
     }
 
     pub fn g2p(&mut self, settings: &Settings) {

@@ -31,6 +31,7 @@ fn main() {
                 * f64::exp(-4. * PI * PI * time * nu / (L * L))
                 * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
         }),
+        ..Default::default()
     };
 
     let space = new_for_taylor_green(&settings);

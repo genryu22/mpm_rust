@@ -66,7 +66,13 @@ fn mlsmpm(settings: &Settings, space: &mut Space) {
         let strain = dudv;
         let viscosity_term = settings.dynamic_viscosity * (strain + strain.transpose());
         let stress = -pressure * Matrix2f::identity() + viscosity_term;
-        let eq_16_term_0 = -volume * 4. / (settings.cell_width() * settings.cell_width()) * stress;
+        let eq_16_term_0 = -volume
+            * match settings.weight_type {
+                WeightType::CubicBSpline => 3.,
+                _ => 4.,
+            }
+            / (settings.cell_width() * settings.cell_width())
+            * stress;
 
         for n in NodeMutIterator::new(
             settings,

@@ -84,6 +84,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         * f64::exp(-4. * PI * PI * time * nu / (L * L))
                         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
                 }),
+                ..Default::default()
             };
 
             println!("{:?}", settings);

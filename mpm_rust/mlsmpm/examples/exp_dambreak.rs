@@ -21,6 +21,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         p2g_scheme: P2GSchemeType::MLSMPM,
         g2p_scheme: G2PSchemeType::MLSMPM,
         pressure: None,
+        ..Default::default()
     };
 
     println!("{:?}", settings);

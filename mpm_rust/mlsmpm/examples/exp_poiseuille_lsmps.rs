@@ -25,6 +25,7 @@ fn main() {
                 p2g_scheme: P2GSchemeType::LSMPS,
                 g2p_scheme: G2PSchemeType::LSMPS,
                 pressure: Some(|_, _| 0.),
+                ..Default::default()
             };
 
             println!("{:?}", settings);

@@ -15,7 +15,7 @@ fn main() {
         boundary_mirror: false,
         vx_zero: false,
         weight_type: WeightType::QuadraticBSpline,
-        effect_radius: 3,
+        effect_radius: 2,
         p2g_scheme: P2GSchemeType::LSMPS,
         g2p_scheme: G2PSchemeType::LSMPS,
         pressure: Some(|p, time| {
@@ -31,6 +31,7 @@ fn main() {
                 * f64::exp(-4. * PI * PI * time * nu / (L * L))
                 * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
         }),
+        ..Default::default()
     };
 
     let space = new_for_taylor_green(&settings);

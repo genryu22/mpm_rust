@@ -25,6 +25,7 @@ fn main() {
         p2g_scheme: P2GSchemeType::MLSMPM,
         g2p_scheme: G2PSchemeType::MLSMPM,
         pressure: None,
+        ..Default::default()
     };
 
     let space = new_for_taylor_green(&settings);

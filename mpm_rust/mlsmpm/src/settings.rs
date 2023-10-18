@@ -25,6 +25,33 @@ pub struct Settings {
     pub g2p_scheme: G2PSchemeType,
 
     pub pressure: Option<fn(&Particle, f64) -> f64>,
+
+    pub reset_particle_position: bool,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            dt: 1e-4,
+            gravity: 0.,
+            dynamic_viscosity: 1e-2,
+            alpha: 0.,
+            affine: true,
+            space_width: 10.,
+            grid_width: 100,
+            rho_0: 1.,
+            c: 1e1,
+            eos_power: 4.,
+            boundary_mirror: false,
+            vx_zero: false,
+            weight_type: WeightType::QuadraticBSpline,
+            effect_radius: 2,
+            p2g_scheme: P2GSchemeType::MLSMPM,
+            g2p_scheme: G2PSchemeType::MLSMPM,
+            pressure: None,
+            reset_particle_position: false,
+        }
+    }
 }
 
 #[derive(Debug)]

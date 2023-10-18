@@ -19,6 +19,7 @@ fn main() {
         p2g_scheme: P2GSchemeType::CompactLsmps,
         g2p_scheme: G2PSchemeType::CompactLsmps,
         pressure: Some(|_, _| 0.),
+        ..Default::default()
     };
 
     let space = new_for_poiseuille(&settings);

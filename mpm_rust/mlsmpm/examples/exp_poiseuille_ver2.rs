@@ -57,6 +57,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     p2g_scheme,
                     g2p_scheme,
                     pressure: Some(|_, _| 0.),
+                    ..Default::default()
                 };
 
                 println!("{:?}", settings);

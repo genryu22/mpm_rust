@@ -3,6 +3,7 @@ use crate::*;
 #[derive(Debug, Clone)]
 pub struct Particle {
     pub(super) x: Vector2f,
+    pub(super) init_x: Vector2f,
     pub(super) v: Vector2f,
     pub(super) c: Matrix2f,
     pub(super) mass: f64,
@@ -13,6 +14,7 @@ impl Particle {
     pub fn new(pos: Vector2f) -> Particle {
         Particle {
             x: pos,
+            init_x: pos,
             v: Vector2::zeros(),
             c: Matrix2f::zeros(),
             mass: 0.,
@@ -23,6 +25,7 @@ impl Particle {
     pub fn new_with_mass(pos: Vector2f, mass: f64) -> Particle {
         Particle {
             x: pos,
+            init_x: pos,
             v: Vector2::zeros(),
             c: Matrix2f::zeros(),
             mass,
@@ -33,6 +36,7 @@ impl Particle {
     pub fn new_with_mass_velocity(pos: Vector2f, mass: f64, velocity: Vector2f) -> Particle {
         Particle {
             x: pos,
+            init_x: pos,
             v: velocity,
             c: Matrix2f::zeros(),
             mass,
@@ -48,6 +52,7 @@ impl Particle {
     ) -> Particle {
         Particle {
             x: pos,
+            init_x: pos,
             v: velocity,
             c,
             mass,

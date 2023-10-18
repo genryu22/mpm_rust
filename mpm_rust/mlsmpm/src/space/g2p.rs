@@ -45,7 +45,11 @@ fn mlsmpm(settings: &Settings, space: &mut Space) {
             p.v.x = 0.;
         }
 
-        p.c = p.c * 4. / (settings.cell_width() * settings.cell_width());
+        p.c =
+            p.c * match settings.weight_type {
+                WeightType::CubicBSpline => 3.,
+                _ => 4.,
+            } / (settings.cell_width() * settings.cell_width());
     });
 }
 
