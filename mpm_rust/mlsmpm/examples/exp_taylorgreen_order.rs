@@ -49,6 +49,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::Lsmps3rd),
+        (P2GSchemeType::CompactLsmps, G2PSchemeType::MLSMPM),
+        (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::MLSMPM),
+        (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::LSMPS),
         (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::Lsmps3rd),
     ]
     .iter()
@@ -67,7 +70,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 eos_power: 4.,
                 boundary_mirror: false,
                 vx_zero: false,
-                weight_type: WeightType::QuadraticBSpline,
+                weight_type: WeightType::CubicBSpline,
                 effect_radius: 2,
                 p2g_scheme,
                 g2p_scheme,
@@ -84,13 +87,20 @@ fn main() -> Result<(), Box<dyn Error>> {
                         * f64::exp(-4. * PI * PI * time * nu / (L * L))
                         * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
                 }),
+                reset_particle_position: true,
                 ..Default::default()
             };
 
             println!("{:?}", settings);
 
-            println!(
-                "Δt must be smaller than {}",
+            assert!(
+                settings.dt
+                    <= f64::min(
+                        (settings.cell_width() / 2.) / 2. / 1.,
+                        (settings.cell_width() / 2.).powi(2) / 10. / settings.dynamic_viscosity
+                    ),
+                "dt = {} > {}",
+                settings.dt,
                 f64::min(
                     (settings.cell_width() / 2.) / 2. / 1.,
                     (settings.cell_width() / 2.).powi(2) / 10. / settings.dynamic_viscosity
