@@ -6,12 +6,12 @@ use rand::Rng;
 use rayon::prelude::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let folder = Path::new("exp_taylorgreen_ver2");
+    let folder = Path::new("exp_taylorgreen_ver2_forward");
     if !folder.exists() {
         fs::create_dir(folder)?;
     }
 
-    let time = 1e-2;
+    let time = 1e-1;
 
     let PI = std::f64::consts::PI;
     let half_domain_size = 1.;
