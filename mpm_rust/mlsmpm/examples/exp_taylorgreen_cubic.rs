@@ -6,7 +6,7 @@ use rand::Rng;
 use rayon::prelude::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let folder = Path::new("exp_taylorgreen_ver2");
+    let folder = Path::new("exp_taylorgreen_ver2_cubic");
     if !folder.exists() {
         fs::create_dir(folder)?;
     }
@@ -43,11 +43,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]
     .iter()
     .for_each(|&(p2g_scheme, g2p_scheme)| {
-        let results = [250, 500, 1000]
+        let results = [250, 500, 1000, 2000]
             .iter()
             .map(|&grid_width| {
                 let settings = Settings {
-                    dt: 1e-4,
+                    dt: 5e-5,
                     gravity: 0.,
                     dynamic_viscosity,
                     alpha: 0.,
@@ -59,7 +59,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     eos_power: 4.,
                     boundary_mirror: false,
                     vx_zero: false,
-                    weight_type: WeightType::QuadraticBSpline,
+                    weight_type: WeightType::CubicBSpline,
                     effect_radius: 2,
                     p2g_scheme,
                     g2p_scheme,
