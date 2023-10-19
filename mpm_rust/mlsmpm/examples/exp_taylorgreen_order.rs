@@ -50,6 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::Lsmps3rd),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::MLSMPM),
+        (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
         (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::MLSMPM),
         (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::LSMPS),
         (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::Lsmps3rd),
