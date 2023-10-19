@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         fs::create_dir(folder)?;
     }
 
-    let time = 1e-1;
+    let time = 1e-2;
 
     let PI = std::f64::consts::PI;
     let half_domain_size = 1.;
@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     .iter()
     .for_each(|&(p2g_scheme, g2p_scheme)| {
         let results = [250, 500, 1000, 2000, 4000]
-            .iter()
+            .par_iter()
             .map(|&grid_width| {
                 let settings = Settings {
                     dt: 1e-5,

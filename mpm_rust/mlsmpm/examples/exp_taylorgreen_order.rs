@@ -56,94 +56,104 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]
     .iter()
     .map(|&(p2g_scheme, g2p_scheme)| {
-        let result = [SMALL_WIDTH, BIG_WIDTH].map(|grid_width| {
-            let settings = Settings {
-                dt: 5e-5,
-                gravity: 0.,
-                dynamic_viscosity,
-                alpha: 0.,
-                affine: true,
-                space_width: SPACE_WIDTH,
-                grid_width,
-                rho_0: 1.,
-                c: 1e1,
-                eos_power: 4.,
-                boundary_mirror: false,
-                vx_zero: false,
-                weight_type: WeightType::CubicBSpline,
-                effect_radius: 2,
-                p2g_scheme,
-                g2p_scheme,
-                pressure: Some(|p, time| {
-                    let PI = std::f64::consts::PI;
-                    let L = 1.;
-                    let rho = 1.;
-                    let U = 1.;
-                    let nu = 1e-2;
+        let result = [SMALL_WIDTH, BIG_WIDTH]
+            .par_iter()
+            .map(|&grid_width| {
+                let settings = Settings {
+                    dt: 5e-5,
+                    gravity: 0.,
+                    dynamic_viscosity,
+                    alpha: 0.,
+                    affine: true,
+                    space_width: SPACE_WIDTH,
+                    grid_width,
+                    rho_0: 1.,
+                    c: 1e1,
+                    eos_power: 4.,
+                    boundary_mirror: false,
+                    vx_zero: false,
+                    weight_type: WeightType::CubicBSpline,
+                    effect_radius: 2,
+                    p2g_scheme,
+                    g2p_scheme,
+                    pressure: Some(|p, time| {
+                        let PI = std::f64::consts::PI;
+                        let L = 1.;
+                        let rho = 1.;
+                        let U = 1.;
+                        let nu = 1e-2;
 
-                    let (x, y) = (p.x().x - 5., p.x().y - 5.);
+                        let (x, y) = (p.x().x - 5., p.x().y - 5.);
 
-                    rho * U * U / 4.
-                        * f64::exp(-4. * PI * PI * time * nu / (L * L))
-                        * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
-                }),
-                reset_particle_position: true,
-                ..Default::default()
-            };
+                        rho * U * U / 4.
+                            * f64::exp(-4. * PI * PI * time * nu / (L * L))
+                            * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+                    }),
+                    reset_particle_position: true,
+                    ..Default::default()
+                };
 
-            println!("{:?}", settings);
+                println!("{:?}", settings);
 
-            assert!(
-                settings.dt
-                    <= f64::min(
+                assert!(
+                    settings.dt
+                        <= f64::min(
+                            (settings.cell_width() / 2.) / 2. / 1.,
+                            (settings.cell_width() / 2.).powi(2) / 10. / settings.dynamic_viscosity
+                        ),
+                    "dt = {} > {}",
+                    settings.dt,
+                    f64::min(
                         (settings.cell_width() / 2.) / 2. / 1.,
                         (settings.cell_width() / 2.).powi(2) / 10. / settings.dynamic_viscosity
-                    ),
-                "dt = {} > {}",
-                settings.dt,
-                f64::min(
-                    (settings.cell_width() / 2.) / 2. / 1.,
-                    (settings.cell_width() / 2.).powi(2) / 10. / settings.dynamic_viscosity
-                )
-            );
+                    )
+                );
 
-            let v_time_steps = (time / settings.dt) as u32;
+                let v_time_steps = (time / settings.dt) as u32;
 
-            let space = new_for_taylor_green(&settings);
-            let mut calc = Calculator::new(&settings, space);
-            calc.start(v_time_steps);
+                let space = new_for_taylor_green(&settings);
+                let mut calc = Calculator::new(&settings, space);
+                calc.start(v_time_steps);
 
-            let particles = calc.get_particles();
-            let l2_error = f64::sqrt(
-                particles
-                    .iter()
-                    .map(|p| {
-                        let x = p.x().x;
-                        let y = p.x().y;
-                        (p.v()
-                            - true_vel(
-                                time,
-                                x,
-                                y,
-                                half_domain_size,
-                                PI,
-                                settings.dynamic_viscosity,
-                            ))
-                        .norm_squared()
-                    })
-                    .sum::<f64>()
-                    / particles
+                let particles = calc.get_particles();
+                let l2_error = f64::sqrt(
+                    particles
                         .iter()
-                        .map(|p| (p.x().x, p.x().y))
-                        .map(|(x, y)| {
-                            true_vel(time, x, y, half_domain_size, PI, settings.dynamic_viscosity)
-                                .norm_squared()
+                        .map(|p| {
+                            let x = p.x().x;
+                            let y = p.x().y;
+                            (p.v()
+                                - true_vel(
+                                    time,
+                                    x,
+                                    y,
+                                    half_domain_size,
+                                    PI,
+                                    settings.dynamic_viscosity,
+                                ))
+                            .norm_squared()
                         })
-                        .sum::<f64>(),
-            );
+                        .sum::<f64>()
+                        / particles
+                            .iter()
+                            .map(|p| (p.x().x, p.x().y))
+                            .map(|(x, y)| {
+                                true_vel(
+                                    time,
+                                    x,
+                                    y,
+                                    half_domain_size,
+                                    PI,
+                                    settings.dynamic_viscosity,
+                                )
+                                .norm_squared()
+                            })
+                            .sum::<f64>(),
+                );
 
-            (1. / grid_width as f64, l2_error)
-        });
+                (1. / grid_width as f64, l2_error)
+            })
+            .collect::<Vec<_>>();
 
         format!(
             "{:?}_{:?}: {}",
