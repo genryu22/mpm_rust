@@ -76,7 +76,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]
     .par_iter()
     .for_each(|&(p2g_scheme, g2p_scheme)| {
-        let results = [50, 100, 250, 500, 1000, 2000] //, 500, 1000]
+        let results = res_list
             .par_iter()
             .map(|&grid_width| {
                 let settings = Settings {
