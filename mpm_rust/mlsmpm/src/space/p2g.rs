@@ -15,6 +15,10 @@ pub fn p2g(p2g_scheme: &P2GSchemeType) -> fn(settings: &Settings, space: &mut Sp
         P2GSchemeType::LsmpsOnlyForce => lsmps_only_force,
         P2GSchemeType::CompactLsmps => compact_2_1,
         P2GSchemeType::CompactLsmpsLinear => compact_1_1,
+        P2GSchemeType::Compact_0_1 => compact_0_1,
+        P2GSchemeType::Compact_0_2 => compact_0_2,
+        P2GSchemeType::Compact_1_2 => compact_1_2,
+        P2GSchemeType::Compact_2_2 => compact_2_2,
         P2GSchemeType::CompactOnlyVelocity => compact_only_velocity,
     }
 }
@@ -286,8 +290,16 @@ fn lsmps_only_force(settings: &Settings, space: &mut Space) {
     });
 }
 
-mlsmpm_macro::compact_1_p2g_func!(1);
-mlsmpm_macro::compact_1_p2g_func!(2);
+// mlsmpm_macro::compact_1_p2g_func!(1);
+// mlsmpm_macro::compact_1_p2g_func!(2);
+
+mlsmpm_macro::compact_p2g_func!(0, 1);
+mlsmpm_macro::compact_p2g_func!(1, 1);
+mlsmpm_macro::compact_p2g_func!(2, 1);
+
+mlsmpm_macro::compact_p2g_func!(0, 2);
+mlsmpm_macro::compact_p2g_func!(1, 2);
+mlsmpm_macro::compact_p2g_func!(2, 2);
 
 fn compact_only_velocity(settings: &Settings, space: &mut Space) {
     for p in space.particles.iter() {
@@ -353,7 +365,7 @@ fn compact_only_velocity(settings: &Settings, space: &mut Space) {
     mlsmpm_macro::lsmps_poly!(2);
     mlsmpm_macro::lsmps_params!(2);
     mlsmpm_macro::compact_lsmps_func!(2, 1);
-    mlsmpm_macro::compact_lsmps_scale!(2, 1);
+    mlsmpm_macro::compact_scale!(2, 1);
 
     let rs = settings.cell_width();
     let scale_vel = scale_2_1(rs);

@@ -19,6 +19,22 @@ fn multi_index(a: usize) -> (Vec<usize>, usize) {
     (res, size)
 }
 
+fn multi_index_vec(a: usize) -> (Vec<usize>, Vec<usize>) {
+    let mut res_x = vec![];
+    let mut res_y = vec![];
+    for i in 0..=a {
+        for dy in 0..=i {
+            for dx in 0..=i {
+                if dx + dy == i {
+                    res_x.push(dx);
+                    res_y.push(dy);
+                }
+            }
+        }
+    }
+    (res_x, res_y)
+}
+
 fn multi_index_1d(a: usize) -> (Vec<usize>, usize) {
     let mut res = vec![];
     for i in 0..=a {
@@ -86,20 +102,15 @@ fn multi_index_factorial_1d(a: usize) -> (Vec<f64>, usize) {
 #[proc_macro]
 pub fn lsmps_poly(input: TokenStream) -> TokenStream {
     let input: usize = parse_one_usize(input);
-    let (mut res, size) = multi_index(input);
+
+    let (dx, dy) = multi_index_vec(input);
+    let size = dx.len();
 
     println!("p={}, n of alpha(|alpha|=p) = {}", input, size);
 
     quote! {
         fn poly(r: Vector2<f64>) -> SVector<f64, #size> {
-            let d = [#(#res),*];
-
-            let mut res = SVector::<f64, #size>::zeros();
-            for i in 0..#size {
-                res[i] = r[0].powi(d[i*2] as i32) * r[1].powi(d[i*2 + 1] as i32);
-            }
-
-            res
+            vector![#(r[0].powi(#dx as i32) * r[1].powi(#dy as i32)),*]
         }
     }
     .into()
@@ -265,33 +276,27 @@ fn parse_four_usize(input: TokenStream) -> [usize; 4] {
     res
 }
 
-#[proc_macro]
-pub fn compact_c(input: TokenStream) -> TokenStream {
-    let [p, q, bx, by] = parse_four_usize(input);
-
-    quote! {{
-        fn factorial(num: usize) -> f64 {
-            match num {
-                0 | 1 => 1.,
-                _ => factorial(num - 1) * num as f64,
+fn parse_n_usize(n: usize, input: TokenStream) -> Vec<usize> {
+    let parser = Punctuated::<Expr, Token![,]>::parse_separated_nonempty;
+    let input = parser.parse(input).unwrap();
+    assert_eq!(input.len(), n);
+    let mut res = Vec::with_capacity(n);
+    for i in 0..n {
+        res.push(if let Expr::Lit(expr_lit) = input.first().unwrap() {
+            if let Lit::Int(litint) = &expr_lit.lit {
+                litint.base10_parse::<usize>().unwrap()
+            } else {
+                panic!();
             }
-        }
-
-        let b = #bx + #by;
-
-        if b == 0 {
-            1.
-        } else if b == #q {
-            (-1. as f64).powi(b as i32) * factorial(b) / (factorial(#bx) * factorial(#by)) * factorial(#p)
-                / factorial(#p + #q)
         } else {
-            (-1. as f64).powi(b as i32) * factorial(b) / (factorial(#bx) * factorial(#by))
-                * #q as f64
-                * factorial(#p + #q - b)
-                / factorial(#p + #q)
-        }
-    }}.into()
+            panic!();
+        });
+    }
+
+    res
 }
+
+
 
 #[proc_macro]
 pub fn compact_lsmps_func(input: TokenStream) -> TokenStream {
@@ -310,65 +315,63 @@ pub fn compact_lsmps_func(input: TokenStream) -> TokenStream {
     
             let b = bx + by;
     
-            if b == 0 {
-                1.
-            } else if b == #q {
-                (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by)) * factorial(#p)
-                    / factorial(#p + #q)
-            } else {
-                (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by))
-                    * #q as f64
-                    * factorial(#p + #q - b)
-                    / factorial(#p + #q)
-            }
+            // if b == 0 {
+            //     1.
+            // } else if b == #q {
+            //     (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by)) * factorial(#p)
+            //         / factorial(#p + #q)
+            // } else {
+            //     (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by))
+            //         * #q as f64
+            //         * factorial(#p + #q - b)
+            //         / factorial(#p + #q)
+            // }
+
+            (-1. as f64).powi(b as i32) / (factorial(bx) * factorial(by)) * factorial(#q) / factorial(#q - b) * factorial(#p + #q - b) / factorial(#p + #q)
         }
     }.into()
 }
 
 #[proc_macro]
-pub fn compact_lsmps_scale(input: TokenStream) -> TokenStream {
+pub fn compact_scale(input: TokenStream) -> TokenStream {
     let (p, q) = parse_two_usize(input);
 
-    let (p_res, p_size) = multi_index(p);
-    let (q_res, q_size) = multi_index(q);
+    let (ax, ay) = multi_index_vec(p);
+    let (bx, by) = multi_index_vec(q);
+    let (p_size, q_size) = (ax.len(), bx.len());
 
-    let func_name = format_ident!("scale_{}_{}", p, q);
-    let c_func_name = format_ident!("c_{}_{}", p, q);
+    let scale_p_q = format_ident!("scale_{}_{}", p, q);
 
     quote! {
-        fn #func_name(rs: f64) -> SMatrix::<f64, #p_size, #p_size> {
+        fn #scale_p_q(rs: f64) -> SMatrix::<f64, #p_size, #p_size> {
             fn factorial(num: usize) -> f64 {
                 match num {
                     0 | 1 => 1.,
                     _ => factorial(num - 1) * num as f64,
                 }
             }
-            
-            let alpha = [#(#p_res,)*];
-            let beta = [#(#q_res,)*];
-            let mut res = SVector::<f64, #p_size>::zeros();
-            for i in 0..#p_size {
-                res[i] = {
-                    let (ax, ay) = (alpha[i*2], alpha[i*2+1]);
-                    let a = ax + ay;
-                    let sum = (0..#q_size)
-                        .map(|j| {
-                            let (bx, by) = (beta[j*2], beta[j*2+1]);
-                            let b = bx + by;
-                            if b > #q_size || bx > ax || by > ay {
-                                0.
-                            } else {
-                                #c_func_name(bx, by) / (factorial(ax - bx) * factorial(ay - by))
-                            }
-                        })
-                        .sum::<f64>();
-                    1. / (sum * rs.powi(a as i32))
-                }
+
+            fn c(bx: usize, by: usize) -> f64 {
+                let b = bx + by;
+                (-1. as f64).powi(b as i32) / (factorial(bx) * factorial(by)) * factorial(#q) / factorial(#q - b) * factorial(#p + #q - b) / factorial(#p + #q)
             }
-            SMatrix::<f64, #p_size, #p_size>::from_diagonal(&res)
+
+            let (ax, ay) = ([#(#ax),*], [#(#ay),*]);
+            let (bx, by) = ([#(#bx),*], [#(#by),*]);
+            let mut diag = SVector::<f64, #p_size>::zeros();
+            for i in 0..#p_size {
+                diag[i] = 1. / (0..#q_size).map(|j| {
+                    if bx[j] > ax[i] || by[j] > ay[i] {
+                        0.
+                    } else {
+                        c(bx[j], by[j]) / (factorial(ax[i] - bx[j]) * factorial(ay[i] - by[j]))
+                    }
+                }).sum::<f64>() / rs.powi((ax[i] + ay[i]) as i32);
+            }
+
+            SMatrix::<f64, #p_size, #p_size>::from_diagonal(&diag)
         }
-    }
-    .into()
+    }.into()
 }
 
 #[proc_macro]
@@ -551,7 +554,8 @@ pub fn lsmps_g2p_func(input: TokenStream) -> TokenStream {
                         p.v.x = 0.;
                     }
                     p.x += res.row(0).transpose() * settings.dt;
-                    p.c = res.fixed_slice::<2, 2>(1, 0).transpose().into();
+                    p.c = res.fixed_view::<2, 2>(1, 0).transpose().into();
+                    p.v_lsmps = res.rows(0, res.shape().0).transpose();
                 }
             });
         }
@@ -560,13 +564,14 @@ pub fn lsmps_g2p_func(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
-pub fn compact_1_p2g_func(input: TokenStream) -> TokenStream {
-    let p = parse_one_usize(input);
-    let func_name = format_ident!("compact_{}_1", p);
+pub fn compact_p2g_func(input: TokenStream) -> TokenStream {
+    let (p, q) = parse_two_usize(input);
+    let func_name = format_ident!("compact_{}_{}", p, q);
     let scale_p_0 = format_ident!("scale_{}_0", p);
-    let scale_p_1 = format_ident!("scale_{}_1", p);
-    let c_p_0 = format_ident!("c_{}_0", p);
-    let c_p_1 = format_ident!("c_{}_1", p);
+    let scale_p_q = format_ident!("scale_{}_{}", p, q);
+    let c_p_q = format_ident!("c_{}_{}", p, q);
+    let (dx, dy) = multi_index_vec(q);
+    let i = 0..(dx.len());
 
     quote! {
         fn #func_name(settings: &Settings, space: &mut Space) {
@@ -586,13 +591,13 @@ pub fn compact_1_p2g_func(input: TokenStream) -> TokenStream {
             mlsmpm_macro::lsmps_poly!(#p);
             mlsmpm_macro::lsmps_params!(#p);
             mlsmpm_macro::compact_lsmps_func!(#p, 0);
-            mlsmpm_macro::compact_lsmps_func!(#p, 1);
-            mlsmpm_macro::compact_lsmps_scale!(#p, 0);
-            mlsmpm_macro::compact_lsmps_scale!(#p, 1);
+            mlsmpm_macro::compact_lsmps_func!(#p, #q);
+            mlsmpm_macro::compact_scale!(#p, 0);
+            mlsmpm_macro::compact_scale!(#p, #q);
         
             let rs = settings.cell_width();
             let scale_stress = #scale_p_0(rs);
-            let scale_vel = #scale_p_1(rs);
+            let scale_vel = #scale_p_q(rs);
         
             let mut nodes = HashMap::new();
         
@@ -655,19 +660,19 @@ pub fn compact_1_p2g_func(input: TokenStream) -> TokenStream {
                     let weight = node.weight;
         
                     params.m += weight * poly_r_ij * poly_r_ij.transpose();
-        
-                    params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose()) * #c_p_1(0, 0);
-                    params.f_vel += weight
-                        * poly_r_ij.kronecker(&p.c.column(0).transpose())
-                        * #c_p_1(1, 0)
-                        * -node.dist.x;
-                    params.f_vel += weight
-                        * poly_r_ij.kronecker(&p.c.column(1).transpose())
-                        * #c_p_1(0, 1)
-                        * -node.dist.y;
+
+                    #({
+                        let (i, bx, by) = (#i, #dx, #dy);
+                        if p.v_lsmps.shape().1 > 1 {
+                            params.f_vel += weight * poly_r_ij.kronecker(&p.v_lsmps.column(i).transpose()) * #c_p_q(bx, by) * (-node.dist.x).powi(bx as i32) * (-node.dist.y).powi(by as i32);
+                        } else {
+                            // step = 0
+                            params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose()) * #c_p_q(bx, by) * (-node.dist.x).powi(bx as i32) * (-node.dist.y).powi(by as i32);
+                        }
+                    })*
         
                     let stress = vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
-                    params.f_stress += weight * poly_r_ij.kronecker(&stress.transpose()) * #c_p_0(0, 0);
+                    params.f_stress += weight * poly_r_ij.kronecker(&stress.transpose());
                 }
             }
         

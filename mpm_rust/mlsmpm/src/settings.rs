@@ -72,6 +72,10 @@ pub enum P2GSchemeType {
     LsmpsOnlyForce,
     CompactLsmps,
     CompactLsmpsLinear,
+    Compact_0_1,
+    Compact_0_2,
+    Compact_1_2,
+    Compact_2_2,
     CompactOnlyVelocity,
 }
 

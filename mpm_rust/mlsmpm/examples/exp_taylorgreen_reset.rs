@@ -1,12 +1,36 @@
-use std::{error::Error, fs, path::Path, thread};
+use std::{error::Error, fs, io::Write, path::Path, thread};
 
 use mlsmpm::*;
-use mlsmpm_macro::lsmps_poly;
 use rand::Rng;
 use rayon::prelude::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let folder = Path::new("exp_taylorgreen_reset");
+    const DYNAMIC_VISCOSITY: f64 = 1e-2;
+    const DT: f64 = 5e-5;
+    let res_list = [50, 100, 250, 500, 1000, 2000];
+
+    for r in res_list.iter() {
+        let cell_width = 10. / *r as f64;
+        assert!(
+            DT <= f64::min(
+                (cell_width / 2.) / 2. / 1.,
+                (cell_width / 2.).powi(2) / 10. / DYNAMIC_VISCOSITY
+            ),
+            "dt = {} > {}",
+            DT,
+            f64::min(
+                (cell_width / 2.) / 2. / 1.,
+                (cell_width / 2.).powi(2) / 10. / DYNAMIC_VISCOSITY
+            )
+        );
+    }
+
+    let current_time = chrono::Local::now();
+    let folder_name = format!(
+        "exp_taylorgreen_reset/{:}",
+        current_time.format("%Y%m%d_%Hh%Mm%Ss")
+    );
+    let folder = Path::new(&folder_name);
     if !folder.exists() {
         fs::create_dir(folder)?;
     }
@@ -15,7 +39,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let PI = std::f64::consts::PI;
     let half_domain_size = 1.;
-    let dynamic_viscosity = 1e-2;
     fn true_vel(t: f64, x: f64, y: f64, U: f64, PI: f64, nu: f64) -> Vector2<f64> {
         let exp_term = f64::exp(-2. * PI * PI * t / (U * U / nu));
         Vector2::new(
@@ -33,27 +56,33 @@ fn main() -> Result<(), Box<dyn Error>> {
             G2PSchemeType::LsmpsLinear,
         ),
         (P2GSchemeType::CompactLsmpsLinear, G2PSchemeType::LSMPS),
-        (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
-        (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
-        (P2GSchemeType::Lsmps4th, G2PSchemeType::Lsmps4th),
+        (P2GSchemeType::CompactLsmpsLinear, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::Lsmps4th, G2PSchemeType::Lsmps4th),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
         (P2GSchemeType::CompactLsmps, G2PSchemeType::Lsmps3rd),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::MLSMPM),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::MLSMPM),
-        (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::LSMPS),
-        (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::MLSMPM),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::Compact_0_1, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::Compact_0_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Compact_1_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Compact_2_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Compact_2_2, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::MLSMPM),
+        // (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::Lsmps3rd),
     ]
-    .iter()
+    .par_iter()
     .for_each(|&(p2g_scheme, g2p_scheme)| {
-        let results = [250, 500, 1000, 2000, 4000]
+        let results = [50, 100, 250, 500, 1000, 2000] //, 500, 1000]
             .par_iter()
             .map(|&grid_width| {
                 let settings = Settings {
-                    dt: 1e-5,
+                    dt: DT,
                     gravity: 0.,
-                    dynamic_viscosity,
+                    dynamic_viscosity: DYNAMIC_VISCOSITY,
                     alpha: 0.,
                     affine: true,
                     space_width: 10.,
@@ -64,7 +93,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     boundary_mirror: false,
                     vx_zero: false,
                     weight_type: WeightType::CubicBSpline,
-                    effect_radius: 2,
+                    effect_radius: 3,
                     p2g_scheme,
                     g2p_scheme,
                     pressure: Some(|p, time| {
@@ -85,20 +114,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 };
 
                 println!("{:?}", settings);
-
-                assert!(
-                    settings.dt
-                        <= f64::min(
-                            (settings.cell_width() / 2.) / 2. / 1.,
-                            (settings.cell_width() / 2.).powi(2) / 10. / settings.dynamic_viscosity
-                        ),
-                    "dt = {} > {}",
-                    settings.dt,
-                    f64::min(
-                        (settings.cell_width() / 2.) / 2. / 1.,
-                        (settings.cell_width() / 2.).powi(2) / 10. / settings.dynamic_viscosity
-                    )
-                );
+                write_settings(folder, p2g_scheme, g2p_scheme, &settings).unwrap();
 
                 let v_time_steps = (time / settings.dt) as u32;
 
@@ -147,7 +163,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     time,
                     half_domain_size,
                     PI,
-                    dynamic_viscosity,
+                    DYNAMIC_VISCOSITY,
                     p2g_scheme,
                     g2p_scheme,
                     (
@@ -178,6 +194,21 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         write_l2_errors(folder, p2g_scheme, g2p_scheme, results).unwrap();
     });
+
+    fn write_settings(
+        folder: &Path,
+        p2g_scheme: P2GSchemeType,
+        g2p_scheme: G2PSchemeType,
+        settings: &Settings,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut file = fs::File::create(
+            folder.join(format!("settings_{:?}_{:?}.csv", p2g_scheme, g2p_scheme)),
+        )?;
+
+        file.write_all(format!("{:?}", settings).as_bytes())?;
+
+        Ok(())
+    }
 
     fn write_l2_errors(
         folder: &Path,

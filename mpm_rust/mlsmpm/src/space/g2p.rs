@@ -160,6 +160,8 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
             }
             p.x += res.row(0).transpose() * settings.dt;
             p.c = Matrix2::new(res.m21, res.m31, res.m22, res.m32);
+
+            p.v_lsmps = res.rows(0, res.shape().0).transpose();
         }
     });
 }

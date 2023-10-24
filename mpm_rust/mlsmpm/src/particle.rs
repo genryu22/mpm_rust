@@ -1,3 +1,5 @@
+use na::{DMatrix, Matrix2xX};
+
 use crate::*;
 
 #[derive(Debug, Clone)]
@@ -8,6 +10,7 @@ pub struct Particle {
     pub(super) c: Matrix2f,
     pub(super) mass: f64,
     pub(super) pressure: f64,
+    pub(super) v_lsmps: Matrix2xX<f64>,
 }
 
 impl Particle {
@@ -19,6 +22,7 @@ impl Particle {
             c: Matrix2f::zeros(),
             mass: 0.,
             pressure: 0.,
+            v_lsmps: Matrix2xX::zeros(0),
         }
     }
 
@@ -30,6 +34,7 @@ impl Particle {
             c: Matrix2f::zeros(),
             mass,
             pressure: 0.,
+            v_lsmps: Matrix2xX::zeros(0),
         }
     }
 
@@ -41,6 +46,7 @@ impl Particle {
             c: Matrix2f::zeros(),
             mass,
             pressure: 0.,
+            v_lsmps: Matrix2xX::zeros(0),
         }
     }
 
@@ -57,6 +63,7 @@ impl Particle {
             c,
             mass,
             pressure: 0.,
+            v_lsmps: Matrix2xX::zeros(0),
         }
     }
 
