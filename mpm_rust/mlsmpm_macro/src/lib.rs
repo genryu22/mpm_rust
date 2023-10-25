@@ -553,7 +553,7 @@ pub fn lsmps_g2p_func(input: TokenStream) -> TokenStream {
                     if settings.vx_zero {
                         p.v.x = 0.;
                     }
-                    p.x += res.row(0).transpose() * settings.dt;
+                    p.x += p.v * settings.dt;
                     p.c = res.fixed_view::<2, 2>(1, 0).transpose().into();
                     p.v_lsmps = res.rows(0, res.shape().0).transpose();
                 }

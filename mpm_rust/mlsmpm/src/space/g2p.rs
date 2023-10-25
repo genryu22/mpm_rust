@@ -158,7 +158,7 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
             if settings.vx_zero {
                 p.v.x = 0.;
             }
-            p.x += res.row(0).transpose() * settings.dt;
+            p.x += p.v * settings.dt;
             p.c = Matrix2::new(res.m21, res.m31, res.m22, res.m32);
 
             p.v_lsmps = res.rows(0, res.shape().0).transpose();
