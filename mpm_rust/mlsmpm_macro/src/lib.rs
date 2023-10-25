@@ -663,11 +663,18 @@ pub fn compact_p2g_func(input: TokenStream) -> TokenStream {
 
                     #({
                         let (i, bx, by) = (#i, #dx, #dy);
+                        // きれいに書く
                         if p.v_lsmps.shape().1 > 1 {
                             params.f_vel += weight * poly_r_ij.kronecker(&p.v_lsmps.column(i).transpose()) * #c_p_q(bx, by) * (-node.dist.x).powi(bx as i32) * (-node.dist.y).powi(by as i32);
                         } else {
-                            // step = 0
-                            params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose()) * #c_p_q(bx, by) * (-node.dist.x).powi(bx as i32) * (-node.dist.y).powi(by as i32);
+                            // step = 
+                            if i == 0 {
+                                params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose()) * #c_p_q(bx, by) * (-node.dist.x).powi(bx as i32) * (-node.dist.y).powi(by as i32);
+                            } else if i == 1 {
+                                params.f_vel += weight * poly_r_ij.kronecker(&p.c.column(0).transpose()) * #c_p_q(bx, by) * (-node.dist.x).powi(bx as i32) * (-node.dist.y).powi(by as i32);
+                            } else if i == 2 {
+                                params.f_vel += weight * poly_r_ij.kronecker(&p.c.column(1).transpose()) * #c_p_q(bx, by) * (-node.dist.x).powi(bx as i32) * (-node.dist.y).powi(by as i32);
+                            }
                         }
                     })*
         
@@ -691,6 +698,92 @@ pub fn compact_p2g_func(input: TokenStream) -> TokenStream {
                         let res = scale_stress * m_inverse * params.f_stress;
                         node.force[0] = res[(1, 0)] + res[(2, 1)];
                         node.force[1] = res[(1, 1)] + res[(2, 2)];
+                    }
+                }
+            });
+        }
+    }
+    .into()
+}
+#[proc_macro]
+pub fn compact_v_p2g_func(input: TokenStream) -> TokenStream {
+    let (p, q) = parse_two_usize(input);
+    let func_name = format_ident!("compact_v_{}_{}", p, q);
+    let scale_p_q = format_ident!("scale_{}_{}", p, q);
+    let c_p_q = format_ident!("c_{}_{}", p, q);
+    let (dx, dy) = multi_index_vec(q);
+    let i = 0..(dx.len());
+
+    quote! {
+        fn #func_name(settings: &Settings, space: &mut Space) {
+            mlsmpm(settings, space);
+        
+            mlsmpm_macro::lsmps_poly!(#p);
+            mlsmpm_macro::lsmps_params!(#p);
+            mlsmpm_macro::compact_lsmps_func!(#p, #q);
+            mlsmpm_macro::compact_scale!(#p, #q);
+        
+            let rs = settings.cell_width();
+            let scale_vel = #scale_p_q(rs);
+        
+            let mut nodes = HashMap::new();
+        
+            for p in space.particles.iter_mut() {
+                for node in NodeIterator::new(
+                    settings,
+                    &space.grid,
+                    p,
+                    &space.period_bounds,
+                    &space.period_bound_rect,
+                ) {
+                    let params = {
+                        let index = node.node.index;
+                        if !nodes.contains_key(&index) {
+                            let params = LsmpsParams {
+                                m: SMatrix::zeros(),
+                                f_vel: SMatrix::zeros(),
+                                f_stress: SMatrix::zeros(),
+                                f_pressure: SMatrix::zeros(),
+                            };
+                            nodes.insert(index, params);
+                        }
+        
+                        nodes.get_mut(&node.node.index).unwrap()
+                    };
+        
+                    let r_ij = -node.dist / rs;
+                    let poly_r_ij = poly(r_ij);
+                    let weight = node.weight;
+        
+                    params.m += weight * poly_r_ij * poly_r_ij.transpose();
+
+                    #({
+                        let (i, bx, by) = (#i, #dx, #dy);
+                        if p.v_lsmps.shape().1 > 1 {
+                            params.f_vel += weight * poly_r_ij.kronecker(&p.v_lsmps.column(i).transpose()) * #c_p_q(bx, by) * (-node.dist.x).powi(bx as i32) * (-node.dist.y).powi(by as i32);
+                        } else {
+                            // step = 0
+                            if i == 0 {
+                                params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose()) * #c_p_q(bx, by) * (-node.dist.x).powi(bx as i32) * (-node.dist.y).powi(by as i32);
+                            } else if i == 1 {
+                                params.f_vel += weight * poly_r_ij.kronecker(&p.c.column(0).transpose()) * #c_p_q(bx, by) * (-node.dist.x).powi(bx as i32) * (-node.dist.y).powi(by as i32);
+                            } else if i == 2 {
+                                params.f_vel += weight * poly_r_ij.kronecker(&p.c.column(1).transpose()) * #c_p_q(bx, by) * (-node.dist.x).powi(bx as i32) * (-node.dist.y).powi(by as i32);
+                            }
+                        }
+                    })*
+                }
+            }
+        
+            space.grid.par_iter_mut().for_each(|node| {
+                if !nodes.contains_key(&node.index) {
+                    return;
+                }
+                let params = nodes.get(&node.index).unwrap();
+                if let Some(m_inverse) = (params.m + SMatrix::identity() * 0.).try_inverse() {
+                    {
+                        let res = scale_vel * m_inverse * params.f_vel;
+                        node.v = res.row(0).transpose();
                     }
                 }
             });

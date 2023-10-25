@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         //     G2PSchemeType::LsmpsLinear,
         // ),
         (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
-        // (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
+        (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
     ]
     .par_iter()
     .map(|&(p2g_scheme, g2p_scheme)| {

@@ -66,13 +66,27 @@ impl Space {
                 | P2GSchemeType::CompactLsmps
                 | P2GSchemeType::CompactLsmpsLinear
                 | P2GSchemeType::Compact_0_1
+                | P2GSchemeType::Compact_3_1
                 | P2GSchemeType::Compact_0_2
                 | P2GSchemeType::Compact_1_2
-                | P2GSchemeType::Compact_2_2 => {
+                | P2GSchemeType::Compact_2_2
+                | P2GSchemeType::Compact_3_2
+                | P2GSchemeType::Compact_3_3 => {
                     n.v_star = n.v
                         + settings.dt * (vector![0., settings.gravity] + n.force / settings.rho_0);
                 }
-                P2GSchemeType::CompactOnlyVelocity => {
+                P2GSchemeType::Compact_v_0_1
+                | P2GSchemeType::Compact_v_1_1
+                | P2GSchemeType::CompactOnlyVelocity
+                | P2GSchemeType::Compact_v_3_1
+                | P2GSchemeType::Compact_v_0_2
+                | P2GSchemeType::Compact_v_1_2
+                | P2GSchemeType::Compact_v_2_2
+                | P2GSchemeType::Compact_v_3_2
+                | P2GSchemeType::Compact_v_0_3
+                | P2GSchemeType::Compact_v_1_3
+                | P2GSchemeType::Compact_v_2_3
+                | P2GSchemeType::Compact_v_3_3 => {
                     n.v_star =
                         n.v + settings.dt * (vector![0., settings.gravity] + n.force / n.mass);
                 }
@@ -81,7 +95,7 @@ impl Space {
                     n.v_star = n.v
                         + settings.dt * (vector![0., settings.gravity] + n.force / settings.rho_0);
                 }
-                _ => {
+                P2GSchemeType::MLSMPM => {
                     n.v /= n.mass;
                     n.v_star =
                         n.v + settings.dt * (vector![0., settings.gravity] + n.force / n.mass);

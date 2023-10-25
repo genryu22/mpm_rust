@@ -2,20 +2,16 @@ use std::{error::Error, fs, path::Path};
 
 use mlsmpm::*;
 use mlsmpm_macro::lsmps_poly;
+use nalgebra::Dyn;
 use rand::Rng;
 use rayon::prelude::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let folder = Path::new("exp_taylorgreen_order");
-    if !folder.exists() {
-        fs::create_dir(folder)?;
-    }
-
     let time = 1e-2;
 
     let PI = std::f64::consts::PI;
     let half_domain_size = 1.;
-    let dynamic_viscosity = 1e-2;
+    const DYNAMIC_VISCOSITY: f64 = 1e-2;
     fn true_vel(t: f64, x: f64, y: f64, U: f64, PI: f64, nu: f64) -> Vector2<f64> {
         let exp_term = f64::exp(-2. * PI * PI * t / (U * U / nu));
         Vector2::new(
@@ -24,9 +20,27 @@ fn main() -> Result<(), Box<dyn Error>> {
         )
     }
 
+    const DT: f64 = 1e-4;
+
     const SPACE_WIDTH: f64 = 10.;
-    const SMALL_WIDTH: usize = 1000;
-    const BIG_WIDTH: usize = 2000;
+    const SMALL_WIDTH: usize = 500;
+    const BIG_WIDTH: usize = 1000;
+
+    {
+        let cell_width = SPACE_WIDTH / BIG_WIDTH as f64;
+        assert!(
+            DT <= f64::min(
+                (cell_width / 2.) / 2. / 1.,
+                (cell_width / 2.).powi(2) / 10. / DYNAMIC_VISCOSITY
+            ),
+            "dt = {} > {}",
+            DT,
+            f64::min(
+                (cell_width / 2.) / 2. / 1.,
+                (cell_width / 2.).powi(2) / 10. / DYNAMIC_VISCOSITY
+            )
+        );
+    }
 
     println!(
         "初期の粒子配置間隔を {}m から {}m に変えたときのl2エラーの収束次数",
@@ -36,34 +50,49 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     [
         (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
-        (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
-        (
-            P2GSchemeType::CompactLsmpsLinear,
-            G2PSchemeType::LsmpsLinear,
-        ),
-        (P2GSchemeType::CompactLsmpsLinear, G2PSchemeType::LSMPS),
-        (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
-        (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
-        (P2GSchemeType::Lsmps4th, G2PSchemeType::Lsmps4th),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::Lsmps3rd),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::MLSMPM),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::MLSMPM),
-        (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::LSMPS),
-        (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
+        // // (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
+        // // (
+        // //     P2GSchemeType::CompactLsmpsLinear,
+        // //     G2PSchemeType::LsmpsLinear,
+        // // ),
+        // // (P2GSchemeType::CompactLsmpsLinear, G2PSchemeType::LSMPS),
+        // // (P2GSchemeType::CompactLsmpsLinear, G2PSchemeType::Lsmps3rd),
+        // // // (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
+        // // // (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
+        // // // (P2GSchemeType::Lsmps4th, G2PSchemeType::Lsmps4th),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::Lsmps3rd),
+        // // // (P2GSchemeType::CompactLsmps, G2PSchemeType::MLSMPM),
+        // // // (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
+        // // // (P2GSchemeType::Compact_0_1, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::Compact_3_1, G2PSchemeType::LSMPS),
+        // // // (P2GSchemeType::Compact_0_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact_1_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact_2_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact_2_2, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::Compact_3_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact_3_2, G2PSchemeType::Lsmps3rd),
+        (P2GSchemeType::Compact_3_3, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::MLSMPM),
+        // (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::Compact_v_0_1, G2PSchemeType::MLSMPM),
+        // (P2GSchemeType::Compact_v_0_1, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact_v_3_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact_v_3_2, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::Compact_v_3_3, G2PSchemeType::Lsmps3rd),
     ]
-    .iter()
+    .par_iter()
     .map(|&(p2g_scheme, g2p_scheme)| {
         let result = [SMALL_WIDTH, BIG_WIDTH]
             .par_iter()
             .map(|&grid_width| {
                 let settings = Settings {
-                    dt: 5e-5,
+                    dt: DT,
                     gravity: 0.,
-                    dynamic_viscosity,
+                    dynamic_viscosity: DYNAMIC_VISCOSITY,
                     alpha: 0.,
                     affine: true,
                     space_width: SPACE_WIDTH,
@@ -95,20 +124,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                 };
 
                 println!("{:?}", settings);
-
-                assert!(
-                    settings.dt
-                        <= f64::min(
-                            (settings.cell_width() / 2.) / 2. / 1.,
-                            (settings.cell_width() / 2.).powi(2) / 10. / settings.dynamic_viscosity
-                        ),
-                    "dt = {} > {}",
-                    settings.dt,
-                    f64::min(
-                        (settings.cell_width() / 2.) / 2. / 1.,
-                        (settings.cell_width() / 2.).powi(2) / 10. / settings.dynamic_viscosity
-                    )
-                );
 
                 let v_time_steps = (time / settings.dt) as u32;
 

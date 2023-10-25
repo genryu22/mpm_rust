@@ -6,8 +6,8 @@ use rayon::prelude::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
     const DYNAMIC_VISCOSITY: f64 = 1e-2;
-    const DT: f64 = 5e-5;
-    let res_list = [50, 100, 250, 500, 1000, 2000];
+    const DT: f64 = 1e-4;
+    let res_list = [50, 100, 250, 500, 1000];
 
     for r in res_list.iter() {
         let cell_width = 10. / *r as f64;
@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         fs::create_dir(folder)?;
     }
 
-    let time = 1e-2;
+    let time = 1e-1;
 
     let PI = std::f64::consts::PI;
     let half_domain_size = 1.;
@@ -49,30 +49,39 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     [
         (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
-        (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
-        (
-            P2GSchemeType::CompactLsmpsLinear,
-            G2PSchemeType::LsmpsLinear,
-        ),
-        (P2GSchemeType::CompactLsmpsLinear, G2PSchemeType::LSMPS),
-        (P2GSchemeType::CompactLsmpsLinear, G2PSchemeType::Lsmps3rd),
-        // (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
-        // (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
-        // (P2GSchemeType::Lsmps4th, G2PSchemeType::Lsmps4th),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::Lsmps3rd),
-        // (P2GSchemeType::CompactLsmps, G2PSchemeType::MLSMPM),
-        // (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
-        // (P2GSchemeType::Compact_0_1, G2PSchemeType::LsmpsLinear),
-        // (P2GSchemeType::Compact_0_2, G2PSchemeType::LSMPS),
-        (P2GSchemeType::Compact_1_2, G2PSchemeType::LSMPS),
-        (P2GSchemeType::Compact_2_2, G2PSchemeType::LSMPS),
-        (P2GSchemeType::Compact_2_2, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
+        // // (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
+        // // (
+        // //     P2GSchemeType::CompactLsmpsLinear,
+        // //     G2PSchemeType::LsmpsLinear,
+        // // ),
+        // // (P2GSchemeType::CompactLsmpsLinear, G2PSchemeType::LSMPS),
+        // // (P2GSchemeType::CompactLsmpsLinear, G2PSchemeType::Lsmps3rd),
+        // // // (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
+        // // // (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
+        // // // (P2GSchemeType::Lsmps4th, G2PSchemeType::Lsmps4th),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::Lsmps3rd),
+        // // // (P2GSchemeType::CompactLsmps, G2PSchemeType::MLSMPM),
+        // // // (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
+        // // // (P2GSchemeType::Compact_0_1, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::Compact_3_1, G2PSchemeType::LSMPS),
+        // // // (P2GSchemeType::Compact_0_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact_1_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact_2_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact_2_2, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::Compact_3_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact_3_2, G2PSchemeType::Lsmps3rd),
+        (P2GSchemeType::Compact_3_3, G2PSchemeType::Lsmps3rd),
         // (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::MLSMPM),
-        // (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::LSMPS),
+        (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::LSMPS),
         // (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::Compact_v_0_1, G2PSchemeType::MLSMPM),
+        // (P2GSchemeType::Compact_v_0_1, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact_v_3_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact_v_3_2, G2PSchemeType::Lsmps3rd),
+        (P2GSchemeType::Compact_v_3_3, G2PSchemeType::Lsmps3rd),
     ]
     .par_iter()
     .for_each(|&(p2g_scheme, g2p_scheme)| {

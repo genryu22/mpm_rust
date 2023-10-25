@@ -16,10 +16,24 @@ pub fn p2g(p2g_scheme: &P2GSchemeType) -> fn(settings: &Settings, space: &mut Sp
         P2GSchemeType::CompactLsmps => compact_2_1,
         P2GSchemeType::CompactLsmpsLinear => compact_1_1,
         P2GSchemeType::Compact_0_1 => compact_0_1,
+        P2GSchemeType::Compact_3_1 => compact_3_1,
         P2GSchemeType::Compact_0_2 => compact_0_2,
         P2GSchemeType::Compact_1_2 => compact_1_2,
         P2GSchemeType::Compact_2_2 => compact_2_2,
-        P2GSchemeType::CompactOnlyVelocity => compact_only_velocity,
+        P2GSchemeType::Compact_3_2 => compact_3_2,
+        P2GSchemeType::Compact_3_3 => compact_3_3,
+        P2GSchemeType::Compact_v_0_1 => compact_v_0_1,
+        P2GSchemeType::Compact_v_1_1 => compact_v_1_1,
+        P2GSchemeType::CompactOnlyVelocity => compact_v_2_1,
+        P2GSchemeType::Compact_v_3_1 => compact_3_1,
+        P2GSchemeType::Compact_v_0_2 => compact_v_0_2,
+        P2GSchemeType::Compact_v_1_2 => compact_v_1_2,
+        P2GSchemeType::Compact_v_2_2 => compact_v_2_2,
+        P2GSchemeType::Compact_v_3_2 => compact_v_3_2,
+        P2GSchemeType::Compact_v_0_3 => compact_v_0_3,
+        P2GSchemeType::Compact_v_1_3 => compact_v_1_3,
+        P2GSchemeType::Compact_v_2_3 => compact_v_2_3,
+        P2GSchemeType::Compact_v_3_3 => compact_v_3_3,
     }
 }
 
@@ -296,131 +310,26 @@ fn lsmps_only_force(settings: &Settings, space: &mut Space) {
 mlsmpm_macro::compact_p2g_func!(0, 1);
 mlsmpm_macro::compact_p2g_func!(1, 1);
 mlsmpm_macro::compact_p2g_func!(2, 1);
+mlsmpm_macro::compact_p2g_func!(3, 1);
 
 mlsmpm_macro::compact_p2g_func!(0, 2);
 mlsmpm_macro::compact_p2g_func!(1, 2);
 mlsmpm_macro::compact_p2g_func!(2, 2);
+mlsmpm_macro::compact_p2g_func!(3, 2);
 
-fn compact_only_velocity(settings: &Settings, space: &mut Space) {
-    for p in space.particles.iter() {
-        for node in NodeMutIterator::new(
-            settings,
-            &mut space.grid,
-            p,
-            &space.period_bounds,
-            &space.period_bound_rect,
-        ) {
-            let mass_contrib = node.weight * p.mass;
-            node.node.mass += mass_contrib;
-        }
-    }
+mlsmpm_macro::compact_p2g_func!(3, 3);
 
-    for p in space.particles.iter_mut() {
-        let (density, volume) = calc_density_and_volume(
-            settings,
-            p,
-            &space.grid,
-            &space.period_bounds,
-            &space.period_bound_rect,
-        );
+mlsmpm_macro::compact_v_p2g_func!(0, 1);
+mlsmpm_macro::compact_v_p2g_func!(1, 1);
+mlsmpm_macro::compact_v_p2g_func!(2, 1);
+mlsmpm_macro::compact_v_p2g_func!(3, 1);
 
-        let pressure = match settings.pressure {
-            Some(pressure) => pressure(p, space.steps as f64 * settings.dt),
-            None => {
-                let pressure = settings.rho_0 * settings.c * settings.c / settings.eos_power
-                    * ((density / settings.rho_0).powf(settings.eos_power) - 1.);
-                if pressure < 0. {
-                    0.
-                } else {
-                    pressure
-                }
-            }
-        };
+mlsmpm_macro::compact_v_p2g_func!(0, 2);
+mlsmpm_macro::compact_v_p2g_func!(1, 2);
+mlsmpm_macro::compact_v_p2g_func!(2, 2);
+mlsmpm_macro::compact_v_p2g_func!(3, 2);
 
-        p.pressure = pressure;
-
-        let dudv = p.c;
-        let strain = dudv;
-        let viscosity_term = settings.dynamic_viscosity * (strain + strain.transpose());
-        let stress = -pressure * Matrix2f::identity() + viscosity_term;
-        let eq_16_term_0 = -volume
-            * match settings.weight_type {
-                WeightType::CubicBSpline => 3.,
-                _ => 4.,
-            }
-            / (settings.cell_width() * settings.cell_width())
-            * stress;
-
-        for n in NodeMutIterator::new(
-            settings,
-            &mut space.grid,
-            p,
-            &space.period_bounds,
-            &space.period_bound_rect,
-        ) {
-            n.node.force += eq_16_term_0 * n.weight * n.dist;
-        }
-    }
-
-    mlsmpm_macro::lsmps_poly!(2);
-    mlsmpm_macro::lsmps_params!(2);
-    mlsmpm_macro::compact_lsmps_func!(2, 1);
-    mlsmpm_macro::compact_scale!(2, 1);
-
-    let rs = settings.cell_width();
-    let scale_vel = scale_2_1(rs);
-
-    let mut nodes = HashMap::new();
-
-    for p in space.particles.iter_mut() {
-        for node in NodeIterator::new(
-            settings,
-            &space.grid,
-            p,
-            &space.period_bounds,
-            &space.period_bound_rect,
-        ) {
-            let params = {
-                let index = node.node.index;
-                if !nodes.contains_key(&index) {
-                    let params = LsmpsParams {
-                        m: SMatrix::zeros(),
-                        f_vel: SMatrix::zeros(),
-                        f_stress: SMatrix::zeros(),
-                        f_pressure: SMatrix::zeros(),
-                    };
-                    nodes.insert(index, params);
-                }
-
-                nodes.get_mut(&node.node.index).unwrap()
-            };
-
-            let r_ij = -node.dist / rs;
-            let poly_r_ij = poly(r_ij);
-            let weight = node.weight;
-
-            params.m += weight * poly_r_ij * poly_r_ij.transpose();
-
-            params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose()) * c_2_1(0, 0);
-            params.f_vel += weight
-                * poly_r_ij.kronecker(&p.c.column(0).transpose())
-                * c_2_1(1, 0)
-                * -node.dist.x;
-            params.f_vel += weight
-                * poly_r_ij.kronecker(&p.c.column(1).transpose())
-                * c_2_1(0, 1)
-                * -node.dist.y;
-        }
-    }
-
-    space.grid.par_iter_mut().for_each(|node| {
-        if !nodes.contains_key(&node.index) {
-            return;
-        }
-        let params = nodes.get(&node.index).unwrap();
-        if let Some(m_inverse) = (params.m + Matrix6::identity() * 0.).try_inverse() {
-            let res = scale_vel * m_inverse * params.f_vel;
-            node.v = res.row(0).transpose();
-        }
-    });
-}
+mlsmpm_macro::compact_v_p2g_func!(0, 3);
+mlsmpm_macro::compact_v_p2g_func!(1, 3);
+mlsmpm_macro::compact_v_p2g_func!(2, 3);
+mlsmpm_macro::compact_v_p2g_func!(3, 3);
