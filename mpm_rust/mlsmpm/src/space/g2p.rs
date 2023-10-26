@@ -19,7 +19,7 @@ pub fn g2p(g2p_scheme: &G2PSchemeType) -> fn(settings: &Settings, space: &mut Sp
 }
 
 fn mlsmpm(settings: &Settings, space: &mut Space) {
-    space.particles.par_iter_mut().for_each(|p| {
+    parallel!(settings, space.particles, |p| {
         let p_v_t = p.v;
         p.v = Vector2f::zeros();
         p.c = Matrix2f::zeros();
@@ -59,7 +59,7 @@ mlsmpm_macro::lsmps_g2p_func!(3);
 mlsmpm_macro::lsmps_g2p_func!(4);
 
 fn compact_lsmps(settings: &Settings, space: &mut Space) {
-    space.particles.par_iter_mut().for_each(|p| {
+    parallel!(settings, space.particles, |p| {
         p.v = Vector2f::zeros();
         p.c = Matrix2f::zeros();
 

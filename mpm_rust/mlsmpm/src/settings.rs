@@ -27,6 +27,8 @@ pub struct Settings {
     pub pressure: Option<fn(&Particle, f64) -> f64>,
 
     pub reset_particle_position: bool,
+
+    pub parallel: bool,
 }
 
 impl Default for Settings {
@@ -50,6 +52,7 @@ impl Default for Settings {
             g2p_scheme: G2PSchemeType::MLSMPM,
             pressure: None,
             reset_particle_position: false,
+            parallel: true,
         }
     }
 }

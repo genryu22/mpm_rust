@@ -477,8 +477,8 @@ pub fn lsmps_p2g_func(input: TokenStream) -> TokenStream {
                     //params.f_pressure += weight * poly_r_ij.kronecker(&Matrix1::new(pressure));
                 }
             }
-        
-            space.grid.par_iter_mut().for_each(|node| {
+
+            parallel!(settings, space.grid, |node| {
                 if !nodes.contains_key(&node.index) {
                     return;
                 }
@@ -513,7 +513,7 @@ pub fn lsmps_g2p_func(input: TokenStream) -> TokenStream {
     let func_name = format_ident!("lsmps_{}", p);
     quote! {
         fn #func_name(settings: &Settings, space: &mut Space) {
-            space.particles.par_iter_mut().for_each(|p| {
+            parallel!(settings, space.particles, |p| {
                 p.v = Vector2f::zeros();
                 p.c = Matrix2f::zeros();
         
@@ -682,8 +682,8 @@ pub fn compact_p2g_func(input: TokenStream) -> TokenStream {
                     params.f_stress += weight * poly_r_ij.kronecker(&stress.transpose());
                 }
             }
-        
-            space.grid.par_iter_mut().for_each(|node| {
+
+            parallel!(settings, space.grid, |node| {
                 if !nodes.contains_key(&node.index) {
                     return;
                 }
@@ -774,8 +774,8 @@ pub fn compact_v_p2g_func(input: TokenStream) -> TokenStream {
                     })*
                 }
             }
-        
-            space.grid.par_iter_mut().for_each(|node| {
+
+            parallel!(settings, space.grid, |node| {
                 if !nodes.contains_key(&node.index) {
                     return;
                 }

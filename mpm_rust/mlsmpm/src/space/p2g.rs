@@ -289,7 +289,7 @@ fn lsmps_only_force(settings: &Settings, space: &mut Space) {
         }
     }
 
-    space.grid.par_iter_mut().for_each(|node| {
+    parallel!(settings, space.grid, |node| {
         if !nodes.contains_key(&node.index) {
             return;
         }

@@ -51,7 +51,7 @@ fn fun_name(p2g: P2GSchemeType, g2p: G2PSchemeType) -> f64 {
 
         let mut space = new_for_taylor_green(&settings);
 
-        space.clear_grid();
+        space.clear_grid(&settings);
         space.p2g(&settings);
 
         let PI = std::f64::consts::PI;

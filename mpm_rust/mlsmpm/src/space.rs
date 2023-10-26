@@ -40,10 +40,10 @@ impl Space {
         }
     }
 
-    pub fn clear_grid(&mut self) {
-        for n in self.grid.iter_mut() {
-            n.reset();
-        }
+    pub fn clear_grid(&mut self, settings: &Settings) {
+        parallel!(settings, self.grid, |node| {
+            node.reset();
+        });
     }
 
     pub fn p2g(&mut self, settings: &Settings) {
@@ -161,12 +161,13 @@ impl Space {
         }
 
         let current_grid = self.grid.clone();
-        self.grid.par_iter_mut().for_each(|node| {
+
+        parallel!(settings, self.grid, |node| {
             node.c = util::calc_deriv_v(settings, node, &current_grid, &self.period_bound_rect);
         });
 
         if settings.reset_particle_position {
-            self.particles.par_iter_mut().for_each(|p| {
+            parallel!(settings, self.particles, |p| {
                 p.x = p.init_x;
             });
         }
@@ -175,7 +176,7 @@ impl Space {
     pub fn g2p(&mut self, settings: &Settings) {
         g2p::g2p(&settings.g2p_scheme)(settings, self);
 
-        self.particles.par_iter_mut().for_each(|p| {
+        parallel!(settings, self.particles, |p| {
             if let Some(ref rect) = self.period_bound_rect {
                 if p.x.x < rect.x_min {
                     p.x.x = rect.x_max - (rect.x_min - p.x.x);

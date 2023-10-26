@@ -45,7 +45,7 @@ impl<'a> Calculator<'a> {
     }
 
     pub fn update(&mut self) {
-        self.space.clear_grid();
+        self.space.clear_grid(self.settings);
         self.space.p2g(self.settings);
         self.space.update_grid(self.settings);
         self.space.g2p(self.settings);
@@ -105,4 +105,14 @@ impl<'a> Calculator<'a> {
             .max_by(|x, y| x.partial_cmp(y).unwrap())
             .unwrap()
     }
+}
+
+#[macro_export]
+macro_rules! parallel {
+    ($settings:expr, $vec:expr, $func:expr) => {
+        match $settings.parallel {
+            true => $vec.par_iter_mut().for_each($func),
+            false => $vec.iter_mut().for_each($func),
+        };
+    };
 }
