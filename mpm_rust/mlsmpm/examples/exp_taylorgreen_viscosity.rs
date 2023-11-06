@@ -1,0 +1,206 @@
+/*
+    粒子上にテイラーグリーン渦のt=0における速度、速度勾配の理論値を与える。
+    また粘性項の理論値も求める。
+
+    以下の２つの場合の粘性項の空間解像度に対する精度の収束性を比較する。
+        1. 粒子上で計算して格子上で応力の発散を計算する
+        2. 格子上で速度のラプラシアンを計算する
+*/
+
+use std::fs;
+
+use mlsmpm::*;
+use mlsmpm_macro::*;
+use nalgebra::*;
+use rand::Rng;
+
+const DYNAMIC_VISCOSITY: f64 = 1.;
+const DT: f64 = 5e-7;
+const RES_LIST: [usize; 6] = [50, 100, 250, 500, 1000, 2000];
+
+const SCHEMES: [(
+    &str,
+    fn(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>)>,
+); 7] = [
+    ("応力の発散_1", scheme_div_force_1),
+    ("応力の発散_2", scheme_div_force_2),
+    ("応力の発散_3", scheme_div_force_3),
+    ("応力の発散_4", scheme_div_force_4),
+    ("速度のラプラシアン_2", scheme_laplacian_velocity_2),
+    ("速度のラプラシアン_3", scheme_laplacian_velocity_3),
+    ("速度のラプラシアン_4", scheme_laplacian_velocity_4),
+];
+
+scheme_div_force!(1);
+scheme_div_force!(2);
+scheme_div_force!(3);
+scheme_div_force!(4);
+scheme_laplacian_velocity!(2);
+scheme_laplacian_velocity!(3);
+scheme_laplacian_velocity!(4);
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let folder_name = format!("exp_taylorgreen_viscosity");
+    let folder = std::path::Path::new(&folder_name);
+    if !folder.exists() {
+        fs::create_dir(folder)?;
+    }
+    let current_time = chrono::Local::now();
+    let file = folder.join(format!("{}.csv", current_time.format("%Y%m%d_%Hh%Mm%Ss")));
+
+    let result = RES_LIST.map(|res| {
+        let settings = Settings {
+            dt: DT,
+            gravity: 0.,
+            dynamic_viscosity: DYNAMIC_VISCOSITY,
+            alpha: 0.,
+            affine: true,
+            space_width: 10.,
+            grid_width: res,
+            rho_0: 1.,
+            c: 1e1,
+            eos_power: 4.,
+            boundary_mirror: false,
+            vx_zero: false,
+            weight_type: WeightType::CubicBSpline,
+            effect_radius: 3,
+            p2g_scheme: P2GSchemeType::MLSMPM,
+            g2p_scheme: G2PSchemeType::MLSMPM,
+            pressure: None,
+            reset_particle_position: true,
+            ..Default::default()
+        };
+
+        SCHEMES.map(|(_, scheme)| {
+            let result = scheme(&settings);
+
+            f64::sqrt(
+                result
+                    .iter()
+                    .map(|(x, y, calculated)| {
+                        (calculated
+                            - viscosity_term(
+                                DYNAMIC_VISCOSITY,
+                                der_2_velocity(0., x.clone(), y.clone(), DYNAMIC_VISCOSITY),
+                            ))
+                        .norm_squared()
+                    })
+                    .sum::<f64>()
+                    / result
+                        .iter()
+                        .map(|(x, y, _)| {
+                            viscosity_term(
+                                DYNAMIC_VISCOSITY,
+                                der_2_velocity(0., x.clone(), y.clone(), DYNAMIC_VISCOSITY),
+                            )
+                            .norm_squared()
+                        })
+                        .sum::<f64>(),
+            )
+        })
+    });
+
+    {
+        let mut writer = csv::Writer::from_path(file)?;
+        writer.write_record(&([vec!["res"], SCHEMES.map(|(name, _)| name).to_vec()].concat()))?;
+        for i in 0..RES_LIST.len() {
+            writer.write_record(
+                &([
+                    vec![RES_LIST[i].to_string()],
+                    result[i].map(|l2_error| l2_error.to_string()).to_vec(),
+                ]
+                .concat()),
+            )?;
+        }
+        writer.flush()?;
+    }
+
+    fn der_2_velocity(t: f64, x: f64, y: f64, nu: f64) -> Matrix2<f64> {
+        let PI = std::f64::consts::PI;
+        let U = 1.;
+        let exp_term = f64::exp(-2. * PI * PI * t / (U * U / nu));
+        Matrix2::new(
+            -PI * PI / U * exp_term * f64::sin(PI * (x - 5.) / U) * f64::cos(PI * (y - 5.) / U),
+            -PI * PI / U * exp_term * f64::sin(PI * (x - 5.) / U) * f64::cos(PI * (y - 5.) / U),
+            PI * PI / U * exp_term * f64::cos(PI * (x - 5.) / U) * f64::sin(PI * (y - 5.) / U),
+            PI * PI / U * exp_term * f64::cos(PI * (x - 5.) / U) * f64::sin(PI * (y - 5.) / U),
+        )
+    }
+
+    fn viscosity_term(dynamic_viscosity: f64, der_2_v: Matrix2<f64>) -> Vector2<f64> {
+        dynamic_viscosity * der_2_v.column_sum()
+    }
+
+    Ok(())
+}
+
+fn new_for_taylor_green(settings: &Settings) -> (Vec<Particle>, Vec<Node>, PeriodicBoundaryRect) {
+    let grid_width = settings.grid_width;
+
+    let PI = std::f64::consts::PI;
+    let half_domain_size = 1.;
+
+    let pos_x_min = 5. - half_domain_size;
+    let pos_x_max = 5. + half_domain_size;
+    let num_x = (half_domain_size * 2. / (settings.cell_width() / 3.)) as usize;
+    let p_dist = half_domain_size * 2. / (num_x as f64);
+
+    let mut particles = Vec::<Particle>::with_capacity(num_x * num_x);
+
+    let mut rng = rand::thread_rng();
+
+    for i_y in 0..num_x {
+        for i_x in 0..num_x {
+            let mut x = p_dist * (i_x as f64 + 0.5) as f64 + pos_x_min;
+            let mut y = p_dist * (i_y as f64 + 0.5) as f64 + pos_x_min;
+            if false {
+                x += rng.gen_range(-1.0..=1.0) * p_dist * 0.2;
+                y += rng.gen_range(-1.0..=1.0) * p_dist * 0.2;
+            }
+            let velocity = Vector2::new(
+                f64::sin(PI * (x - 5.) / half_domain_size)
+                    * f64::cos(PI * (y - 5.) / half_domain_size),
+                -f64::cos(PI * (x - 5.) / half_domain_size)
+                    * f64::sin(PI * (y - 5.) / half_domain_size),
+            );
+
+            let c = {
+                let k = PI / half_domain_size;
+                let c11 = k
+                    * f64::cos(PI * (x - 5.) / half_domain_size)
+                    * f64::cos(PI * (y - 5.) / half_domain_size);
+                let c12 = -k
+                    * f64::sin(PI * (x - 5.) / half_domain_size)
+                    * f64::sin(PI * (y - 5.) / half_domain_size);
+                let c21 = k
+                    * f64::sin(PI * (x - 5.) / half_domain_size)
+                    * f64::sin(PI * (y - 5.) / half_domain_size);
+                let c22 = -k
+                    * f64::cos(PI * (x - 5.) / half_domain_size)
+                    * f64::cos(PI * (y - 5.) / half_domain_size);
+
+                Matrix2::new(c11, c12, c21, c22)
+            };
+
+            let p = Particle::new_with_mass_velocity_c(
+                Vector2::new(x, y),
+                (settings.rho_0 * (half_domain_size * 2.) * (half_domain_size * 2.))
+                    / (num_x * num_x) as f64,
+                velocity,
+                c,
+            );
+            particles.push(p);
+        }
+    }
+
+    let mut grid: Vec<Node> = Vec::with_capacity((grid_width + 1) * (grid_width + 1));
+    for i in 0..(grid_width + 1) * (grid_width + 1) {
+        grid.push(Node::new((i % (grid_width + 1), i / (grid_width + 1))));
+    }
+
+    (
+        particles,
+        grid,
+        PeriodicBoundaryRect::new(pos_x_min, pos_x_max, pos_x_min, pos_x_max),
+    )
+}

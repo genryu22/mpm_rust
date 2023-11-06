@@ -51,6 +51,10 @@ impl Node {
         self.mass = 0.0;
     }
 
+    pub fn index(&self) -> (usize, usize) {
+        self.index
+    }
+
     pub fn formatted_list(&self) -> [String; 7] {
         [
             self.v.x.to_string(),

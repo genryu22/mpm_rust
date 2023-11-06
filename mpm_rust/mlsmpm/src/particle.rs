@@ -75,12 +75,20 @@ impl Particle {
         &self.v
     }
 
+    pub fn c(&self) -> &Matrix2f {
+        &self.c
+    }
+
     pub fn pressure(&self) -> f64 {
         self.pressure
     }
 
     pub fn v_norm(&self) -> f64 {
         self.v.norm()
+    }
+
+    pub fn x_lsmps(&self) -> Matrix2xX<f64> {
+        self.v_lsmps.clone()
     }
 
     pub fn formatted_list(&self) -> [String; 6] {
