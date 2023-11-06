@@ -71,7 +71,9 @@ impl Space {
                 | P2GSchemeType::Compact_1_2
                 | P2GSchemeType::Compact_2_2
                 | P2GSchemeType::Compact_3_2
-                | P2GSchemeType::Compact_3_3 => {
+                | P2GSchemeType::Compact_3_3
+                | P2GSchemeType::Compact_4_3
+                | P2GSchemeType::Compact_4_4 => {
                     n.v_star = n.v
                         + settings.dt * (vector![0., settings.gravity] + n.force / settings.rho_0);
                 }

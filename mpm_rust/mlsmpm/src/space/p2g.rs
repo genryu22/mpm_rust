@@ -22,6 +22,8 @@ pub fn p2g(p2g_scheme: &P2GSchemeType) -> fn(settings: &Settings, space: &mut Sp
         P2GSchemeType::Compact_2_2 => compact_2_2,
         P2GSchemeType::Compact_3_2 => compact_3_2,
         P2GSchemeType::Compact_3_3 => compact_3_3,
+        P2GSchemeType::Compact_4_3 => compact_4_3,
+        P2GSchemeType::Compact_4_4 => compact_4_4,
         P2GSchemeType::Compact_v_0_1 => compact_v_0_1,
         P2GSchemeType::Compact_v_1_1 => compact_v_1_1,
         P2GSchemeType::CompactOnlyVelocity => compact_v_2_1,
@@ -318,6 +320,9 @@ mlsmpm_macro::compact_p2g_func!(2, 2);
 mlsmpm_macro::compact_p2g_func!(3, 2);
 
 mlsmpm_macro::compact_p2g_func!(3, 3);
+mlsmpm_macro::compact_p2g_func!(4, 3);
+
+mlsmpm_macro::compact_p2g_func!(4, 4);
 
 mlsmpm_macro::compact_v_p2g_func!(0, 1);
 mlsmpm_macro::compact_v_p2g_func!(1, 1);

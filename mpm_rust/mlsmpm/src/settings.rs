@@ -82,6 +82,8 @@ pub enum P2GSchemeType {
     Compact_2_2,
     Compact_3_2,
     Compact_3_3,
+    Compact_4_3,
+    Compact_4_4,
     Compact_v_0_1,
     Compact_v_1_1,
     CompactOnlyVelocity,
