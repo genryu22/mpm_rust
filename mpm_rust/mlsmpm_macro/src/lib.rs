@@ -409,6 +409,8 @@ pub fn lsmps_p2g_func(input: TokenStream) -> TokenStream {
             }
         
             let mut nodes = HashMap::new();
+
+            // let mut history = vec![];
         
             for p in space.particles.iter_mut() {
                 let (stress, pressure) = {
@@ -473,9 +475,43 @@ pub fn lsmps_p2g_func(input: TokenStream) -> TokenStream {
                     params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose());
                     let stress = vector![stress[(0, 0)], stress[(0, 1)], stress[(1, 1)]];
                     params.f_stress += weight * poly_r_ij.kronecker(&stress.transpose());
+
+                    // if node.node.index == (43, 56) {
+                    //     history.push(p.x);
+                    //     println!("x{} y{} dist{} count{} {:?}", node.node.index.0 as f64 * settings.cell_width(), node.node.index.1 as f64 * settings.cell_width(), -node.dist, history.len(), history);
+                    // }
         
                     //params.f_pressure += weight * poly_r_ij.kronecker(&Matrix1::new(pressure));
                 }
+            }
+
+            {
+                // let mut test = f64::MIN;
+    
+                // for node in space.grid.iter_mut() {
+                //     if !nodes.contains_key(&node.index) {
+                //         continue;
+                //     }
+                //     let params = nodes.get(&node.index).unwrap();
+    
+                //     let sing_values = params.m.singular_values();
+                //     test = f64::max(sing_values.max() / sing_values.min(), test);
+    
+                //     if let Some(m_inverse) = (params.m + SMatrix::identity() * 0.).try_inverse() {
+                //         {
+                //             let res = scale * m_inverse * params.f_vel;
+                //             node.v = res.row(0).transpose();
+                //         }
+            
+                //         {
+                //             let res = scale * m_inverse * params.f_stress;
+                //             node.force[0] = res[(1, 0)] + res[(2, 1)];
+                //             node.force[1] = res[(1, 1)] + res[(2, 2)];
+                //         }
+                //     }
+                // }
+    
+                // println!("step={} cond_max={}", space.steps, test);
             }
 
             parallel!(settings, space.grid, |node| {
@@ -483,6 +519,7 @@ pub fn lsmps_p2g_func(input: TokenStream) -> TokenStream {
                     return;
                 }
                 let params = nodes.get(&node.index).unwrap();
+
                 if let Some(m_inverse) = (params.m + SMatrix::identity() * 0.).try_inverse() {
                     {
                         let res = scale * m_inverse * params.f_vel;
@@ -500,6 +537,30 @@ pub fn lsmps_p2g_func(input: TokenStream) -> TokenStream {
                         node.force[0] = res[(1, 0)] + res[(2, 1)];
                         node.force[1] = res[(1, 1)] + res[(2, 2)];
                     }
+
+                    // let sing_values = params.m.singular_values();
+                    // println!("モーメント行列の逆行列が求まりました！ max={} min={} cond={} (x, y) = ({} {})",
+                    // sing_values.max(),
+                    // sing_values.min(),
+                    // sing_values.max() / sing_values.min(),
+                    // node.index.0 as f64 * settings.cell_width(),
+                    // node.index.1 as f64 * settings.cell_width());
+
+                    // if (sing_values.max() / sing_values.min() > 100.) {
+
+                    // }
+                } else {
+                    // let sing_values = params.m.singular_values();
+                    // println!("モーメント行列の逆行列が求まりませんでした。 max={} min={} cond={} (x, y) = ({} {}), steps={}",
+                    //     sing_values.max(),
+                    //     sing_values.min(),
+                    //     sing_values.max() / sing_values.min(),
+                    //     node.index.0 as f64 * settings.cell_width(),
+                    //     node.index.1 as f64 * settings.cell_width(),
+                    //     space.steps
+                    // );
+                    // println!("{}", params.m);
+                    // panic!();
                 }
             });
         }
@@ -699,6 +760,9 @@ pub fn compact_p2g_func(input: TokenStream) -> TokenStream {
                         node.force[0] = res[(1, 0)] + res[(2, 1)];
                         node.force[1] = res[(1, 1)] + res[(2, 2)];
                     }
+                } else {
+                    let sing_values = params.m.singular_values();
+                    println!("モーメント行列の逆行列が求まりませんでした。 max={} min={} cond={}", sing_values.max(), sing_values.min(), sing_values.max() / sing_values.min());
                 }
             });
         }
@@ -785,6 +849,9 @@ pub fn compact_v_p2g_func(input: TokenStream) -> TokenStream {
                         let res = scale_vel * m_inverse * params.f_vel;
                         node.v = res.row(0).transpose();
                     }
+                } else {
+                    let sing_values = params.m.singular_values();
+                    println!("モーメント行列の逆行列が求まりませんでした。 {}", sing_values.max() / sing_values.min());
                 }
             });
         }
