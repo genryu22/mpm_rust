@@ -24,17 +24,13 @@ fn mlsmpm(settings: &Settings, space: &mut Space) {
         p.v = Vector2f::zeros();
         p.c = Matrix2f::zeros();
 
-        for n in NodeIterator::new(
-            settings,
-            &space.grid,
-            p,
-            &space.period_bounds,
-            &space.period_bound_rect,
-        ) {
-            p.v += (n.node.v_star - settings.alpha * n.node.v) * n.weight;
-            p.x += n.node.v_star * n.weight * settings.dt;
+        for n in NodeIndexIterator::new(settings, p, &space.period_bounds, &space.period_bound_rect)
+        {
+            let node = space.grid[n.index].lock().unwrap();
+            p.v += (node.v_star - settings.alpha * node.v) * n.weight;
+            p.x += node.v_star * n.weight * settings.dt;
 
-            let weighted_velocity = n.node.v_star * n.weight;
+            let weighted_velocity = node.v_star * n.weight;
             p.c += weighted_velocity * n.dist.transpose();
         }
 
@@ -127,29 +123,27 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
             f_vel: Matrix6x2::<f64>::zeros(),
         };
 
-        for n in NodeIterator::new(
-            settings,
-            &space.grid,
-            p,
-            &space.period_bounds,
-            &space.period_bound_rect,
-        ) {
+        for n in NodeIndexIterator::new(settings, p, &space.period_bounds, &space.period_bound_rect)
+        {
             let r_ij = n.dist / rs;
             let poly_r_ij = poly(r_ij);
             let weight = n.weight;
 
             params.m += weight * poly_r_ij * poly_r_ij.transpose();
 
-            params.f_vel +=
-                weight * poly_r_ij.kronecker(&n.node.v_star.transpose()) * C(0, 0, 2, 1) as f64;
-            params.f_vel += weight
-                * poly_r_ij.kronecker(&n.node.c.column(0).transpose())
-                * C(1, 0, 2, 1) as f64
-                * n.dist.x;
-            params.f_vel += weight
-                * poly_r_ij.kronecker(&n.node.c.column(1).transpose())
-                * C(0, 1, 2, 1) as f64
-                * n.dist.y;
+            {
+                let node = space.grid[n.index].lock().unwrap();
+                params.f_vel +=
+                    weight * poly_r_ij.kronecker(&node.v_star.transpose()) * C(0, 0, 2, 1) as f64;
+                params.f_vel += weight
+                    * poly_r_ij.kronecker(&node.c.column(0).transpose())
+                    * C(1, 0, 2, 1) as f64
+                    * n.dist.x;
+                params.f_vel += weight
+                    * poly_r_ij.kronecker(&node.c.column(1).transpose())
+                    * C(0, 1, 2, 1) as f64
+                    * n.dist.y;
+            }
         }
 
         if let Some(m_inverse) = (params.m + Matrix6::identity() * 0.).try_inverse() {

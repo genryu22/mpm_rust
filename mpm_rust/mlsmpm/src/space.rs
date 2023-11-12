@@ -1,8 +1,8 @@
 use core::num;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Mutex};
 
 use na::{Matrix3, Matrix3x2, Matrix4, Matrix4x2, Matrix6, Matrix6x2, Matrix6x3, Vector3, Vector6};
-use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
+use rayon::prelude::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 
 use crate::*;
 
@@ -11,7 +11,7 @@ mod p2g;
 
 #[derive(Debug)]
 pub struct Space {
-    pub(super) grid: Vec<Node>,
+    pub(super) grid: Vec<Mutex<Node>>,
     pub(super) particles: Vec<Particle>,
 
     pub(super) slip_bounds: Vec<SlipBoundary>,
@@ -31,7 +31,10 @@ impl Space {
         steps: usize,
     ) -> Self {
         Self {
-            grid,
+            grid: grid
+                .into_iter()
+                .map(|node| Mutex::new(node))
+                .collect::<Vec<_>>(),
             particles,
             slip_bounds,
             period_bounds,
@@ -42,7 +45,7 @@ impl Space {
 
     pub fn clear_grid(&mut self, settings: &Settings) {
         parallel!(settings, self.grid, |node| {
-            node.reset();
+            node.lock().unwrap().reset();
         });
     }
 
@@ -51,11 +54,11 @@ impl Space {
     }
 
     pub fn update_grid(&mut self, settings: &Settings) {
-        let mut vel_configs = Vec::with_capacity(self.grid.len());
+        parallel!(settings, self.grid, |node| {
+            let mut n = node.lock().unwrap();
 
-        for (i, n) in self.grid.iter_mut().enumerate() {
             if n.mass <= 0. {
-                continue;
+                return;
             }
 
             match settings.p2g_scheme {
@@ -92,81 +95,27 @@ impl Space {
                     n.v_star =
                         n.v + settings.dt * (vector![0., settings.gravity] + n.force / n.mass);
                 }
-                P2GSchemeType::LsmpsOnlyForce => {
-                    n.v /= n.mass;
-                    n.v_star = n.v
-                        + settings.dt * (vector![0., settings.gravity] + n.force / settings.rho_0);
-                }
                 P2GSchemeType::MLSMPM => {
-                    n.v /= n.mass;
+                    let mass = n.mass;
+                    n.v /= mass;
                     n.v_star =
                         n.v + settings.dt * (vector![0., settings.gravity] + n.force / n.mass);
                 }
-            };
-
-            let node_pos = calc_node_pos(settings, i);
-            for (index, b) in self.slip_bounds.iter().enumerate() {
-                if settings.boundary_mirror && b.fixed {
-                    if let Some(opposite) = get_opposite_node_index(settings, i, &b) {
-                        if opposite == i {
-                            n.v = Vector2f::zeros();
-                            n.v_star = Vector2f::zeros();
-                        } else {
-                            vel_configs.push((opposite, -n.v, -n.v_star, &b.direction, b.no_slip));
-                        }
-                    }
-                } else {
-                    let i;
-
-                    if let Direction::X = b.direction {
-                        i = &node_pos.x;
-                    } else {
-                        i = &node_pos.y;
-                    }
-
-                    if b.line.calc_excess(*i) >= 0. {
-                        n.v = Vector2f::zeros();
-                        n.v_star = Vector2f::zeros();
-
-                        // if index == 1 {
-                        //     n.v = vector![0., -0.1];
-                        //     n.v_star = vector![0., -0.1];
-                        // }
-                    }
-                }
             }
-        }
-
-        for (target, v, v_star, direction, no_slip) in vel_configs {
-            if let Some(target) = self.grid.get_mut(target) {
-                match direction {
-                    Direction::X => {
-                        if no_slip {
-                            target.v = vector![0., v.y];
-                            target.v_star = vector![0., v_star.y];
-                        } else {
-                            target.v = vector![v.x, 0.];
-                            target.v_star = vector![v_star.x, 0.];
-                        }
-                    }
-                    Direction::Y => {
-                        if no_slip {
-                            target.v = vector![v.x, 0.];
-                            target.v_star = vector![v_star.x, 0.];
-                        } else {
-                            target.v = vector![0., v.y];
-                            target.v_star = vector![0., v_star.y];
-                        }
-                    }
-                }
-            }
-        }
-
-        let current_grid = self.grid.clone();
-
-        parallel!(settings, self.grid, |node| {
-            node.c = util::calc_deriv_v(settings, node, &current_grid, &self.period_bound_rect);
         });
+
+        {
+            let current_grid = self.get_nodes();
+            parallel!(settings, self.grid, |node| {
+                let mut n = node.lock().unwrap();
+                n.c = util::calc_deriv_v(
+                    settings,
+                    &n.clone(),
+                    &current_grid,
+                    &self.period_bound_rect,
+                );
+            });
+        }
 
         if settings.reset_particle_position {
             parallel!(settings, self.particles, |p| {
@@ -238,7 +187,10 @@ impl Space {
     }
 
     pub fn get_nodes(&self) -> Vec<Node> {
-        self.grid.clone()
+        self.grid
+            .par_iter()
+            .map(|node| node.lock().unwrap().clone())
+            .collect()
     }
 
     pub fn get_particles(&self) -> Vec<Particle> {

@@ -5,8 +5,8 @@ use rand::Rng;
 use rayon::prelude::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    const DYNAMIC_VISCOSITY: f64 = 1.;
-    const DT: f64 = 5e-7;
+    const DYNAMIC_VISCOSITY: f64 = 1e-3;
+    const DT: f64 = 1e-4;
     let res_list = [50, 100, 250, 500, 1000, 2000];
 
     for r in res_list.iter() {
@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         fs::create_dir(folder)?;
     }
 
-    let time = 1e-2;
+    let time = 1e-1;
 
     let PI = std::f64::consts::PI;
     let half_domain_size = 1.;
@@ -48,40 +48,44 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     [
-        // (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
-        // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
-        // // (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
-        // // (
-        // //     P2GSchemeType::CompactLsmpsLinear,
-        // //     G2PSchemeType::LsmpsLinear,
-        // // ),
+        (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
+        // (P2GSchemeType::Compact_v_0_1, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::Compact_v_0_2, G2PSchemeType::LSMPS),
+        // // // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
+        // // // // (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
+        // (
+        //     P2GSchemeType::CompactLsmpsLinear,
+        //     G2PSchemeType::LsmpsLinear,
+        // ),
+        // (P2GSchemeType::Compact_1_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::Compact_2_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact_3_1, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::Compact_3_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
         // // (P2GSchemeType::CompactLsmpsLinear, G2PSchemeType::LSMPS),
         // // (P2GSchemeType::CompactLsmpsLinear, G2PSchemeType::Lsmps3rd),
         // // // (P2GSchemeType::LSMPS, G2PSchemeType::LSMPS),
         // // // (P2GSchemeType::Lsmps3rd, G2PSchemeType::Lsmps3rd),
-        // // // (P2GSchemeType::Lsmps4th, G2PSchemeType::Lsmps4th),
-        // (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Lsmps4th, G2PSchemeType::Lsmps4th),
         // (P2GSchemeType::CompactLsmps, G2PSchemeType::CompactLsmps),
         // (P2GSchemeType::CompactLsmps, G2PSchemeType::Lsmps3rd),
         // // // (P2GSchemeType::CompactLsmps, G2PSchemeType::MLSMPM),
-        // // // (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
-        // // // (P2GSchemeType::Compact_0_1, G2PSchemeType::LsmpsLinear),
-        // (P2GSchemeType::Compact_3_1, G2PSchemeType::LSMPS),
-        // // // (P2GSchemeType::Compact_0_2, G2PSchemeType::LSMPS),
-        // (P2GSchemeType::Compact_1_2, G2PSchemeType::LSMPS),
-        // (P2GSchemeType::Compact_2_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact_0_1, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::Compact_0_2, G2PSchemeType::LSMPS),
         // (P2GSchemeType::Compact_2_2, G2PSchemeType::Lsmps3rd),
-        // (P2GSchemeType::Compact_3_2, G2PSchemeType::LSMPS),
         // (P2GSchemeType::Compact_3_2, G2PSchemeType::Lsmps3rd),
-        (P2GSchemeType::Compact_3_3, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::Compact_3_3, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::Compact_4_3, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::Compact_4_4, G2PSchemeType::Lsmps4th),
         // (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::MLSMPM),
-        (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::LSMPS),
         // (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::Lsmps3rd),
         // (P2GSchemeType::Compact_v_0_1, G2PSchemeType::MLSMPM),
         // (P2GSchemeType::Compact_v_0_1, G2PSchemeType::LSMPS),
         // (P2GSchemeType::Compact_v_3_2, G2PSchemeType::LSMPS),
         // (P2GSchemeType::Compact_v_3_2, G2PSchemeType::Lsmps3rd),
-        (P2GSchemeType::Compact_v_3_3, G2PSchemeType::Lsmps3rd),
+        // (P2GSchemeType::Compact_v_3_3, G2PSchemeType::Lsmps3rd),
     ]
     .iter()
     .map(|&(p2g_scheme, g2p_scheme)| {
@@ -107,8 +111,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                             eos_power: 4.,
                             boundary_mirror: false,
                             vx_zero: false,
-                            weight_type: WeightType::CubicBSpline,
-                            effect_radius: 3,
+                            weight_type: WeightType::QuadraticBSpline,
+                            effect_radius: 2,
                             p2g_scheme,
                             g2p_scheme,
                             pressure: Some(|p, time| {

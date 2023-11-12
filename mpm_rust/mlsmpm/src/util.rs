@@ -142,6 +142,75 @@ impl<'a, 'b, 'c, 'd> NodeIterator<'a, 'b, 'd> {
     }
 }
 
+pub struct NeightborNodeIndex {
+    pub index: usize,
+    pub weight: f64,
+    pub dist: Vector2f,
+}
+
+pub struct NodeIndexIterator<'a, 'b> {
+    settings: &'a Settings,
+    particle_position: Vector2f,
+    period_bounds: &'b Vec<PeriodicBoundary>,
+    period_bound_rect: &'b Option<PeriodicBoundaryRect>,
+    radius: i32,
+    gx: i32,
+    gy: i32,
+}
+
+impl<'a, 'b> Iterator for NodeIndexIterator<'a, 'b> {
+    type Item = NeightborNodeIndex;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.gx > self.radius {
+            None
+        } else {
+            let (weight, dist, index) = calc_weight_dist_index(
+                self.settings,
+                &self.particle_position,
+                &self.gx,
+                &self.gy,
+                self.period_bounds,
+                self.period_bound_rect,
+            );
+            if let Some(index) = index {
+                self.gy += 1;
+                if self.gy > self.radius {
+                    self.gy = -self.radius;
+                    self.gx += 1;
+                }
+                Some(NeightborNodeIndex {
+                    index,
+                    weight,
+                    dist,
+                })
+            } else {
+                None
+            }
+        }
+    }
+}
+
+impl<'a, 'b, 'c> NodeIndexIterator<'a, 'b> {
+    pub fn new(
+        settings: &'a Settings,
+        particle: &'c Particle,
+        period_bounds: &'b Vec<PeriodicBoundary>,
+        period_bound_rect: &'b Option<PeriodicBoundaryRect>,
+    ) -> NodeIndexIterator<'a, 'b> {
+        let radius: i32 = settings.effect_radius as i32;
+        NodeIndexIterator {
+            settings,
+            particle_position: particle.x,
+            period_bounds,
+            period_bound_rect,
+            radius,
+            gx: -radius,
+            gy: -radius,
+        }
+    }
+}
+
 pub fn calc_deriv_v(
     settings: &Settings,
     node: &Node,
@@ -284,13 +353,14 @@ fn quadratic_b_spline(x: f64) -> f64 {
 pub fn calc_density_and_volume(
     settings: &Settings,
     p: &Particle,
-    grid: &Vec<Node>,
+    grid: &Vec<std::sync::Mutex<Node>>,
     period_bounds: &Vec<PeriodicBoundary>,
     period_bound_rect: &Option<PeriodicBoundaryRect>,
 ) -> (f64, f64) {
     let mut density = 0.;
-    for n in NodeIterator::new(settings, grid, p, period_bounds, period_bound_rect) {
-        density += n.node.mass * n.weight / (settings.cell_width() * settings.cell_width());
+    for n in NodeIndexIterator::new(settings, p, period_bounds, period_bound_rect) {
+        density += grid[n.index].lock().unwrap().mass * n.weight
+            / (settings.cell_width() * settings.cell_width());
     }
     (density, p.mass / density)
 }

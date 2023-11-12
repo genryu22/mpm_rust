@@ -57,8 +57,8 @@ impl<'a> Calculator<'a> {
         &self.space.particles
     }
 
-    pub fn get_grid(&self) -> &Vec<Node> {
-        &self.space.grid
+    pub fn get_grid(&self) -> Vec<Node> {
+        self.space.get_nodes()
     }
 
     pub fn get_min_velocity(&self) -> f64 {
@@ -81,7 +81,7 @@ impl<'a> Calculator<'a> {
 
     pub fn get_max_nodal_velocity(&self) -> f64 {
         self.space
-            .grid
+            .get_nodes()
             .iter()
             .map(|n| n.v.norm())
             .max_by(|x, y| x.partial_cmp(y).unwrap())
@@ -90,7 +90,7 @@ impl<'a> Calculator<'a> {
 
     pub fn get_max_nodal_star_velocity(&self) -> f64 {
         self.space
-            .grid
+            .get_nodes()
             .iter()
             .map(|n| n.v_star.norm())
             .max_by(|x, y| x.partial_cmp(y).unwrap())
