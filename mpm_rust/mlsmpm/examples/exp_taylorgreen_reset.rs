@@ -1,23 +1,25 @@
 use std::{error::Error, fs, io::Write, path::Path, thread};
 
 use mlsmpm::*;
-use rand::Rng;
+use rand::{seq::SliceRandom, Rng};
 use rayon::prelude::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    const DYNAMIC_VISCOSITY: f64 = 1e-3;
-    const DT: f64 = 1e-4;
-    let res_list = [50, 100, 250, 500, 1000, 2000];
+    const DYNAMIC_VISCOSITY: f64 = 1e-1;
+    let res_list = [50, 100, 250, 500, 1000, 2000, 4000, 8000];
+    let dt_list = [1e-2, 1e-3, 1e-4, 1e-4, 1e-5, 5e-6, 1e-6, 1e-7];
 
-    for r in res_list.iter() {
+    for (i, r) in res_list.iter().enumerate() {
         let cell_width = 10. / *r as f64;
         assert!(
-            DT <= f64::min(
-                (cell_width / 2.) / 2. / 1.,
-                (cell_width / 2.).powi(2) / 10. / DYNAMIC_VISCOSITY
-            ),
-            "dt = {} > {}",
-            DT,
+            dt_list[i]
+                <= f64::min(
+                    (cell_width / 2.) / 2. / 1.,
+                    (cell_width / 2.).powi(2) / 10. / DYNAMIC_VISCOSITY
+                ),
+            "res= {}, dt = {} > {}",
+            r,
+            dt_list[i],
             f64::min(
                 (cell_width / 2.) / 2. / 1.,
                 (cell_width / 2.).powi(2) / 10. / DYNAMIC_VISCOSITY
@@ -35,7 +37,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         fs::create_dir(folder)?;
     }
 
-    let time = 1e-1;
+    let time = 1e-2;
 
     let PI = std::f64::consts::PI;
     let half_domain_size = 1.;
@@ -49,19 +51,19 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     [
         (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
-        // (P2GSchemeType::Compact_v_0_1, G2PSchemeType::LsmpsLinear),
-        // (P2GSchemeType::Compact_v_0_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Compact_v_0_1, G2PSchemeType::LsmpsLinear),
+        (P2GSchemeType::Compact_v_0_2, G2PSchemeType::LSMPS),
+        (
+            P2GSchemeType::CompactLsmpsLinear,
+            G2PSchemeType::LsmpsLinear,
+        ),
+        (P2GSchemeType::Compact_1_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
+        (P2GSchemeType::Compact_2_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Compact_3_1, G2PSchemeType::LsmpsLinear),
+        (P2GSchemeType::Compact_3_2, G2PSchemeType::LSMPS),
         // // // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
         // // // // (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
-        // (
-        //     P2GSchemeType::CompactLsmpsLinear,
-        //     G2PSchemeType::LsmpsLinear,
-        // ),
-        // (P2GSchemeType::Compact_1_2, G2PSchemeType::LSMPS),
-        // (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
-        // (P2GSchemeType::Compact_2_2, G2PSchemeType::LSMPS),
-        // (P2GSchemeType::Compact_3_1, G2PSchemeType::LsmpsLinear),
-        // (P2GSchemeType::Compact_3_2, G2PSchemeType::LSMPS),
         // (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
         // // (P2GSchemeType::CompactLsmpsLinear, G2PSchemeType::LSMPS),
         // // (P2GSchemeType::CompactLsmpsLinear, G2PSchemeType::Lsmps3rd),
@@ -88,139 +90,134 @@ fn main() -> Result<(), Box<dyn Error>> {
         // (P2GSchemeType::Compact_v_3_3, G2PSchemeType::Lsmps3rd),
     ]
     .iter()
-    .map(|&(p2g_scheme, g2p_scheme)| {
+    .for_each(|&(p2g_scheme, g2p_scheme)| {
         let folder_name = folder_name.clone();
-        thread::spawn(move || {
-            let folder = Path::new(&folder_name);
-            let results = res_list
-                .iter()
-                .map(|&grid_width| {
-                    let folder_name = folder_name.clone();
-                    thread::spawn(move || {
-                        let folder = Path::new(&folder_name);
-                        let settings = Settings {
-                            dt: DT,
-                            gravity: 0.,
-                            dynamic_viscosity: DYNAMIC_VISCOSITY,
-                            alpha: 0.,
-                            affine: true,
-                            space_width: 10.,
-                            grid_width,
-                            rho_0: 1.,
-                            c: 1e1,
-                            eos_power: 4.,
-                            boundary_mirror: false,
-                            vx_zero: false,
-                            weight_type: WeightType::QuadraticBSpline,
-                            effect_radius: 2,
-                            p2g_scheme,
-                            g2p_scheme,
-                            pressure: Some(|p, time| {
-                                let PI = std::f64::consts::PI;
-                                let L = 1.;
-                                let rho = 1.;
-                                let U = 1.;
-                                let nu = 1e-2;
+        // thread::spawn(move || {
+        let folder = Path::new(&folder_name);
+        let results = res_list
+            .iter()
+            .enumerate()
+            .map(|(i, &grid_width)| {
+                let folder_name = folder_name.clone();
+                // thread::spawn(move || {
+                let folder = Path::new(&folder_name);
+                let settings = Settings {
+                    dt: dt_list[i],
+                    gravity: 0.,
+                    dynamic_viscosity: DYNAMIC_VISCOSITY,
+                    alpha: 0.,
+                    affine: true,
+                    space_width: 10.,
+                    grid_width,
+                    rho_0: 1.,
+                    c: 1e1,
+                    eos_power: 4.,
+                    boundary_mirror: false,
+                    vx_zero: false,
+                    weight_type: WeightType::QuadraticBSpline,
+                    effect_radius: 2,
+                    p2g_scheme,
+                    g2p_scheme,
+                    pressure: Some(|p, time| {
+                        let PI = std::f64::consts::PI;
+                        let L = 1.;
+                        let rho = 1.;
+                        let U = 1.;
+                        let nu = 1e-2;
 
-                                let (x, y) = (p.x().x - 5., p.x().y - 5.);
+                        let (x, y) = (p.x().x - 5., p.x().y - 5.);
 
-                                rho * U * U / 4.
-                                    * f64::exp(-4. * PI * PI * time * nu / (L * L))
-                                    * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
-                            }),
-                            reset_particle_position: true,
-                            ..Default::default()
-                        };
+                        rho * U * U / 4.
+                            * f64::exp(-4. * PI * PI * time * nu / (L * L))
+                            * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+                    }),
+                    reset_particle_position: true,
+                    ..Default::default()
+                };
 
-                        println!("{:?}", settings);
-                        write_settings(folder, p2g_scheme, g2p_scheme, &settings).unwrap();
+                println!("{:?}", settings);
+                write_settings(folder, p2g_scheme, g2p_scheme, &settings).unwrap();
 
-                        let v_time_steps = (time / settings.dt) as u32;
+                let v_time_steps = (time / settings.dt) as u32;
 
-                        let space = new_for_taylor_green(&settings);
-                        let mut calc = Calculator::new(&settings, space);
-                        calc.start(v_time_steps);
+                let space = new_for_taylor_green(&settings);
+                let mut calc = Calculator::new(&settings, space);
+                calc.start(v_time_steps);
 
-                        let particles = calc.get_particles();
-                        let l2_error = f64::sqrt(
-                            particles
-                                .iter()
-                                .map(|p| {
-                                    let x = p.x().x;
-                                    let y = p.x().y;
-                                    (p.v()
-                                        - true_vel(
-                                            time,
-                                            x,
-                                            y,
-                                            half_domain_size,
-                                            PI,
-                                            settings.dynamic_viscosity,
-                                        ))
-                                    .norm_squared()
-                                })
-                                .sum::<f64>()
-                                / particles
-                                    .iter()
-                                    .map(|p| (p.x().x, p.x().y))
-                                    .map(|(x, y)| {
-                                        true_vel(
-                                            time,
-                                            x,
-                                            y,
-                                            half_domain_size,
-                                            PI,
-                                            settings.dynamic_viscosity,
-                                        )
-                                        .norm_squared()
-                                    })
-                                    .sum::<f64>(),
-                        );
+                let particles = calc.get_particles();
+                let l2_error = f64::sqrt(
+                    particles
+                        .iter()
+                        .map(|p| {
+                            let x = p.x().x;
+                            let y = p.x().y;
+                            (p.v()
+                                - true_vel(
+                                    time,
+                                    x,
+                                    y,
+                                    half_domain_size,
+                                    PI,
+                                    settings.dynamic_viscosity,
+                                ))
+                            .norm_squared()
+                        })
+                        .sum::<f64>()
+                        / particles
+                            .iter()
+                            .map(|p| (p.x().x, p.x().y))
+                            .map(|(x, y)| {
+                                true_vel(
+                                    time,
+                                    x,
+                                    y,
+                                    half_domain_size,
+                                    PI,
+                                    settings.dynamic_viscosity,
+                                )
+                                .norm_squared()
+                            })
+                            .sum::<f64>(),
+                );
 
-                        write_final_result(
-                            folder,
-                            time,
-                            half_domain_size,
-                            PI,
-                            DYNAMIC_VISCOSITY,
-                            p2g_scheme,
-                            g2p_scheme,
-                            (
-                                grid_width,
-                                calc.get_grid()
-                                    .iter()
-                                    .enumerate()
-                                    .map(|(index, node)| {
-                                        (
-                                            Vector2::<f64>::new(
-                                                (index % (settings.grid_width + 1)) as f64,
-                                                (index / (settings.grid_width + 1)) as f64,
-                                            ) * settings.cell_width(),
-                                            node.clone(),
-                                        )
-                                    })
-                                    .filter(|(pos, _)| {
-                                        4. <= pos.x && pos.x <= 6. && 4. <= pos.y && pos.y <= 6.
-                                    })
-                                    .collect::<Vec<_>>(),
-                            ),
-                        )
-                        .unwrap();
+                write_final_result(
+                    folder,
+                    time,
+                    half_domain_size,
+                    PI,
+                    DYNAMIC_VISCOSITY,
+                    p2g_scheme,
+                    g2p_scheme,
+                    (
+                        grid_width,
+                        calc.get_grid()
+                            .iter()
+                            .enumerate()
+                            .map(|(index, node)| {
+                                (
+                                    Vector2::<f64>::new(
+                                        (index % (settings.grid_width + 1)) as f64,
+                                        (index / (settings.grid_width + 1)) as f64,
+                                    ) * settings.cell_width(),
+                                    node.clone(),
+                                )
+                            })
+                            .filter(|(pos, _)| {
+                                4. <= pos.x && pos.x <= 6. && 4. <= pos.y && pos.y <= 6.
+                            })
+                            .collect::<Vec<_>>(),
+                    ),
+                )
+                .unwrap();
 
-                        (settings.cell_width() / 2., l2_error)
-                    })
-                })
-                .collect::<Vec<_>>()
-                .into_iter()
-                .map(|handle| handle.join().unwrap())
-                .collect::<Vec<_>>();
+                (settings.cell_width() / 2., l2_error)
+                // })
+            })
+            .collect::<Vec<_>>();
 
-            write_l2_errors(folder, p2g_scheme, g2p_scheme, results).unwrap();
-        })
-    })
-    .collect::<Vec<_>>()
-    .into_iter()
-    .for_each(|handle| handle.join().unwrap());
+        write_l2_errors(folder, p2g_scheme, g2p_scheme, results).unwrap();
+        // })
+    });
 
     fn write_settings(
         folder: &Path,
@@ -310,7 +307,7 @@ pub fn new_for_taylor_green(settings: &Settings) -> Space {
         for i_x in 0..num_x {
             let mut x = p_dist * (i_x as f64 + 0.5) as f64 + pos_x_min;
             let mut y = p_dist * (i_y as f64 + 0.5) as f64 + pos_x_min;
-            if false {
+            if true {
                 x += rng.gen_range(-1.0..=1.0) * p_dist * 0.2;
                 y += rng.gen_range(-1.0..=1.0) * p_dist * 0.2;
             }
@@ -349,6 +346,7 @@ pub fn new_for_taylor_green(settings: &Settings) -> Space {
             particles.push(p);
         }
     }
+    particles.shuffle(&mut rng);
 
     let mut grid: Vec<Node> = Vec::with_capacity((grid_width + 1) * (grid_width + 1));
     for i in 0..(grid_width + 1) * (grid_width + 1) {

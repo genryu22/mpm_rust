@@ -7,12 +7,13 @@
         2. 格子上で速度のラプラシアンを計算する
 */
 
-use std::fs;
+use std::{fs, sync::Mutex};
 
 use mlsmpm::*;
 use mlsmpm_macro::*;
 use nalgebra::*;
 use rand::Rng;
+use rayon::prelude::*;
 
 const DYNAMIC_VISCOSITY: f64 = 1.;
 const DT: f64 = 5e-7;
@@ -21,7 +22,8 @@ const RES_LIST: [usize; 6] = [50, 100, 250, 500, 1000, 2000];
 const SCHEMES: [(
     &str,
     fn(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>)>,
-); 7] = [
+); 8] = [
+    ("MLSMPM", scheme_mlsmpm),
     ("応力の発散_1", scheme_div_force_1),
     ("応力の発散_2", scheme_div_force_2),
     ("応力の発散_3", scheme_div_force_3),
@@ -132,6 +134,86 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+fn scheme_mlsmpm(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>)> {
+    let (mut particles, grid, periodic_boundary_rect) = new_for_taylor_green(settings);
+
+    let grid = grid
+        .into_iter()
+        .map(|node| Mutex::new(node))
+        .collect::<Vec<_>>();
+
+    let period_bounds = vec![];
+    let periodic_boundary_rect = Some(periodic_boundary_rect);
+
+    parallel!(settings, particles, |p| {
+        for node in NodeIndexIterator::new(settings, p, &period_bounds, &periodic_boundary_rect) {
+            let q = match settings.affine {
+                true => p.c() * node.dist,
+                false => SVector::zeros(),
+            };
+            let mass_contrib = node.weight * p.mass();
+            {
+                let mut node = grid[node.index].lock().unwrap();
+                node.mass += mass_contrib;
+                node.v += mass_contrib * (p.v() + q);
+            }
+        }
+    });
+
+    let force_list = {
+        let mut force_list = Vec::with_capacity(grid.len());
+        for _ in 0..grid.len() {
+            force_list.push(Mutex::new([0.; 2]));
+        }
+        force_list
+    };
+
+    parallel!(settings, particles, |p| {
+        let (density, volume) =
+            calc_density_and_volume(settings, p, &grid, &period_bounds, &periodic_boundary_rect);
+
+        let dudv = p.c();
+        let strain = dudv;
+        let viscosity_term = settings.dynamic_viscosity * (strain + strain.transpose());
+        let stress = viscosity_term;
+        let eq_16_term_0 = -volume
+            * match settings.weight_type {
+                WeightType::CubicBSpline => 3.,
+                _ => 4.,
+            }
+            / (settings.cell_width() * settings.cell_width())
+            * stress;
+
+        for n in NodeIndexIterator::new(settings, p, &period_bounds, &periodic_boundary_rect) {
+            let delta = eq_16_term_0 * n.weight * n.dist;
+            let mut force = force_list[n.index].lock().unwrap();
+            force[0] += delta.x;
+            force[1] += delta.y;
+        }
+    });
+
+    let result = force_list
+        .into_iter()
+        .enumerate()
+        .map(|(i, force)| {
+            let force = force.lock().unwrap();
+            Vector2::<f64>::new(force[0], force[1]) / grid[i].lock().unwrap().mass
+        })
+        .collect::<Vec<_>>();
+
+    grid.iter()
+        .enumerate()
+        .map(|(index, _)| {
+            (
+                (index % (settings.grid_width + 1)) as f64 * settings.cell_width(),
+                (index / (settings.grid_width + 1)) as f64 * settings.cell_width(),
+                result[index],
+            )
+        })
+        .filter(|(x, y, _)| 4. <= *x && *x < 6. && 4. <= *y && *y < 6.)
+        .collect::<Vec<_>>()
 }
 
 fn new_for_taylor_green(settings: &Settings) -> (Vec<Particle>, Vec<Node>, PeriodicBoundaryRect) {

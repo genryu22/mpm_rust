@@ -67,6 +67,10 @@ impl Particle {
         }
     }
 
+    pub fn mass(&self) -> f64 {
+        self.mass
+    }
+
     pub fn x(&self) -> &Vector2f {
         &self.x
     }

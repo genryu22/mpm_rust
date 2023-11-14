@@ -975,6 +975,7 @@ pub fn scheme_div_force(input: TokenStream) -> TokenStream {
     quote! {
         fn #func_name(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>)> {
             let (mut particles, grid, periodic_boundary_rect) = new_for_taylor_green(settings);
+
             let period_bounds = vec![];
             let periodic_boundary_rect = Some(periodic_boundary_rect);
         
@@ -985,9 +986,21 @@ pub fn scheme_div_force(input: TokenStream) -> TokenStream {
             let rs = settings.cell_width();
             let scale = scale(rs);
         
-            let mut nodes = std::collections::HashMap::new();
+            let nodes = {
+                let mut nodes = Vec::with_capacity(grid.len());
+                for _ in 0..grid.len() {
+                    nodes.push(std::sync::Mutex::new(LsmpsParams {
+                        m: SMatrix::zeros(),
+                        f_vel: SMatrix::zeros(),
+                        f_stress: SMatrix::zeros(),
+                        f_pressure: SVector::zeros(),
+                        count: 0,
+                    }));
+                }
+                nodes
+            };
         
-            for p in particles.iter_mut() {
+            parallel!(settings, particles, |p| {
                 let viscosity_term = {
                     let dudv = p.c();
                     let strain = dudv;
@@ -996,22 +1009,8 @@ pub fn scheme_div_force(input: TokenStream) -> TokenStream {
                     viscosity_term
                 };
         
-                for node in NodeIterator::new(settings, &grid, p, &period_bounds, &periodic_boundary_rect) {
-                    let params = {
-                        let index = node.node.index();
-                        if !nodes.contains_key(&index) {
-                            let params = LsmpsParams {
-                                m: SMatrix::zeros(),
-                                f_vel: SMatrix::zeros(),
-                                f_stress: SMatrix::zeros(),
-                                f_pressure: SVector::zeros(),
-                                count: 0,
-                            };
-                            nodes.insert(index, params);
-                        }
-        
-                        nodes.get_mut(&index).unwrap()
-                    };
+                for node in NodeIndexIterator::new(settings, p, &period_bounds, &periodic_boundary_rect) {
+                    let mut params = nodes[node.index].lock().unwrap();
         
                     let r_ij = -node.dist / rs;
                     let poly_r_ij = poly(r_ij);
@@ -1025,31 +1024,45 @@ pub fn scheme_div_force(input: TokenStream) -> TokenStream {
                         viscosity_term[(1, 1)]
                     ];
                     params.f_stress += weight * poly_r_ij.kronecker(&stress.transpose());
-                }
-            }
-        
-            let mut result = vec![SVector::<f64, 2>::zeros(); grid.len()];
-        
-            grid.iter().enumerate().for_each(|(i, node)| {
-                if !nodes.contains_key(&node.index()) {
-                    return;
-                }
-                let params = nodes.get(&node.index()).unwrap();
-                if let Some(m_inverse) = (params.m + SMatrix::identity() * 0.).try_inverse() {
-                    let res = scale * m_inverse * params.f_stress;
-        
-                    result[i] =
-                        SVector::<f64, 2>::new(res[(1, 0)] + res[(2, 1)], res[(1, 1)] + res[(2, 2)]);
+                    params.count += 1;
                 }
             });
         
-            grid.iter()
+            let result = {
+                let mut result = Vec::with_capacity(grid.len());
+                for _ in 0..grid.len() {
+                    result.push(Mutex::new([0.; 2]));
+                }
+                result
+            };
+
+            nodes.par_iter().enumerate().for_each(|(index, params)| {
+                let params = params.lock().unwrap();
+
+                if params.count == 0 {
+                    return;
+                }
+
+                if let Some(m_inverse) = (params.m + SMatrix::identity() * 0.).try_inverse() {
+                    let res = scale * m_inverse * params.f_stress;
+        
+                    let node_force = SVector::<f64, 2>::new(res[(1, 0)] + res[(2, 1)], res[(1, 1)] + res[(2, 2)]);
+                    let mut result = result[index].lock().unwrap();
+                    result[0] += node_force.x;
+                    result[1] += node_force.y;
+                }
+            });
+        
+            grid.par_iter()
                 .enumerate()
                 .map(|(index, _)| {
                     (
                         (index % (settings.grid_width + 1)) as f64 * settings.cell_width(),
                         (index / (settings.grid_width + 1)) as f64 * settings.cell_width(),
-                        result[index],
+                        {
+                            let result = result[index].lock().unwrap();
+                            Vector2::<f64>::new(result[0], result[1])
+                        }
                     )
                 })
                 .filter(|(x, y, _)| 4. <= *x && *x < 6. && 4. <= *y && *y < 6.)
@@ -1057,7 +1070,6 @@ pub fn scheme_div_force(input: TokenStream) -> TokenStream {
         }
     }.into()
 }
-
 
 #[proc_macro]
 pub fn scheme_laplacian_velocity(input: TokenStream) -> TokenStream {
@@ -1067,6 +1079,7 @@ pub fn scheme_laplacian_velocity(input: TokenStream) -> TokenStream {
     quote! {
         fn #func_name(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>)> {
             let (mut particles, grid, periodic_boundary_rect) = new_for_taylor_green(settings);
+
             let period_bounds = vec![];
             let periodic_boundary_rect = Some(periodic_boundary_rect);
         
@@ -1077,25 +1090,23 @@ pub fn scheme_laplacian_velocity(input: TokenStream) -> TokenStream {
             let rs = settings.cell_width();
             let scale = scale(rs);
         
-            let mut nodes = std::collections::HashMap::new();
+            let nodes = {
+                let mut nodes = Vec::with_capacity(grid.len());
+                for _ in 0..grid.len() {
+                    nodes.push(std::sync::Mutex::new(LsmpsParams {
+                        m: SMatrix::zeros(),
+                        f_vel: SMatrix::zeros(),
+                        f_stress: SMatrix::zeros(),
+                        f_pressure: SVector::zeros(),
+                        count: 0,
+                    }));
+                }
+                nodes
+            };
         
-            for p in particles.iter_mut() {
-                for node in NodeIterator::new(settings, &grid, p, &period_bounds, &periodic_boundary_rect) {
-                    let params = {
-                        let index = node.node.index();
-                        if !nodes.contains_key(&index) {
-                            let params = LsmpsParams {
-                                m: SMatrix::zeros(),
-                                f_vel: SMatrix::zeros(),
-                                f_stress: SMatrix::zeros(),
-                                f_pressure: SVector::zeros(),
-                                count: 0,
-                            };
-                            nodes.insert(index, params);
-                        }
-        
-                        nodes.get_mut(&index).unwrap()
-                    };
+            parallel!(settings, particles, |p| {
+                for node in NodeIndexIterator::new(settings, p, &period_bounds, &periodic_boundary_rect) {
+                    let mut params = nodes[node.index].lock().unwrap();
         
                     let r_ij = -node.dist / rs;
                     let poly_r_ij = poly(r_ij);
@@ -1103,32 +1114,47 @@ pub fn scheme_laplacian_velocity(input: TokenStream) -> TokenStream {
         
                     params.m += weight * poly_r_ij * poly_r_ij.transpose();
                     params.f_vel += weight * poly_r_ij.kronecker(&p.v().transpose());
-                }
-            }
-        
-            let mut result = vec![SVector::<f64, 2>::zeros(); grid.len()];
-        
-            grid.iter().enumerate().for_each(|(i, node)| {
-                if !nodes.contains_key(&node.index()) {
-                    return;
-                }
-                let params = nodes.get(&node.index()).unwrap();
-                if let Some(m_inverse) = (params.m + SMatrix::identity() * 0.).try_inverse() {
-                    let res = scale * m_inverse * params.f_vel;
-        
-                    result[i] = settings.dynamic_viscosity
-                        * settings.rho_0
-                        * vector![res[(3, 0)] + res[(5, 0)], res[(3, 1)] + res[(5, 1)]];
+                    params.count += 1;
                 }
             });
         
-            grid.iter()
+            let result = {
+                let mut result = Vec::with_capacity(grid.len());
+                for _ in 0..grid.len() {
+                    result.push(Mutex::new([0.; 2]));
+                }
+                result
+            };
+
+            nodes.par_iter().enumerate().for_each(|(index, params)| {
+                let params = params.lock().unwrap();
+
+                if params.count == 0 {
+                    return;
+                }
+
+                if let Some(m_inverse) = (params.m + SMatrix::identity() * 0.).try_inverse() {
+                    let res = scale * m_inverse * params.f_vel;
+        
+                    let node_force = settings.dynamic_viscosity
+                        * settings.rho_0
+                        * vector![res[(3, 0)] + res[(5, 0)], res[(3, 1)] + res[(5, 1)]];
+                    let mut result = result[index].lock().unwrap();
+                    result[0] += node_force.x;
+                    result[1] += node_force.y;
+                }
+            });
+        
+            grid.par_iter()
                 .enumerate()
                 .map(|(index, _)| {
                     (
                         (index % (settings.grid_width + 1)) as f64 * settings.cell_width(),
                         (index / (settings.grid_width + 1)) as f64 * settings.cell_width(),
-                        result[index],
+                        {
+                            let result = result[index].lock().unwrap();
+                            Vector2::<f64>::new(result[0], result[1])
+                        }
                     )
                 })
                 .filter(|(x, y, _)| 4. <= *x && *x < 6. && 4. <= *y && *y < 6.)
