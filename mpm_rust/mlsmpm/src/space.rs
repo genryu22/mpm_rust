@@ -57,10 +57,6 @@ impl Space {
         parallel!(settings, self.grid, |node| {
             let mut n = node.lock().unwrap();
 
-            if n.mass <= 0. {
-                return;
-            }
-
             match settings.p2g_scheme {
                 P2GSchemeType::LSMPS
                 | P2GSchemeType::LsmpsLinear
@@ -76,7 +72,9 @@ impl Space {
                 | P2GSchemeType::Compact_3_2
                 | P2GSchemeType::Compact_3_3
                 | P2GSchemeType::Compact_4_3
-                | P2GSchemeType::Compact_4_4 => {
+                | P2GSchemeType::Compact_4_4
+                | P2GSchemeType::Compact_Laplacian_2_2
+                | P2GSchemeType::Compact_Laplacian_3_2 => {
                     n.v_star = n.v
                         + settings.dt * (vector![0., settings.gravity] + n.force / settings.rho_0);
                 }
@@ -92,10 +90,16 @@ impl Space {
                 | P2GSchemeType::Compact_v_1_3
                 | P2GSchemeType::Compact_v_2_3
                 | P2GSchemeType::Compact_v_3_3 => {
+                    if n.mass <= 0. {
+                        return;
+                    }
                     n.v_star =
                         n.v + settings.dt * (vector![0., settings.gravity] + n.force / n.mass);
                 }
                 P2GSchemeType::MLSMPM => {
+                    if n.mass <= 0. {
+                        return;
+                    }
                     let mass = n.mass;
                     n.v /= mass;
                     n.v_star =

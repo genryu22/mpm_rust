@@ -1,3 +1,5 @@
+use na::DMatrix;
+
 use crate::*;
 
 #[derive(Debug, Clone)]

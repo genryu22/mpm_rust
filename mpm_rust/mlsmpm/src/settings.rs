@@ -25,6 +25,7 @@ pub struct Settings {
     pub g2p_scheme: G2PSchemeType,
 
     pub pressure: Option<fn(&Particle, f64) -> f64>,
+    pub pressure_grad: Option<fn(f64, f64, f64) -> Vector2<f64>>,
 
     pub reset_particle_position: bool,
 
@@ -51,6 +52,7 @@ impl Default for Settings {
             p2g_scheme: P2GSchemeType::MLSMPM,
             g2p_scheme: G2PSchemeType::MLSMPM,
             pressure: None,
+            pressure_grad: None,
             reset_particle_position: false,
             parallel: true,
         }
@@ -95,6 +97,8 @@ pub enum P2GSchemeType {
     Compact_v_1_3,
     Compact_v_2_3,
     Compact_v_3_3,
+    Compact_Laplacian_2_2,
+    Compact_Laplacian_3_2,
 }
 
 #[derive(Debug, Clone, Copy)]

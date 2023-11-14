@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use na::*;
-use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
+use rayon::prelude::*;
 
 use crate::*;
 
@@ -35,6 +35,8 @@ pub fn p2g(p2g_scheme: &P2GSchemeType) -> fn(settings: &Settings, space: &mut Sp
         P2GSchemeType::Compact_v_1_3 => compact_v_1_3,
         P2GSchemeType::Compact_v_2_3 => compact_v_2_3,
         P2GSchemeType::Compact_v_3_3 => compact_v_3_3,
+        P2GSchemeType::Compact_Laplacian_2_2 => compact_laplacian_2_2,
+        P2GSchemeType::Compact_Laplacian_3_2 => compact_laplacian_3_2,
     }
 }
 
@@ -83,7 +85,10 @@ fn mlsmpm(settings: &Settings, space: &mut Space) {
         let dudv = p.c;
         let strain = dudv;
         let viscosity_term = settings.dynamic_viscosity * (strain + strain.transpose());
-        let stress = -pressure * Matrix2f::identity() + viscosity_term;
+        let stress = match settings.pressure_grad {
+            Some(_) => Matrix2f::zeros(),
+            None => -pressure * Matrix2f::identity(),
+        } + viscosity_term;
         let eq_16_term_0 = -volume
             * match settings.weight_type {
                 WeightType::CubicBSpline => 3.,
@@ -97,6 +102,18 @@ fn mlsmpm(settings: &Settings, space: &mut Space) {
             space.grid[n.index].lock().unwrap().force += eq_16_term_0 * n.weight * n.dist;
         }
     });
+
+    if let Some(pressure_grad) = settings.pressure_grad {
+        parallel!(settings, space.grid, |n| {
+            let mut n = n.lock().unwrap();
+            let mass = n.mass;
+            let x = n.index.0 as f64 * settings.cell_width();
+            let y = n.index.1 as f64 * settings.cell_width();
+
+            n.force +=
+                -pressure_grad(x, y, space.steps as f64 * settings.dt) * mass / settings.rho_0;
+        });
+    }
 }
 
 mlsmpm_macro::lsmps_p2g_func!(1);
@@ -133,3 +150,6 @@ mlsmpm_macro::compact_v_p2g_func!(0, 3);
 mlsmpm_macro::compact_v_p2g_func!(1, 3);
 mlsmpm_macro::compact_v_p2g_func!(2, 3);
 mlsmpm_macro::compact_v_p2g_func!(3, 3);
+
+mlsmpm_macro::compact_p2g_laplacian_func!(2, 2);
+mlsmpm_macro::compact_p2g_laplacian_func!(3, 2);

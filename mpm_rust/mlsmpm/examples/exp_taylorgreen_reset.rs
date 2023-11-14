@@ -5,21 +5,19 @@ use rand::{seq::SliceRandom, Rng};
 use rayon::prelude::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    const DYNAMIC_VISCOSITY: f64 = 1e-1;
-    let res_list = [50, 100, 250, 500, 1000, 2000, 4000, 8000];
-    let dt_list = [1e-2, 1e-3, 1e-4, 1e-4, 1e-5, 5e-6, 1e-6, 1e-7];
+    const DYNAMIC_VISCOSITY: f64 = 1e-3;
+    const DT: f64 = 1e-4;
+    let res_list = [50, 100, 250, 500, 1000, 2000, 4000];
 
-    for (i, r) in res_list.iter().enumerate() {
+    for r in res_list.iter().rev() {
         let cell_width = 10. / *r as f64;
         assert!(
-            dt_list[i]
-                <= f64::min(
-                    (cell_width / 2.) / 2. / 1.,
-                    (cell_width / 2.).powi(2) / 10. / DYNAMIC_VISCOSITY
-                ),
-            "res= {}, dt = {} > {}",
-            r,
-            dt_list[i],
+            DT <= f64::min(
+                (cell_width / 2.) / 2. / 1.,
+                (cell_width / 2.).powi(2) / 10. / DYNAMIC_VISCOSITY
+            ),
+            "dt = {} > {}",
+            DT,
             f64::min(
                 (cell_width / 2.) / 2. / 1.,
                 (cell_width / 2.).powi(2) / 10. / DYNAMIC_VISCOSITY
@@ -50,18 +48,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     [
-        (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
-        (P2GSchemeType::Compact_v_0_1, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::Compact_v_0_2, G2PSchemeType::LSMPS),
-        (
-            P2GSchemeType::CompactLsmpsLinear,
-            G2PSchemeType::LsmpsLinear,
-        ),
-        (P2GSchemeType::Compact_1_2, G2PSchemeType::LSMPS),
-        (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::Compact_2_2, G2PSchemeType::LSMPS),
-        (P2GSchemeType::Compact_3_1, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::Compact_3_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
+        // (P2GSchemeType::Compact_v_0_1, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::Compact_v_0_2, G2PSchemeType::LSMPS),
+        // (
+        //     P2GSchemeType::CompactLsmpsLinear,
+        //     G2PSchemeType::LsmpsLinear,
+        // ),
+        // (P2GSchemeType::Compact_1_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::Compact_2_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact_3_1, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::Compact_3_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Compact_Laplacian_3_2, G2PSchemeType::LSMPS),
         // // // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
         // // // // (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
         // (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),
@@ -96,13 +95,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         let folder = Path::new(&folder_name);
         let results = res_list
             .iter()
-            .enumerate()
-            .map(|(i, &grid_width)| {
+            .map(|&grid_width| {
                 let folder_name = folder_name.clone();
                 // thread::spawn(move || {
                 let folder = Path::new(&folder_name);
                 let settings = Settings {
-                    dt: dt_list[i],
+                    dt: DT,
                     gravity: 0.,
                     dynamic_viscosity: DYNAMIC_VISCOSITY,
                     alpha: 0.,
@@ -123,13 +121,29 @@ fn main() -> Result<(), Box<dyn Error>> {
                         let L = 1.;
                         let rho = 1.;
                         let U = 1.;
-                        let nu = 1e-2;
 
                         let (x, y) = (p.x().x - 5., p.x().y - 5.);
 
                         rho * U * U / 4.
-                            * f64::exp(-4. * PI * PI * time * nu / (L * L))
+                            * f64::exp(-4. * PI * PI * time * DYNAMIC_VISCOSITY / (L * L))
                             * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+                    }),
+                    pressure_grad: Some(|x, y, time| {
+                        let PI = std::f64::consts::PI;
+                        let L = 1.;
+                        let rho = 1.;
+                        let U = 1.;
+
+                        let (x, y) = (x - 5., y - 5.);
+
+                        let p_dx = rho * U * U * PI / 2. / L
+                            * f64::exp(-4. * PI * PI * time * DYNAMIC_VISCOSITY / (L * L))
+                            * (-f64::sin(2. * PI * x / L));
+                        let p_dy = rho * U * U * PI / 2. / L
+                            * f64::exp(-4. * PI * PI * time * DYNAMIC_VISCOSITY / (L * L))
+                            * (-f64::sin(2. * PI * y / L));
+
+                        Vector2::new(p_dx, p_dy)
                     }),
                     reset_particle_position: true,
                     ..Default::default()
@@ -203,7 +217,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 )
                             })
                             .filter(|(pos, _)| {
-                                4. <= pos.x && pos.x <= 6. && 4. <= pos.y && pos.y <= 6.
+                                4. <= pos.x && pos.x < 6. && 4. <= pos.y && pos.y < 6.
                             })
                             .collect::<Vec<_>>(),
                     ),
