@@ -2,7 +2,9 @@ use core::num;
 use std::{collections::HashMap, sync::Mutex};
 
 use na::{Matrix3, Matrix3x2, Matrix4, Matrix4x2, Matrix6, Matrix6x2, Matrix6x3, Vector3, Vector6};
-use rayon::prelude::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::prelude::{
+    IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
+};
 
 use crate::*;
 
@@ -54,6 +56,11 @@ impl Space {
     }
 
     pub fn update_grid(&mut self, settings: &Settings) {
+        let vel_configs = (0..self.grid.len())
+            .into_par_iter()
+            .map(|_| Mutex::new(Vec::new()))
+            .collect::<Vec<_>>();
+
         parallel!(settings, self.grid, |node| {
             let mut n = node.lock().unwrap();
 
@@ -106,6 +113,66 @@ impl Space {
                         n.v + settings.dt * (vector![0., settings.gravity] + n.force / n.mass);
                 }
             }
+
+            let i = n.index.0 + n.index.1 * (settings.grid_width + 1);
+            let node_pos = calc_node_pos(settings, i);
+            for (_index, b) in self.slip_bounds.iter().enumerate() {
+                if settings.boundary_mirror && b.fixed {
+                    if let Some(opposite) = get_opposite_node_index(settings, i, &b) {
+                        if opposite == i {
+                            n.v = Vector2f::zeros();
+                            n.v_star = Vector2f::zeros();
+                        } else {
+                            let mut vel_config = vel_configs[i].lock().unwrap();
+                            vel_config.push((opposite, -n.v, -n.v_star, &b.direction, b.no_slip));
+                        }
+                    }
+                } else {
+                    let i;
+
+                    if let Direction::X = b.direction {
+                        i = &node_pos.x;
+                    } else {
+                        i = &node_pos.y;
+                    }
+
+                    if b.line.calc_excess(*i) >= 0. {
+                        n.v = Vector2f::zeros();
+                        n.v_star = Vector2f::zeros();
+                    }
+                }
+            }
+        });
+
+        vel_configs.into_par_iter().for_each(|v| {
+            let vel_config = v.lock().unwrap();
+            vel_config
+                .par_iter()
+                .for_each(|(target, v, v_star, direction, no_slip)| {
+                    if let Some(target) = self.grid.get(*target) {
+                        let mut target = target.lock().unwrap();
+                        match direction {
+                            Direction::X => {
+                                if *no_slip {
+                                    target.v = vector![0., v.y];
+                                    target.v_star = vector![0., v_star.y];
+                                } else {
+                                    target.v = vector![v.x, 0.];
+                                    target.v_star = vector![v_star.x, 0.];
+                                }
+                            }
+                            Direction::Y => {
+                                if *no_slip {
+                                    target.v = vector![v.x, 0.];
+                                    target.v_star = vector![v_star.x, 0.];
+                                } else {
+                                    target.v = vector![0., v.y];
+                                    target.v_star = vector![0., v_star.y];
+                                }
+                            }
+                        }
+                    }
+                });
         });
 
         {
