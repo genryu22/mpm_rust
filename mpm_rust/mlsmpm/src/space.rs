@@ -200,17 +200,8 @@ impl Space {
 
         parallel!(settings, self.particles, |p| {
             if let Some(ref rect) = self.period_bound_rect {
-                if p.x.x < rect.x_min {
-                    p.x.x = rect.x_max - (rect.x_min - p.x.x);
-                } else if rect.x_max < p.x.x {
-                    p.x.x = rect.x_min + (p.x.x - rect.x_max);
-                }
-
-                if p.x.y < rect.y_min {
-                    p.x.y = rect.y_max - (rect.y_min - p.x.y);
-                } else if rect.y_max < p.x.y {
-                    p.x.y = rect.y_min + (p.x.y - rect.y_max);
-                }
+                p.x.x = rect.x_min + (p.x.x - rect.x_min).rem_euclid(rect.x_max - rect.x_min);
+                p.x.y = rect.y_min + (p.x.y - rect.y_min).rem_euclid(rect.y_max - rect.y_min);
             } else {
                 for bound in self.period_bounds.iter() {
                     let &mut i;
