@@ -705,7 +705,9 @@ pub fn lsmps_g2p_func(input: TokenStream) -> TokenStream {
                     if settings.vx_zero {
                         p.v.x = 0.;
                     }
-                    p.x += p.v * settings.dt;
+                    if !settings.calc_convection_term {
+                        p.x += p.v * settings.dt;
+                    }
                     p.c = res.fixed_view::<2, 2>(1, 0).transpose().into();
                     p.v_lsmps = res.rows(0, res.shape().0).transpose();
                 }
@@ -844,11 +846,18 @@ pub fn compact_p2g_func(input: TokenStream) -> TokenStream {
                     {
                         let res = scale_vel * m_inverse * params.f_vel;
                         node.v = res.row(0).transpose();
+                        if settings.calc_convection_term {
+                            node.force = -settings.rho_0 * Vector2::<f64>::new(
+                                res[(0, 0)] * res[(1, 0)] + res[(0, 1)] * res[(2, 0)],
+                                res[(0, 0)] * res[(1, 1)] + res[(0, 1)] * res[(2, 1)],
+                            );
+                        }
                     }
 
                     {
                         let res = scale_stress * m_inverse * params.f_stress;
-                        node.force = match settings.pressure_grad {
+                        let force = node.force;
+                        node.force = force + match settings.pressure_grad {
                             Some(pressure_grad) => {
                                 let x = node.index.0 as f64 * settings.cell_width();
                                 let y = node.index.1 as f64 * settings.cell_width();
@@ -943,11 +952,18 @@ pub fn compact_p2g_laplacian_func(input: TokenStream) -> TokenStream {
                     {
                         let res = scale_vel * m_inverse * params.f_vel;
                         node.v = res.row(0).transpose();
+                        if settings.calc_convection_term {
+                            node.force = -settings.rho_0 * Vector2::<f64>::new(
+                                res[(0, 0)] * res[(1, 0)] + res[(0, 1)] * res[(2, 0)],
+                                res[(0, 0)] * res[(1, 1)] + res[(0, 1)] * res[(2, 1)],
+                            );
+                        }
 
                         {
                             let x = node.index.0 as f64 * settings.cell_width();
                             let y = node.index.1 as f64 * settings.cell_width();
-                            node.force = -settings.pressure_grad.unwrap()(x, y, space.steps as f64 * settings.dt) + settings.dynamic_viscosity
+                            let force = node.force;
+                            node.force = force + -settings.pressure_grad.unwrap()(x, y, space.steps as f64 * settings.dt) + settings.dynamic_viscosity
                                 * settings.rho_0
                                 * vector![res[(3, 0)] + res[(5, 0)], res[(3, 1)] + res[(5, 1)]];
                         }
@@ -1040,6 +1056,13 @@ pub fn compact_v_p2g_func(input: TokenStream) -> TokenStream {
                     {
                         let res = scale_vel * m_inverse * params.f_vel;
                         node.v = res.row(0).transpose();
+                        if settings.calc_convection_term {
+                            let force = node.force;
+                            node.force = force - settings.rho_0 * Vector2::<f64>::new(
+                                res[(0, 0)] * res[(1, 0)] + res[(0, 1)] * res[(2, 0)],
+                                res[(0, 0)] * res[(1, 1)] + res[(0, 1)] * res[(2, 1)],
+                            );
+                        }
                     }
                 } else {
                     let sing_values = params.m.singular_values();

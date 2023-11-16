@@ -24,6 +24,8 @@ pub struct Settings {
     pub p2g_scheme: P2GSchemeType,
     pub g2p_scheme: G2PSchemeType,
 
+    pub calc_convection_term: bool,
+
     pub pressure: Option<fn(&Particle, f64) -> f64>,
     pub pressure_grad: Option<fn(f64, f64, f64) -> Vector2<f64>>,
 
@@ -51,6 +53,7 @@ impl Default for Settings {
             effect_radius: 2,
             p2g_scheme: P2GSchemeType::MLSMPM,
             g2p_scheme: G2PSchemeType::MLSMPM,
+            calc_convection_term: false,
             pressure: None,
             pressure_grad: None,
             reset_particle_position: false,
