@@ -363,19 +363,19 @@ pub fn compact_lsmps_func(input: TokenStream) -> TokenStream {
     
             let b = bx + by;
     
-            // if b == 0 {
-            //     1.
-            // } else if b == #q {
-            //     (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by)) * factorial(#p)
-            //         / factorial(#p + #q)
-            // } else {
-            //     (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by))
-            //         * #q as f64
-            //         * factorial(#p + #q - b)
-            //         / factorial(#p + #q)
-            // }
+            if b == 0 {
+                1.
+            } else if b == #q {
+                (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by)) * factorial(#p)
+                    / factorial(#p + #q)
+            } else {
+                (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by))
+                    * #q as f64
+                    * factorial(#p + #q - b)
+                    / factorial(#p + #q)
+            }
 
-            (-1. as f64).powi(b as i32) / (factorial(bx) * factorial(by)) * factorial(#q) / factorial(#q - b) * factorial(#p + #q - b) / factorial(#p + #q)
+            // (-1. as f64).powi(b as i32) / (factorial(bx) * factorial(by)) * factorial(#q) / factorial(#q - b) * factorial(#p + #q - b) / factorial(#p + #q)
         }
     }.into()
 }
@@ -401,7 +401,20 @@ pub fn compact_scale(input: TokenStream) -> TokenStream {
 
             fn c(bx: usize, by: usize) -> f64 {
                 let b = bx + by;
-                (-1. as f64).powi(b as i32) / (factorial(bx) * factorial(by)) * factorial(#q) / factorial(#q - b) * factorial(#p + #q - b) / factorial(#p + #q)
+    
+                if b == 0 {
+                    1.
+                } else if b == #q {
+                    (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by)) * factorial(#p)
+                        / factorial(#p + #q)
+                } else {
+                    (-1. as f64).powi(b as i32) * factorial(b) / (factorial(bx) * factorial(by))
+                        * #q as f64
+                        * factorial(#p + #q - b)
+                        / factorial(#p + #q)
+                }
+    
+                // (-1. as f64).powi(b as i32) / (factorial(bx) * factorial(by)) * factorial(#q) / factorial(#q - b) * factorial(#p + #q - b) / factorial(#p + #q)
             }
 
             let (ax, ay) = ([#(#ax),*], [#(#ay),*]);

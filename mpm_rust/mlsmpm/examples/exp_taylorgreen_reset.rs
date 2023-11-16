@@ -1,6 +1,7 @@
 use std::{error::Error, fs, io::Write, path::Path, thread};
 
 use mlsmpm::*;
+use nalgebra::Matrix2xX;
 use rand::{seq::SliceRandom, Rng};
 use rayon::prelude::*;
 
@@ -35,7 +36,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         fs::create_dir(folder)?;
     }
 
-    let time = 1e-2;
+    let time = 1e-4;
 
     let PI = std::f64::consts::PI;
     let half_domain_size = 1.;
@@ -50,16 +51,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     [
         // (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
         // (P2GSchemeType::Compact_v_0_1, G2PSchemeType::LsmpsLinear),
-        // (P2GSchemeType::Compact_v_0_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Compact_v_0_2, G2PSchemeType::LSMPS),
         // (
         //     P2GSchemeType::CompactLsmpsLinear,
         //     G2PSchemeType::LsmpsLinear,
         // ),
-        // (P2GSchemeType::Compact_1_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Compact_1_2, G2PSchemeType::LSMPS),
         // (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
-        // (P2GSchemeType::Compact_2_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Compact_2_2, G2PSchemeType::LSMPS),
         // (P2GSchemeType::Compact_3_1, G2PSchemeType::LsmpsLinear),
-        // (P2GSchemeType::Compact_3_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Compact_3_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Compact_Laplacian_2_2, G2PSchemeType::LSMPS),
         (P2GSchemeType::Compact_Laplacian_3_2, G2PSchemeType::LSMPS),
         // // // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
         // // // // (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
@@ -350,12 +352,37 @@ pub fn new_for_taylor_green(settings: &Settings) -> Space {
                 Matrix2::new(c11, c12, c21, c22)
             };
 
-            let p = Particle::new_with_mass_velocity_c(
+            let dvxdxx = -PI * PI / (half_domain_size * half_domain_size)
+                * f64::sin(PI * (x - 5.) / half_domain_size)
+                * f64::cos(PI * (y - 5.) / half_domain_size);
+            let dvxdxy = -PI * PI / (half_domain_size * half_domain_size)
+                * f64::cos(PI * (x - 5.) / half_domain_size)
+                * f64::sin(PI * (y - 5.) / half_domain_size);
+            let dvxdyy = -PI * PI / (half_domain_size * half_domain_size)
+                * f64::sin(PI * (x - 5.) / half_domain_size)
+                * f64::cos(PI * (y - 5.) / half_domain_size);
+            let dvydxx = PI * PI / (half_domain_size * half_domain_size)
+                * f64::cos(PI * (x - 5.) / half_domain_size)
+                * f64::sin(PI * (y - 5.) / half_domain_size);
+            let dvydxy = PI * PI / (half_domain_size * half_domain_size)
+                * f64::sin(PI * (x - 5.) / half_domain_size)
+                * f64::cos(PI * (y - 5.) / half_domain_size);
+            let dvydyy = PI * PI / (half_domain_size * half_domain_size)
+                * f64::cos(PI * (x - 5.) / half_domain_size)
+                * f64::sin(PI * (y - 5.) / half_domain_size);
+
+            let x_lsmps = Matrix2xX::from_row_slice(&[
+                velocity.x, c.m11, c.m12, dvxdxx, dvxdxy, dvxdyy, velocity.y, c.m21, c.m22, dvydxx,
+                dvydxy, dvydyy,
+            ]);
+
+            let p = Particle::new_with_mass_velocity_c_lsmps(
                 Vector2::new(x, y),
                 (settings.rho_0 * (half_domain_size * 2.) * (half_domain_size * 2.))
                     / (num_x * num_x) as f64,
                 velocity,
                 c,
+                x_lsmps,
             );
             particles.push(p);
         }

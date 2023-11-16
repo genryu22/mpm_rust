@@ -3,14 +3,18 @@ use rand::Rng;
 
 fn main() {
     let p2g = [
-        P2GSchemeType::MLSMPM,
-        P2GSchemeType::LSMPS,
-        P2GSchemeType::Lsmps3rd,
-        P2GSchemeType::Lsmps4th,
-        P2GSchemeType::LsmpsLinear,
+        // P2GSchemeType::MLSMPM,
+        // P2GSchemeType::LSMPS,
+        // P2GSchemeType::Lsmps3rd,
+        // P2GSchemeType::Lsmps4th,
+        // P2GSchemeType::LsmpsLinear,
         P2GSchemeType::CompactLsmps,
-        P2GSchemeType::CompactOnlyVelocity,
+        // P2GSchemeType::CompactOnlyVelocity,
         P2GSchemeType::CompactLsmpsLinear,
+        P2GSchemeType::Compact_1_2,
+        P2GSchemeType::Compact_2_2,
+        P2GSchemeType::Compact_v_0_1,
+        P2GSchemeType::Compact_v_0_2,
     ];
 
     for scheme_type in p2g {
@@ -27,7 +31,7 @@ fn main() {
 }
 
 fn fun_name(p2g: P2GSchemeType, g2p: G2PSchemeType) -> f64 {
-    let result = [100, 200].map(|res| {
+    let result = [500, 1000].map(|res| {
         let settings = Settings {
             dt: 1e-4,
             gravity: 0.,
@@ -42,7 +46,7 @@ fn fun_name(p2g: P2GSchemeType, g2p: G2PSchemeType) -> f64 {
             boundary_mirror: false,
             vx_zero: false,
             weight_type: WeightType::QuadraticBSpline,
-            effect_radius: 4,
+            effect_radius: 2,
             p2g_scheme: p2g,
             g2p_scheme: g2p,
             pressure: None,
@@ -165,12 +169,37 @@ pub fn new_for_taylor_green(settings: &Settings) -> Space {
                 Matrix2::new(c11, c12, c21, c22)
             };
 
-            let p = Particle::new_with_mass_velocity_c(
+            let dvxdxx = -PI * PI / (half_domain_size * half_domain_size)
+                * f64::sin(PI * (x - 5.) / half_domain_size)
+                * f64::cos(PI * (y - 5.) / half_domain_size);
+            let dvxdxy = -PI * PI / (half_domain_size * half_domain_size)
+                * f64::cos(PI * (x - 5.) / half_domain_size)
+                * f64::sin(PI * (y - 5.) / half_domain_size);
+            let dvxdyy = -PI * PI / (half_domain_size * half_domain_size)
+                * f64::sin(PI * (x - 5.) / half_domain_size)
+                * f64::cos(PI * (y - 5.) / half_domain_size);
+            let dvydxx = PI * PI / (half_domain_size * half_domain_size)
+                * f64::cos(PI * (x - 5.) / half_domain_size)
+                * f64::sin(PI * (y - 5.) / half_domain_size);
+            let dvydxy = PI * PI / (half_domain_size * half_domain_size)
+                * f64::sin(PI * (x - 5.) / half_domain_size)
+                * f64::cos(PI * (y - 5.) / half_domain_size);
+            let dvydyy = PI * PI / (half_domain_size * half_domain_size)
+                * f64::cos(PI * (x - 5.) / half_domain_size)
+                * f64::sin(PI * (y - 5.) / half_domain_size);
+
+            let x_lsmps = nalgebra::Matrix2xX::from_row_slice(&[
+                velocity.x, c.m11, c.m12, dvxdxx, dvxdxy, dvxdyy, velocity.y, c.m21, c.m22, dvydxx,
+                dvydxy, dvydyy,
+            ]);
+
+            let p = Particle::new_with_mass_velocity_c_lsmps(
                 Vector2::new(x, y),
                 (settings.rho_0 * (half_domain_size * 2.) * (half_domain_size * 2.))
                     / (num_x * num_x) as f64,
                 velocity,
                 c,
+                x_lsmps,
             );
             particles.push(p);
         }

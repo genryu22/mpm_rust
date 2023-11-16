@@ -67,6 +67,24 @@ impl Particle {
         }
     }
 
+    pub fn new_with_mass_velocity_c_lsmps(
+        pos: Vector2f,
+        mass: f64,
+        velocity: Vector2f,
+        c: Matrix2f,
+        x_lsmps: Matrix2xX<f64>,
+    ) -> Particle {
+        Particle {
+            x: pos,
+            init_x: pos,
+            v: velocity,
+            c,
+            mass,
+            pressure: 0.,
+            v_lsmps: x_lsmps,
+        }
+    }
+
     pub fn mass(&self) -> f64 {
         self.mass
     }
