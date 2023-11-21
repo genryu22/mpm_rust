@@ -1,13 +1,15 @@
 use mlsmpm::*;
 use rand::Rng;
 
+const DYNAMIC_VISCOSITY: f64 = 1e-3;
+
 fn main() {
     let p2g = [
-        // P2GSchemeType::MLSMPM,
-        // P2GSchemeType::LSMPS,
-        // P2GSchemeType::Lsmps3rd,
-        // P2GSchemeType::Lsmps4th,
-        // P2GSchemeType::LsmpsLinear,
+        P2GSchemeType::MLSMPM,
+        P2GSchemeType::LSMPS,
+        P2GSchemeType::Lsmps3rd,
+        P2GSchemeType::Lsmps4th,
+        P2GSchemeType::LsmpsLinear,
         P2GSchemeType::CompactLsmps,
         // P2GSchemeType::CompactOnlyVelocity,
         P2GSchemeType::CompactLsmpsLinear,
@@ -35,7 +37,7 @@ fn fun_name(p2g: P2GSchemeType, g2p: G2PSchemeType) -> f64 {
         let settings = Settings {
             dt: 1e-4,
             gravity: 0.,
-            dynamic_viscosity: 1e-2,
+            dynamic_viscosity: DYNAMIC_VISCOSITY,
             alpha: 0.,
             affine: true,
             space_width: 10.,
@@ -49,7 +51,35 @@ fn fun_name(p2g: P2GSchemeType, g2p: G2PSchemeType) -> f64 {
             effect_radius: 2,
             p2g_scheme: p2g,
             g2p_scheme: g2p,
-            pressure: None,
+            pressure: Some(|p, time| {
+                let PI = std::f64::consts::PI;
+                let L = 1.;
+                let rho = 1.;
+                let U = 1.;
+
+                let (x, y) = (p.x().x - 5., p.x().y - 5.);
+
+                rho * U * U / 4.
+                    * f64::exp(-4. * PI * PI * time * DYNAMIC_VISCOSITY / (L * L))
+                    * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+            }),
+            pressure_grad: Some(|x, y, time| {
+                let PI = std::f64::consts::PI;
+                let L = 1.;
+                let rho = 1.;
+                let U = 1.;
+
+                let (x, y) = (x - 5., y - 5.);
+
+                let p_dx = rho * U * U * PI / 2. / L
+                    * f64::exp(-4. * PI * PI * time * DYNAMIC_VISCOSITY / (L * L))
+                    * (-f64::sin(2. * PI * x / L));
+                let p_dy = rho * U * U * PI / 2. / L
+                    * f64::exp(-4. * PI * PI * time * DYNAMIC_VISCOSITY / (L * L))
+                    * (-f64::sin(2. * PI * y / L));
+
+                Vector2::new(p_dx, p_dy)
+            }),
             ..Default::default()
         };
 
