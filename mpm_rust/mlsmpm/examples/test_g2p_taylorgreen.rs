@@ -44,6 +44,7 @@ fn fun_name(p2g: P2GSchemeType, g2p: G2PSchemeType) -> f64 {
             p2g_scheme: p2g,
             g2p_scheme: g2p,
             pressure: None,
+            calc_convection_term: true,
             ..Default::default()
         };
 
