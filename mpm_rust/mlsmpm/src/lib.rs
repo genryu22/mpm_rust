@@ -116,3 +116,115 @@ macro_rules! parallel {
         };
     };
 }
+
+pub fn g2p_lsmps_1st(
+    particles: &mut Vec<Particle>,
+    grid: &Vec<Node>,
+    settings: &Settings,
+    periodic_boundary_rect: PeriodicBoundaryRect,
+) {
+    use na::*;
+    use rayon::prelude::*;
+
+    let period_bounds = vec![];
+    let periodic_boundary_rect = Some(periodic_boundary_rect);
+    parallel!(settings, particles, |p| {
+        p.v = SVector::zeros();
+        p.c = SMatrix::zeros();
+
+        mlsmpm_macro::lsmps_poly!(1);
+        mlsmpm_macro::lsmps_scale!(1);
+        mlsmpm_macro::lsmps_params_g2p!(1);
+
+        let rs = settings.cell_width();
+        let scale = scale(rs);
+
+        let mut params = LsmpsParams {
+            m: SMatrix::zeros(),
+            f_vel: SMatrix::zeros(),
+        };
+
+        for n in NodeIndexIterator::new(settings, p, &period_bounds, &periodic_boundary_rect) {
+            let r_ij = n.dist / rs;
+            let poly_r_ij = poly(r_ij);
+            let weight = n.weight;
+
+            params.m += weight * poly_r_ij * poly_r_ij.transpose();
+
+            {
+                let node = &grid[n.index];
+                params.f_vel += weight * poly_r_ij.kronecker(&node.v_star.transpose());
+            }
+        }
+
+        if let Some(m_inverted) = params.m.try_inverse() {
+            let res = scale * m_inverted * params.f_vel;
+            p.v = res.row(0).transpose();
+
+            if settings.vx_zero {
+                p.v.x = 0.;
+            }
+            if !settings.calc_convection_term {
+                p.x += p.v * settings.dt;
+            }
+            p.c = res.fixed_view::<2, 2>(1, 0).transpose().into();
+            p.v_lsmps = res.rows(0, res.shape().0).transpose();
+        }
+    });
+}
+
+pub fn g2p_lsmps_2nd(
+    particles: &mut Vec<Particle>,
+    grid: &Vec<Node>,
+    settings: &Settings,
+    periodic_boundary_rect: PeriodicBoundaryRect,
+) {
+    use na::*;
+    use rayon::prelude::*;
+
+    let period_bounds = vec![];
+    let periodic_boundary_rect = Some(periodic_boundary_rect);
+    parallel!(settings, particles, |p| {
+        p.v = SVector::zeros();
+        p.c = SMatrix::zeros();
+
+        mlsmpm_macro::lsmps_poly!(2);
+        mlsmpm_macro::lsmps_scale!(2);
+        mlsmpm_macro::lsmps_params_g2p!(2);
+
+        let rs = settings.cell_width();
+        let scale = scale(rs);
+
+        let mut params = LsmpsParams {
+            m: SMatrix::zeros(),
+            f_vel: SMatrix::zeros(),
+        };
+
+        for n in NodeIndexIterator::new(settings, p, &period_bounds, &periodic_boundary_rect) {
+            let r_ij = n.dist / rs;
+            let poly_r_ij = poly(r_ij);
+            let weight = n.weight;
+
+            params.m += weight * poly_r_ij * poly_r_ij.transpose();
+
+            {
+                let node = &grid[n.index];
+                params.f_vel += weight * poly_r_ij.kronecker(&node.v_star.transpose());
+            }
+        }
+
+        if let Some(m_inverted) = params.m.try_inverse() {
+            let res = scale * m_inverted * params.f_vel;
+            p.v = res.row(0).transpose();
+
+            if settings.vx_zero {
+                p.v.x = 0.;
+            }
+            if !settings.calc_convection_term {
+                p.x += p.v * settings.dt;
+            }
+            p.c = res.fixed_view::<2, 2>(1, 0).transpose().into();
+            p.v_lsmps = res.rows(0, res.shape().0).transpose();
+        }
+    });
+}

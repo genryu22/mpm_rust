@@ -76,7 +76,7 @@ impl PeriodicBoundary {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PeriodicBoundaryRect {
     pub x_min: f64,
     pub x_max: f64,

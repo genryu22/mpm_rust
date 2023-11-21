@@ -1215,7 +1215,16 @@ pub fn scheme_div_force(input: TokenStream) -> TokenStream {
 
     quote! {
         fn #func_name(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>)> {
-            let (mut particles, grid, periodic_boundary_rect) = new_for_taylor_green(settings);
+            let (mut particles, mut grid, periodic_boundary_rect) = new_for_taylor_green(settings);
+
+            mlsmpm::g2p_lsmps_1st(
+                &mut particles,
+                &grid,
+                settings,
+                periodic_boundary_rect.clone(),
+            );
+
+            grid.par_iter_mut().for_each(|node| node.reset());
 
             let period_bounds = vec![];
             let periodic_boundary_rect = Some(periodic_boundary_rect);
@@ -1315,21 +1324,36 @@ pub fn scheme_div_force(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn scheme_laplacian_velocity(input: TokenStream) -> TokenStream {
     let p = parse_one_usize(input);
+    let q = 1;
     let func_name = format_ident!("scheme_laplacian_velocity_{}", p);
+    let scale_p_q = format_ident!("scale_{}_{}", p, q);
+    let c_p_q = format_ident!("c_{}_{}", p, q);
+    let (dx, dy) = multi_index_vec(q);
+    let i = 0..(dx.len());
 
     quote! {
         fn #func_name(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>)> {
-            let (mut particles, grid, periodic_boundary_rect) = new_for_taylor_green(settings);
+            let (mut particles, mut grid, periodic_boundary_rect) = new_for_taylor_green(settings);
+
+            mlsmpm::g2p_lsmps_1st(
+                &mut particles,
+                &grid,
+                settings,
+                periodic_boundary_rect.clone(),
+            );
+
+            grid.par_iter_mut().for_each(|node| node.reset());
 
             let period_bounds = vec![];
             let periodic_boundary_rect = Some(periodic_boundary_rect);
         
             mlsmpm_macro::lsmps_poly!(#p);
-            mlsmpm_macro::lsmps_scale!(#p);
             mlsmpm_macro::lsmps_params!(#p);
+            mlsmpm_macro::compact_lsmps_func!(#p, #q);
+            mlsmpm_macro::compact_scale!(#p, #q);
         
             let rs = settings.cell_width();
-            let scale = scale(rs);
+            let scale = #scale_p_q(rs);
         
             let nodes = {
                 let mut nodes = Vec::with_capacity(grid.len());
@@ -1354,7 +1378,24 @@ pub fn scheme_laplacian_velocity(input: TokenStream) -> TokenStream {
                     let weight = node.weight;
         
                     params.m += weight * poly_r_ij * poly_r_ij.transpose();
-                    params.f_vel += weight * poly_r_ij.kronecker(&p.v().transpose());
+
+                    #({
+                        let (i, bx, by) = (#i, #dx, #dy);
+                        // きれいに書く
+                        if p.x_lsmps().shape().1 > 1 {
+                            params.f_vel += weight * poly_r_ij.kronecker(&p.x_lsmps().column(i).transpose()) * #c_p_q(bx, by) * (-node.dist.x).powi(bx as i32) * (-node.dist.y).powi(by as i32);
+                        } else {
+                            // step = 0
+                            if i == 0 {
+                                params.f_vel += weight * poly_r_ij.kronecker(&p.v().transpose()) * #c_p_q(bx, by) * (-node.dist.x).powi(bx as i32) * (-node.dist.y).powi(by as i32);
+                            } else if i == 1 {
+                                params.f_vel += weight * poly_r_ij.kronecker(&p.c().column(0).transpose()) * #c_p_q(bx, by) * (-node.dist.x).powi(bx as i32) * (-node.dist.y).powi(by as i32);
+                            } else if i == 2 {
+                                params.f_vel += weight * poly_r_ij.kronecker(&p.c().column(1).transpose()) * #c_p_q(bx, by) * (-node.dist.x).powi(bx as i32) * (-node.dist.y).powi(by as i32);
+                            }
+                        }
+                    })*
+
                     params.count += 1;
                 }
             });

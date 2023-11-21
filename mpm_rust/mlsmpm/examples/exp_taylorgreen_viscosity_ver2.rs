@@ -42,7 +42,7 @@ scheme_laplacian_velocity!(3);
 scheme_laplacian_velocity!(4);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let folder_name = format!("exp_taylorgreen_viscosity");
+    let folder_name = format!("exp_taylorgreen_viscosity_ver2");
     let folder = std::path::Path::new(&folder_name);
     if !folder.exists() {
         fs::create_dir(folder)?;
@@ -64,12 +64,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             eos_power: 4.,
             boundary_mirror: false,
             vx_zero: false,
-            weight_type: WeightType::CubicBSpline,
-            effect_radius: 3,
+            weight_type: WeightType::QuadraticBSpline,
+            effect_radius: 2,
             p2g_scheme: P2GSchemeType::MLSMPM,
             g2p_scheme: G2PSchemeType::MLSMPM,
             pressure: None,
             reset_particle_position: true,
+            calc_convection_term: true,
             ..Default::default()
         };
 
@@ -137,7 +138,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn scheme_mlsmpm(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>)> {
-    let (mut particles, grid, periodic_boundary_rect) = new_for_taylor_green(settings);
+    let (mut particles, mut grid, periodic_boundary_rect) = new_for_taylor_green(settings);
+
+    mlsmpm::g2p_lsmps_1st(
+        &mut particles,
+        &grid,
+        settings,
+        periodic_boundary_rect.clone(),
+    );
+
+    grid.par_iter_mut().for_each(|node| node.reset());
 
     let grid = grid
         .into_iter()
@@ -235,49 +245,34 @@ fn new_for_taylor_green(settings: &Settings) -> (Vec<Particle>, Vec<Node>, Perio
         for i_x in 0..num_x {
             let mut x = p_dist * (i_x as f64 + 0.5) as f64 + pos_x_min;
             let mut y = p_dist * (i_y as f64 + 0.5) as f64 + pos_x_min;
-            if false {
+            if true {
                 x += rng.gen_range(-1.0..=1.0) * p_dist * 0.2;
                 y += rng.gen_range(-1.0..=1.0) * p_dist * 0.2;
             }
-            let velocity = Vector2::new(
-                f64::sin(PI * (x - 5.) / half_domain_size)
-                    * f64::cos(PI * (y - 5.) / half_domain_size),
-                -f64::cos(PI * (x - 5.) / half_domain_size)
-                    * f64::sin(PI * (y - 5.) / half_domain_size),
-            );
 
-            let c = {
-                let k = PI / half_domain_size;
-                let c11 = k
-                    * f64::cos(PI * (x - 5.) / half_domain_size)
-                    * f64::cos(PI * (y - 5.) / half_domain_size);
-                let c12 = -k
-                    * f64::sin(PI * (x - 5.) / half_domain_size)
-                    * f64::sin(PI * (y - 5.) / half_domain_size);
-                let c21 = k
-                    * f64::sin(PI * (x - 5.) / half_domain_size)
-                    * f64::sin(PI * (y - 5.) / half_domain_size);
-                let c22 = -k
-                    * f64::cos(PI * (x - 5.) / half_domain_size)
-                    * f64::cos(PI * (y - 5.) / half_domain_size);
-
-                Matrix2::new(c11, c12, c21, c22)
-            };
-
-            let p = Particle::new_with_mass_velocity_c(
+            let p = Particle::new_with_mass(
                 Vector2::new(x, y),
                 (settings.rho_0 * (half_domain_size * 2.) * (half_domain_size * 2.))
                     / (num_x * num_x) as f64,
-                velocity,
-                c,
             );
             particles.push(p);
         }
     }
 
+    let cell_width = settings.cell_width();
     let mut grid: Vec<Node> = Vec::with_capacity((grid_width + 1) * (grid_width + 1));
     for i in 0..(grid_width + 1) * (grid_width + 1) {
-        grid.push(Node::new((i % (grid_width + 1), i / (grid_width + 1))));
+        let (idx_x, idx_y) = (i % (grid_width + 1), i / (grid_width + 1));
+        let (x, y) = (idx_x as f64 * cell_width, idx_y as f64 * cell_width);
+        let velocity = Vector2::new(
+            f64::sin(PI * (x - 5.) / half_domain_size) * f64::cos(PI * (y - 5.) / half_domain_size),
+            -f64::cos(PI * (x - 5.) / half_domain_size)
+                * f64::sin(PI * (y - 5.) / half_domain_size),
+        );
+        grid.push(Node::new_with_vel(
+            (i % (grid_width + 1), i / (grid_width + 1)),
+            velocity,
+        ));
     }
 
     (
