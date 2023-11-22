@@ -1,11 +1,11 @@
 use chrono::Local;
 use nalgebra::*;
-use rand::Rng;
 use rayon::prelude::{
     IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
 };
 use std::{error::Error, fs, path::Path};
 
+#[allow(dead_code)]
 struct Particle {
     x: f64,
     v: f64,
@@ -13,6 +13,7 @@ struct Particle {
     d: f64,
 }
 
+#[allow(dead_code)]
 struct Node {
     i: usize,
     v: f64,
@@ -55,18 +56,18 @@ fn init(
 }
 
 fn sin_vel(x: f64) -> f64 {
-    let PI = std::f64::consts::PI;
-    f64::sin(PI * x * 4.)
+    let pi = std::f64::consts::PI;
+    f64::sin(pi * x * 4.)
 }
 
 fn sin_vel_grad(x: f64) -> f64 {
-    let PI = std::f64::consts::PI;
-    4. * PI * f64::cos(PI * x * 4.)
+    let pi = std::f64::consts::PI;
+    4. * pi * f64::cos(pi * x * 4.)
 }
 
 fn sin_vel_2nd_grad(x: f64) -> f64 {
-    let PI = std::f64::consts::PI;
-    -16. * PI * PI * f64::sin(PI * x * 4.)
+    let pi = std::f64::consts::PI;
+    -16. * pi * pi * f64::sin(pi * x * 4.)
 }
 
 mlsmpm_macro::test_dissipation_lsmps_func!(1, 3);
@@ -142,28 +143,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn linear(x: f64) -> f64 {
-    if -1. <= x && x <= 0. {
-        1. + x
-    } else if 0. <= x && x <= 1. {
-        1. - x
-    } else {
-        0.
-    }
-}
-
-fn qubic_b_spline(x: f64) -> f64 {
-    let x = x.abs();
-
-    if 0. <= x && x <= 1. {
-        0.5 * x * x * x - x * x + 2. / 3.
-    } else if 1. <= x && x <= 2. {
-        (2. - x).powi(3) / 6.
-    } else {
-        0.
-    }
-}
-
 fn quadratic_b_spline(x: f64) -> f64 {
     let x = x.abs();
 
@@ -229,7 +208,7 @@ fn compact_lsmps_p2g(
         }
     }
 
-    fn C(bx: usize, by: usize, p: usize, q: usize) -> f64 {
+    fn c(bx: usize, by: usize, p: usize, q: usize) -> f64 {
         let b = bx + by;
         if b == 0 {
             1.
@@ -245,7 +224,7 @@ fn compact_lsmps_p2g(
         }
     }
 
-    fn S(ax: usize, ay: usize, rs: f64, p: usize, q: usize) -> f64 {
+    fn s(ax: usize, ay: usize, rs: f64, p: usize, q: usize) -> f64 {
         let a = ax + ay;
         let sum = [(0, 0), (1, 0), (0, 1)]
             .map(|(bx, by)| {
@@ -253,7 +232,7 @@ fn compact_lsmps_p2g(
                 if b > q || bx > ax || by > ay {
                     0.
                 } else {
-                    C(bx, by, p, q) / (factorial(ax - bx) * factorial(ay - by))
+                    c(bx, by, p, q) / (factorial(ax - bx) * factorial(ay - by))
                 }
             })
             .iter()
@@ -268,9 +247,9 @@ fn compact_lsmps_p2g(
     let re = cell_width * 3.;
     let rs = cell_width;
     let scale = Matrix3::<f64>::from_diagonal(&vector![
-        S(0, 0, rs, 2, 1),
-        S(1, 0, rs, 2, 1),
-        S(2, 0, rs, 2, 1)
+        s(0, 0, rs, 2, 1),
+        s(1, 0, rs, 2, 1),
+        s(2, 0, rs, 2, 1)
     ]);
 
     struct LsmpsParams {
@@ -305,7 +284,7 @@ fn compact_lsmps_p2g(
                             f_vel: weight * poly_r_ij.kronecker(&Vector1::new(p.v))
                                 + weight
                                     * poly_r_ij.kronecker(&Vector1::new(p.c))
-                                    * C(1, 0, 2, 1) as f64
+                                    * c(1, 0, 2, 1) as f64
                                     * -dist,
                         },
                     )
@@ -355,7 +334,7 @@ fn compact_g2p(particles: &mut Vec<Particle>, grid: &Vec<Node>, cell_width: f64,
         }
     }
 
-    fn C(bx: usize, by: usize, p: usize, q: usize) -> f64 {
+    fn c(bx: usize, by: usize, p: usize, q: usize) -> f64 {
         let b = bx + by;
         if b == 0 {
             1.
@@ -371,7 +350,7 @@ fn compact_g2p(particles: &mut Vec<Particle>, grid: &Vec<Node>, cell_width: f64,
         }
     }
 
-    fn S(ax: usize, ay: usize, rs: f64, p: usize, q: usize) -> f64 {
+    fn s(ax: usize, ay: usize, rs: f64, p: usize, q: usize) -> f64 {
         let a = ax + ay;
         let sum = [(0, 0), (1, 0), (0, 1)]
             .map(|(bx, by)| {
@@ -379,7 +358,7 @@ fn compact_g2p(particles: &mut Vec<Particle>, grid: &Vec<Node>, cell_width: f64,
                 if b > q || bx > ax || by > ay {
                     0.
                 } else {
-                    C(bx, by, p, q) / (factorial(ax - bx) * factorial(ay - by))
+                    c(bx, by, p, q) / (factorial(ax - bx) * factorial(ay - by))
                 }
             })
             .iter()
@@ -394,9 +373,9 @@ fn compact_g2p(particles: &mut Vec<Particle>, grid: &Vec<Node>, cell_width: f64,
     let re = cell_width * 3.;
     let rs = cell_width;
     let scale = Matrix3::<f64>::from_diagonal(&vector![
-        S(0, 0, rs, 2, 1),
-        S(1, 0, rs, 2, 1),
-        S(2, 0, rs, 2, 1)
+        s(0, 0, rs, 2, 1),
+        s(1, 0, rs, 2, 1),
+        s(2, 0, rs, 2, 1)
     ]);
 
     struct LsmpsParams {
@@ -441,7 +420,7 @@ fn compact_g2p(particles: &mut Vec<Particle>, grid: &Vec<Node>, cell_width: f64,
                     f_vel: weight * poly_r_ij.kronecker(&Vector1::new(grid[n_index].v))
                         + weight
                             * poly_r_ij.kronecker(&Vector1::new(grid[n_index].c))
-                            * C(1, 0, 2, 1) as f64
+                            * c(1, 0, 2, 1) as f64
                             * dist,
                 }
             })

@@ -1,9 +1,7 @@
 use std::{error::Error, fs, path::Path};
 
 use mlsmpm::*;
-use mlsmpm_macro::lsmps_poly;
 use rand::Rng;
-use rayon::prelude::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let folder = Path::new("exp_taylorgreen_pressure");
@@ -13,14 +11,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let time = 1e-2;
 
-    let PI = std::f64::consts::PI;
+    let pi = std::f64::consts::PI;
     let half_domain_size = 1.;
     let dynamic_viscosity = 1e-2;
-    fn true_vel(t: f64, x: f64, y: f64, U: f64, PI: f64, nu: f64) -> Vector2<f64> {
-        let exp_term = f64::exp(-2. * PI * PI * t / (U * U / nu));
+    fn true_vel(t: f64, x: f64, y: f64, u: f64, pi: f64, nu: f64) -> Vector2<f64> {
+        let exp_term = f64::exp(-2. * pi * pi * t / (u * u / nu));
         Vector2::new(
-            U * exp_term * f64::sin(PI * (x - 5.) / U) * f64::cos(PI * (y - 5.) / U),
-            -U * exp_term * f64::cos(PI * (x - 5.) / U) * f64::sin(PI * (y - 5.) / U),
+            u * exp_term * f64::sin(pi * (x - 5.) / u) * f64::cos(pi * (y - 5.) / u),
+            -u * exp_term * f64::cos(pi * (x - 5.) / u) * f64::sin(pi * (y - 5.) / u),
         )
     }
 
@@ -77,7 +75,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                     x,
                                     y,
                                     half_domain_size,
-                                    PI,
+                                    pi,
                                     settings.dynamic_viscosity,
                                 ))
                             .norm_squared()
@@ -92,7 +90,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                     x,
                                     y,
                                     half_domain_size,
-                                    PI,
+                                    pi,
                                     settings.dynamic_viscosity,
                                 )
                                 .norm_squared()
@@ -104,7 +102,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     folder,
                     time,
                     half_domain_size,
-                    PI,
+                    pi,
                     dynamic_viscosity,
                     p2g_scheme,
                     g2p_scheme,
@@ -159,7 +157,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         folder: &Path,
         time: f64,
         half_domain_size: f64,
-        PI: f64,
+        pi: f64,
         dynamic_viscosity: f64,
         p2g_scheme: P2GSchemeType,
         g2p_shceme: G2PSchemeType,
@@ -173,7 +171,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         )))?;
         writer.write_record(&["x", "y", "vx", "vy", "t_vx", "t_vy"])?;
         for (pos, n) in grid {
-            let true_vel = true_vel(time, pos.x, pos.y, half_domain_size, PI, dynamic_viscosity);
+            let true_vel = true_vel(time, pos.x, pos.y, half_domain_size, pi, dynamic_viscosity);
             writer.write_record(&[
                 pos.x.to_string(),
                 pos.y.to_string(),
@@ -194,7 +192,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 pub fn new_for_taylor_green(settings: &Settings) -> Space {
     let grid_width = settings.grid_width;
 
-    let PI = std::f64::consts::PI;
+    let pi = std::f64::consts::PI;
     let half_domain_size = 1.;
 
     let pos_x_min = 5. - half_domain_size;
@@ -215,26 +213,26 @@ pub fn new_for_taylor_green(settings: &Settings) -> Space {
                 y += rng.gen_range(-1.0..=1.0) * p_dist * 0.2;
             }
             let velocity = Vector2::new(
-                f64::sin(PI * (x - 5.) / half_domain_size)
-                    * f64::cos(PI * (y - 5.) / half_domain_size),
-                -f64::cos(PI * (x - 5.) / half_domain_size)
-                    * f64::sin(PI * (y - 5.) / half_domain_size),
+                f64::sin(pi * (x - 5.) / half_domain_size)
+                    * f64::cos(pi * (y - 5.) / half_domain_size),
+                -f64::cos(pi * (x - 5.) / half_domain_size)
+                    * f64::sin(pi * (y - 5.) / half_domain_size),
             );
 
             let c = {
-                let k = PI / half_domain_size;
+                let k = pi / half_domain_size;
                 let c11 = k
-                    * f64::cos(PI * (x - 5.) / half_domain_size)
-                    * f64::cos(PI * (y - 5.) / half_domain_size);
+                    * f64::cos(pi * (x - 5.) / half_domain_size)
+                    * f64::cos(pi * (y - 5.) / half_domain_size);
                 let c12 = -k
-                    * f64::sin(PI * (x - 5.) / half_domain_size)
-                    * f64::sin(PI * (y - 5.) / half_domain_size);
+                    * f64::sin(pi * (x - 5.) / half_domain_size)
+                    * f64::sin(pi * (y - 5.) / half_domain_size);
                 let c21 = k
-                    * f64::sin(PI * (x - 5.) / half_domain_size)
-                    * f64::sin(PI * (y - 5.) / half_domain_size);
+                    * f64::sin(pi * (x - 5.) / half_domain_size)
+                    * f64::sin(pi * (y - 5.) / half_domain_size);
                 let c22 = -k
-                    * f64::cos(PI * (x - 5.) / half_domain_size)
-                    * f64::cos(PI * (y - 5.) / half_domain_size);
+                    * f64::cos(pi * (x - 5.) / half_domain_size)
+                    * f64::cos(pi * (y - 5.) / half_domain_size);
 
                 Matrix2::new(c11, c12, c21, c22)
             };

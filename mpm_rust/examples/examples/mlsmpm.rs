@@ -56,7 +56,7 @@ pub fn new_for_poiseuille(settings: &Settings) -> Space {
 
     for i_y in 0..num_x {
         for i_x in 0..num_x {
-            let mut p = Particle::new_with_mass(
+            let p = Particle::new_with_mass(
                 Vector2::new(
                     (pos_x_max - pos_x_min) * (i_x as f64 + 0.5) / num_x as f64 + pos_x_min,
                     (pos_x_max - pos_x_min) * (i_y as f64 + 0.5) / num_x as f64 + pos_x_min,

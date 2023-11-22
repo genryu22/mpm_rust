@@ -1,7 +1,6 @@
 use std::{error::Error, fs, path::Path};
 
 use mlsmpm::*;
-use rand::Rng;
 use rayon::prelude::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -13,7 +12,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let g = -1e-2;
     let dynamic_viscosity = 1e-2;
 
-    fn true_vel(x: f64, y: f64, g: f64, nu: f64) -> Vector2<f64> {
+    fn true_vel(x: f64, _y: f64, g: f64, nu: f64) -> Vector2<f64> {
         let max = 1.5 * g * 1. * 1. / ((nu / 1.) * 12.);
 
         Vector2::new(0., -max / 0.25 * (x - 5.).powi(2) + max)
@@ -173,7 +172,7 @@ pub fn new_for_poiseuille(settings: &Settings) -> Space {
 
     for i_y in 0..num_x {
         for i_x in 0..num_x {
-            let mut p = Particle::new_with_mass(
+            let p = Particle::new_with_mass(
                 Vector2::new(
                     (pos_x_max - pos_x_min) * (i_x as f64 + 0.5) / num_x as f64 + pos_x_min,
                     (pos_x_max - pos_x_min) * (i_y as f64 + 0.5) / num_x as f64 + pos_x_min,

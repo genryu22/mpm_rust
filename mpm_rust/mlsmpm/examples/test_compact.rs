@@ -6,7 +6,7 @@ fn main() {
         }
     }
 
-    fn C(bx: usize, by: usize, p: usize, q: usize) -> f64 {
+    fn c(bx: usize, by: usize, p: usize, q: usize) -> f64 {
         let b = bx + by;
         if b == 0 {
             1.
@@ -22,19 +22,19 @@ fn main() {
         }
     }
 
-    fn S(ax: usize, ay: usize, rs: f64, p: usize, q: usize) -> f64 {
+    fn s(ax: usize, ay: usize, rs: f64, p: usize, q: usize) -> f64 {
         let a = ax + ay;
         let sum = [(0, 0), (1, 0), (0, 1)]
             .iter()
             .filter(|(bx, by)| bx + by <= q && *bx <= ax && *by <= ay)
-            .map(|&(bx, by)| C(bx, by, p, q) / (factorial(ax - bx) * factorial(ay - by)))
+            .map(|&(bx, by)| c(bx, by, p, q) / (factorial(ax - bx) * factorial(ay - by)))
             .sum::<f64>();
         1. / (sum * rs.powi(a as i32))
     }
 
-    println!("{}", S(1, 0, 1., 2, 1));
-    println!("{}", S(0, 1, 1., 2, 1));
-    println!("{}", S(2, 0, 1., 2, 1));
-    println!("{}", S(1, 1, 1., 2, 1));
-    println!("{}", S(0, 2, 1., 2, 1));
+    println!("{}", s(1, 0, 1., 2, 1));
+    println!("{}", s(0, 1, 1., 2, 1));
+    println!("{}", s(2, 0, 1., 2, 1));
+    println!("{}", s(1, 1, 1., 2, 1));
+    println!("{}", s(0, 2, 1., 2, 1));
 }

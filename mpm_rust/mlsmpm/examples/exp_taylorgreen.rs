@@ -26,17 +26,17 @@ fn main() {
                 p2g_scheme: P2GSchemeType::MLSMPM,
                 g2p_scheme: G2PSchemeType::MLSMPM,
                 pressure: Some(|p, time| {
-                    let PI = std::f64::consts::PI;
-                    let L = 1.;
+                    let pi = std::f64::consts::PI;
+                    let l = 1.;
                     let rho = 1.;
-                    let U = 1.;
+                    let u = 1.;
                     let nu = 1e-2;
 
                     let (x, y) = (p.x().x - 5., p.x().y - 5.);
 
-                    rho * U * U / 4.
-                        * f64::exp(-4. * PI * PI * time * nu / (L * L))
-                        * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+                    rho * u * u / 4.
+                        * f64::exp(-4. * pi * pi * time * nu / (l * l))
+                        * (f64::cos(2. * pi * x / l) + f64::cos(2. * pi * y / l))
                 }),
                 ..Default::default()
             };
@@ -47,17 +47,6 @@ fn main() {
 
             let mut calc = Calculator::new(&settings, new_for_taylor_green(&settings));
             calc.start(v_time_steps);
-
-            let PI = std::f64::consts::PI;
-            let half_domain_size = 1.;
-            let nu = settings.dynamic_viscosity / settings.rho_0;
-            fn true_vel(t: f64, x: f64, y: f64, U: f64, PI: f64, nu: f64) -> Vector2<f64> {
-                let exp_term = f64::exp(-2. * PI * PI * t / (U * U / nu));
-                Vector2::new(
-                    U * exp_term * f64::sin(PI * (x - 5.) / U) * f64::cos(PI * (y - 5.) / U),
-                    -U * exp_term * f64::cos(PI * (x - 5.) / U) * f64::sin(PI * (y - 5.) / U),
-                )
-            }
 
             file::write_particles(
                 calc.get_particles(),
@@ -79,7 +68,7 @@ fn main() {
 pub fn new_for_taylor_green(settings: &Settings) -> Space {
     let grid_width = settings.grid_width;
 
-    let PI = std::f64::consts::PI;
+    let pi = std::f64::consts::PI;
     let half_domain_size = 1.;
 
     let pos_x_min = 5. - half_domain_size;
@@ -100,26 +89,26 @@ pub fn new_for_taylor_green(settings: &Settings) -> Space {
                 y += rng.gen_range(-1.0..=1.0) * p_dist * 0.2;
             }
             let velocity = Vector2::new(
-                f64::sin(PI * (x - 5.) / half_domain_size)
-                    * f64::cos(PI * (y - 5.) / half_domain_size),
-                -f64::cos(PI * (x - 5.) / half_domain_size)
-                    * f64::sin(PI * (y - 5.) / half_domain_size),
+                f64::sin(pi * (x - 5.) / half_domain_size)
+                    * f64::cos(pi * (y - 5.) / half_domain_size),
+                -f64::cos(pi * (x - 5.) / half_domain_size)
+                    * f64::sin(pi * (y - 5.) / half_domain_size),
             );
 
             let c = {
-                let k = PI / half_domain_size;
+                let k = pi / half_domain_size;
                 let c11 = k
-                    * f64::cos(PI * (x - 5.) / half_domain_size)
-                    * f64::cos(PI * (y - 5.) / half_domain_size);
+                    * f64::cos(pi * (x - 5.) / half_domain_size)
+                    * f64::cos(pi * (y - 5.) / half_domain_size);
                 let c12 = -k
-                    * f64::sin(PI * (x - 5.) / half_domain_size)
-                    * f64::sin(PI * (y - 5.) / half_domain_size);
+                    * f64::sin(pi * (x - 5.) / half_domain_size)
+                    * f64::sin(pi * (y - 5.) / half_domain_size);
                 let c21 = k
-                    * f64::sin(PI * (x - 5.) / half_domain_size)
-                    * f64::sin(PI * (y - 5.) / half_domain_size);
+                    * f64::sin(pi * (x - 5.) / half_domain_size)
+                    * f64::sin(pi * (y - 5.) / half_domain_size);
                 let c22 = -k
-                    * f64::cos(PI * (x - 5.) / half_domain_size)
-                    * f64::cos(PI * (y - 5.) / half_domain_size);
+                    * f64::cos(pi * (x - 5.) / half_domain_size)
+                    * f64::cos(pi * (y - 5.) / half_domain_size);
 
                 Matrix2::new(c11, c12, c21, c22)
             };
