@@ -1,7 +1,7 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::{quote, format_ident};
-use syn::{parse::Parser, punctuated::Punctuated, Expr, ExprLit, Lit, Token};
+use syn::{parse::Parser, punctuated::Punctuated, Expr, Lit, Token};
 
 fn multi_index(a: usize) -> (Vec<usize>, usize) {
     let mut res = vec![];
@@ -41,21 +41,6 @@ fn multi_index_1d(a: usize) -> (Vec<usize>, usize) {
          res.push(i);
     }
     let size = res.len();
-    (res, size)
-}
-
-fn multi_index_array(a: usize) -> (Vec<[usize; 2]>, usize) {
-    let mut res = vec![];
-    for i in 0..=a {
-        for dy in 0..=i {
-            for dx in 0..=i {
-                if dx + dy == i {
-                    res.push([dx, dy]);
-                }
-            }
-        }
-    }
-    let size = res.len() / 2;
     (res, size)
 }
 
@@ -139,7 +124,7 @@ pub fn lsmps_poly_1d(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn lsmps_scale(input: TokenStream) -> TokenStream {
     let input: usize = parse_one_usize(input);
-    let (mut res, size) = multi_index_factorial(input);
+    let (res, size) = multi_index_factorial(input);
 
     quote! {
         fn scale(rs: f64) -> SMatrix::<f64, #size, #size> {
@@ -175,7 +160,7 @@ pub fn lsmps_scale_1d(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn lsmps_params(input: TokenStream) -> TokenStream {
     let input: usize = parse_one_usize(input);
-    let (mut res, size) = multi_index(input);
+    let (_, size) = multi_index(input);
 
     quote! {
         struct LsmpsParams {
@@ -192,7 +177,7 @@ pub fn lsmps_params(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn lsmps_params_vel(input: TokenStream) -> TokenStream {
     let input: usize = parse_one_usize(input);
-    let (mut res, size) = multi_index(input);
+    let (_, size) = multi_index(input);
 
     quote! {
         struct LsmpsParams {
@@ -207,7 +192,7 @@ pub fn lsmps_params_vel(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn lsmps_params_empty(input: TokenStream) -> TokenStream {
     let input: usize = parse_one_usize(input);
-    let (mut res, size) = multi_index(input);
+    let (_, size) = multi_index(input);
 
     quote! {
         (SMatrix::<f64, #size, #size>::zeros(), SMatrix::<f64, #size, 2>::zeros())
@@ -218,7 +203,7 @@ pub fn lsmps_params_empty(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn lsmps_params_1d(input: TokenStream) -> TokenStream {
     let input: usize = parse_one_usize(input);
-    let (res, size) = multi_index_1d(input);
+    let (_, size) = multi_index_1d(input);
 
     quote! {
         struct LsmpsParams {
@@ -232,7 +217,7 @@ pub fn lsmps_params_1d(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn lsmps_params_g2p(input: TokenStream) -> TokenStream {
     let input: usize = parse_one_usize(input);
-    let (mut res, size) = multi_index(input);
+    let (_, size) = multi_index(input);
 
     quote! {
         struct LsmpsParams {
@@ -255,24 +240,6 @@ fn parse_one_usize(input: TokenStream) -> usize {
         },
         _ => {
             panic!("expr でない。");
-        }
-    };
-
-    p
-}
-
-fn try_parse_one_usize(input: TokenStream) -> Option<usize> {
-    let input: Expr = syn::parse(input).unwrap();
-    let p = match input {
-        Expr::Lit(expr_lit) => {
-            if let Lit::Int(litint) = &expr_lit.lit {
-                Some(litint.base10_parse::<usize>().unwrap())
-            } else {
-                None
-            }
-        },
-        _ => {
-            None
         }
     };
 
@@ -303,48 +270,6 @@ fn parse_two_usize(input: TokenStream) -> (usize, usize) {
 
     (p, q)
 }
-
-fn parse_four_usize(input: TokenStream) -> [usize; 4] {
-    let parser = Punctuated::<Expr, Token![,]>::parse_separated_nonempty;
-    let input = parser.parse(input).unwrap();
-    assert_eq!(input.len(), 4);
-    let mut res = [0; 4];
-    for i in 0..4 {
-        res[i] = if let Expr::Lit(expr_lit) = input.first().unwrap() {
-            if let Lit::Int(litint) = &expr_lit.lit {
-                litint.base10_parse::<usize>().unwrap()
-            } else {
-                panic!();
-            }
-        } else {
-            panic!();
-        };
-    }
-
-    res
-}
-
-fn parse_n_usize(n: usize, input: TokenStream) -> Vec<usize> {
-    let parser = Punctuated::<Expr, Token![,]>::parse_separated_nonempty;
-    let input = parser.parse(input).unwrap();
-    assert_eq!(input.len(), n);
-    let mut res = Vec::with_capacity(n);
-    for i in 0..n {
-        res.push(if let Expr::Lit(expr_lit) = input.first().unwrap() {
-            if let Lit::Int(litint) = &expr_lit.lit {
-                litint.base10_parse::<usize>().unwrap()
-            } else {
-                panic!();
-            }
-        } else {
-            panic!();
-        });
-    }
-
-    res
-}
-
-
 
 #[proc_macro]
 pub fn compact_lsmps_func(input: TokenStream) -> TokenStream {
@@ -431,14 +356,6 @@ pub fn compact_scale(input: TokenStream) -> TokenStream {
             }
 
             SMatrix::<f64, #p_size, #p_size>::from_diagonal(&diag)
-        }
-    }.into()
-}
-
-#[proc_macro]
-pub fn test_lsmps(input: TokenStream) -> TokenStream {
-    quote! {
-        fn lsmps_4th(settings: &Settings, space: &mut Space) {
         }
     }.into()
 }

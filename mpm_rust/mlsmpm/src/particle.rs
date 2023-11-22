@@ -1,4 +1,4 @@
-use na::{DMatrix, Matrix2xX};
+use na::{Matrix2xX};
 
 use crate::*;
 

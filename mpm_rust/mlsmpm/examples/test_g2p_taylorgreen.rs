@@ -51,18 +51,18 @@ fn fun_name(p2g: P2GSchemeType, g2p: G2PSchemeType) -> f64 {
         let mut space = new_for_taylor_green(&settings);
         space.g2p(&settings);
 
-        let PI = std::f64::consts::PI;
+        let pi = std::f64::consts::PI;
         let half_domain_size = 1.;
-        fn true_vel(x: f64, y: f64, U: f64, PI: f64) -> Vector2<f64> {
+        fn true_vel(x: f64, y: f64, u: f64, pi: f64) -> Vector2<f64> {
             Vector2::new(
-                f64::sin(PI * (x - 5.) / U) * f64::cos(PI * (y - 5.) / U),
-                -f64::cos(PI * (x - 5.) / U) * f64::sin(PI * (y - 5.) / U),
+                f64::sin(pi * (x - 5.) / u) * f64::cos(pi * (y - 5.) / u),
+                -f64::cos(pi * (x - 5.) / u) * f64::sin(pi * (y - 5.) / u),
             )
         }
 
         let width = res;
-        let cell_width = settings.cell_width();
-        let grid_width = width + 1;
+        let _cell_width = settings.cell_width();
+        let _grid_width = width + 1;
         let particles = space.get_particles();
         let l2_error = f64::sqrt(
             particles
@@ -70,13 +70,13 @@ fn fun_name(p2g: P2GSchemeType, g2p: G2PSchemeType) -> f64 {
                 .map(|p| {
                     let x = p.x().x;
                     let y = p.x().y;
-                    (p.v() - true_vel(x, y, half_domain_size, PI)).norm_squared()
+                    (p.v() - true_vel(x, y, half_domain_size, pi)).norm_squared()
                 })
                 .sum::<f64>()
                 / particles
                     .iter()
                     .map(|p| (p.x().x, p.x().y))
-                    .map(|(x, y)| true_vel(x, y, half_domain_size, PI).norm_squared())
+                    .map(|(x, y)| true_vel(x, y, half_domain_size, pi).norm_squared())
                     .sum::<f64>(),
         );
 
@@ -93,7 +93,7 @@ fn fun_name(p2g: P2GSchemeType, g2p: G2PSchemeType) -> f64 {
 pub fn new_for_taylor_green(settings: &Settings) -> Space {
     let grid_width = settings.grid_width;
 
-    let PI = std::f64::consts::PI;
+    let pi = std::f64::consts::PI;
     let half_domain_size = 1.;
 
     let pos_x_min = 5. - half_domain_size;
@@ -124,25 +124,25 @@ pub fn new_for_taylor_green(settings: &Settings) -> Space {
         let (idx_x, idx_y) = (i % (grid_width + 1), i / (grid_width + 1));
         let (x, y) = (idx_x as f64 * cell_width, idx_y as f64 * cell_width);
         let velocity = Vector2::new(
-            f64::sin(PI * (x - 5.) / half_domain_size) * f64::cos(PI * (y - 5.) / half_domain_size),
-            -f64::cos(PI * (x - 5.) / half_domain_size)
-                * f64::sin(PI * (y - 5.) / half_domain_size),
+            f64::sin(pi * (x - 5.) / half_domain_size) * f64::cos(pi * (y - 5.) / half_domain_size),
+            -f64::cos(pi * (x - 5.) / half_domain_size)
+                * f64::sin(pi * (y - 5.) / half_domain_size),
         );
 
         let c = {
-            let k = PI / half_domain_size;
+            let k = pi / half_domain_size;
             let c11 = k
-                * f64::cos(PI * (x - 5.) / half_domain_size)
-                * f64::cos(PI * (y - 5.) / half_domain_size);
+                * f64::cos(pi * (x - 5.) / half_domain_size)
+                * f64::cos(pi * (y - 5.) / half_domain_size);
             let c12 = -k
-                * f64::sin(PI * (x - 5.) / half_domain_size)
-                * f64::sin(PI * (y - 5.) / half_domain_size);
+                * f64::sin(pi * (x - 5.) / half_domain_size)
+                * f64::sin(pi * (y - 5.) / half_domain_size);
             let c21 = k
-                * f64::sin(PI * (x - 5.) / half_domain_size)
-                * f64::sin(PI * (y - 5.) / half_domain_size);
+                * f64::sin(pi * (x - 5.) / half_domain_size)
+                * f64::sin(pi * (y - 5.) / half_domain_size);
             let c22 = -k
-                * f64::cos(PI * (x - 5.) / half_domain_size)
-                * f64::cos(PI * (y - 5.) / half_domain_size);
+                * f64::cos(pi * (x - 5.) / half_domain_size)
+                * f64::cos(pi * (y - 5.) / half_domain_size);
 
             Matrix2::new(c11, c12, c21, c22)
         };

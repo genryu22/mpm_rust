@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use na::*;
 use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 
@@ -68,7 +66,7 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
             }
         }
 
-        fn C(bx: usize, by: usize, p: usize, q: usize) -> f64 {
+        fn c(bx: usize, by: usize, p: usize, q: usize) -> f64 {
             let b = bx + by;
             if b == 0 {
                 1.
@@ -84,7 +82,7 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
             }
         }
 
-        fn S(ax: usize, ay: usize, rs: f64, p: usize, q: usize) -> f64 {
+        fn s(ax: usize, ay: usize, rs: f64, p: usize, q: usize) -> f64 {
             let a = ax + ay;
             let sum = [(0, 0), (1, 0), (0, 1)]
                 .map(|(bx, by)| {
@@ -92,7 +90,7 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
                     if b > q || bx > ax || by > ay {
                         0.
                     } else {
-                        C(bx, by, p, q) / (factorial(ax - bx) * factorial(ay - by))
+                        c(bx, by, p, q) / (factorial(ax - bx) * factorial(ay - by))
                     }
                 })
                 .iter()
@@ -104,15 +102,15 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
             vector![1., r.x, r.y, r.x * r.x, r.x * r.y, r.y * r.y]
         }
 
-        let re = settings.cell_width() * 3.;
+        let _re = settings.cell_width() * 3.;
         let rs = settings.cell_width();
         let scale = Matrix6::<f64>::from_diagonal(&vector![
-            S(0, 0, rs, 2, 1),
-            S(1, 0, rs, 2, 1),
-            S(0, 1, rs, 2, 1),
-            S(2, 0, rs, 2, 1),
-            S(1, 1, rs, 2, 1),
-            S(0, 2, rs, 2, 1)
+            s(0, 0, rs, 2, 1),
+            s(1, 0, rs, 2, 1),
+            s(0, 1, rs, 2, 1),
+            s(2, 0, rs, 2, 1),
+            s(1, 1, rs, 2, 1),
+            s(0, 2, rs, 2, 1)
         ]);
 
         struct LsmpsParams {
@@ -136,14 +134,14 @@ fn compact_lsmps(settings: &Settings, space: &mut Space) {
             {
                 let node = space.grid[n.index].lock().unwrap();
                 params.f_vel +=
-                    weight * poly_r_ij.kronecker(&node.v_star.transpose()) * C(0, 0, 2, 1) as f64;
+                    weight * poly_r_ij.kronecker(&node.v_star.transpose()) * c(0, 0, 2, 1) as f64;
                 params.f_vel += weight
                     * poly_r_ij.kronecker(&node.c.column(0).transpose())
-                    * C(1, 0, 2, 1) as f64
+                    * c(1, 0, 2, 1) as f64
                     * n.dist.x;
                 params.f_vel += weight
                     * poly_r_ij.kronecker(&node.c.column(1).transpose())
-                    * C(0, 1, 2, 1) as f64
+                    * c(0, 1, 2, 1) as f64
                     * n.dist.y;
             }
         }

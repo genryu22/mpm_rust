@@ -1,9 +1,8 @@
-use std::{error::Error, fs, io::Write, path::Path, thread};
+use std::{error::Error, fs, io::Write, path::Path};
 
 use mlsmpm::*;
 use nalgebra::Matrix2xX;
 use rand::{seq::SliceRandom, Rng};
-use rayon::prelude::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
     const DYNAMIC_VISCOSITY: f64 = 1e-3;
@@ -38,13 +37,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let time = 1e-1;
 
-    let PI = std::f64::consts::PI;
+    let pi = std::f64::consts::PI;
     let half_domain_size = 1.;
-    fn true_vel(t: f64, x: f64, y: f64, U: f64, PI: f64, nu: f64) -> Vector2<f64> {
-        let exp_term = f64::exp(-2. * PI * PI * t / (U * U / nu));
+    fn true_vel(t: f64, x: f64, y: f64, u: f64, pi: f64, nu: f64) -> Vector2<f64> {
+        let exp_term = f64::exp(-2. * pi * pi * t / (u * u / nu));
         Vector2::new(
-            U * exp_term * f64::sin(PI * (x - 5.) / U) * f64::cos(PI * (y - 5.) / U),
-            -U * exp_term * f64::cos(PI * (x - 5.) / U) * f64::sin(PI * (y - 5.) / U),
+            u * exp_term * f64::sin(pi * (x - 5.) / u) * f64::cos(pi * (y - 5.) / u),
+            -u * exp_term * f64::cos(pi * (x - 5.) / u) * f64::sin(pi * (y - 5.) / u),
         )
     }
 
@@ -53,13 +52,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         //     P2GSchemeType::CompactLsmpsLinear,
         //     G2PSchemeType::LsmpsLinear,
         // ),
-        (P2GSchemeType::Compact_1_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Compact1_2, G2PSchemeType::LSMPS),
         // (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::Compact_2_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Compact2_2, G2PSchemeType::LSMPS),
         // (P2GSchemeType::Compact_3_1, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::Compact_3_2, G2PSchemeType::LSMPS),
-        (P2GSchemeType::Compact_Laplacian_2_2, G2PSchemeType::LSMPS),
-        (P2GSchemeType::Compact_Laplacian_3_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::Compact3_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::CompactLaplacian2_2, G2PSchemeType::LSMPS),
+        (P2GSchemeType::CompactLaplacian3_2, G2PSchemeType::LSMPS),
     ]
     .iter()
     .for_each(|&(p2g_scheme, g2p_scheme)| {
@@ -90,31 +89,31 @@ fn main() -> Result<(), Box<dyn Error>> {
                     p2g_scheme,
                     g2p_scheme,
                     pressure: Some(|p, time| {
-                        let PI = std::f64::consts::PI;
-                        let L = 1.;
+                        let pi = std::f64::consts::PI;
+                        let l = 1.;
                         let rho = 1.;
-                        let U = 1.;
+                        let u = 1.;
 
                         let (x, y) = (p.x().x - 5., p.x().y - 5.);
 
-                        rho * U * U / 4.
-                            * f64::exp(-4. * PI * PI * time * DYNAMIC_VISCOSITY / (L * L))
-                            * (f64::cos(2. * PI * x / L) + f64::cos(2. * PI * y / L))
+                        rho * u * u / 4.
+                            * f64::exp(-4. * pi * pi * time * DYNAMIC_VISCOSITY / (l * l))
+                            * (f64::cos(2. * pi * x / l) + f64::cos(2. * pi * y / l))
                     }),
                     pressure_grad: Some(|x, y, time| {
-                        let PI = std::f64::consts::PI;
-                        let L = 1.;
+                        let pi = std::f64::consts::PI;
+                        let l = 1.;
                         let rho = 1.;
-                        let U = 1.;
+                        let u = 1.;
 
                         let (x, y) = (x - 5., y - 5.);
 
-                        let p_dx = rho * U * U * PI / 2. / L
-                            * f64::exp(-4. * PI * PI * time * DYNAMIC_VISCOSITY / (L * L))
-                            * (-f64::sin(2. * PI * x / L));
-                        let p_dy = rho * U * U * PI / 2. / L
-                            * f64::exp(-4. * PI * PI * time * DYNAMIC_VISCOSITY / (L * L))
-                            * (-f64::sin(2. * PI * y / L));
+                        let p_dx = rho * u * u * pi / 2. / l
+                            * f64::exp(-4. * pi * pi * time * DYNAMIC_VISCOSITY / (l * l))
+                            * (-f64::sin(2. * pi * x / l));
+                        let p_dy = rho * u * u * pi / 2. / l
+                            * f64::exp(-4. * pi * pi * time * DYNAMIC_VISCOSITY / (l * l))
+                            * (-f64::sin(2. * pi * y / l));
 
                         Vector2::new(p_dx, p_dy)
                     }),
@@ -144,7 +143,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                     x,
                                     y,
                                     half_domain_size,
-                                    PI,
+                                    pi,
                                     settings.dynamic_viscosity,
                                 ))
                             .norm_squared()
@@ -159,7 +158,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                     x,
                                     y,
                                     half_domain_size,
-                                    PI,
+                                    pi,
                                     settings.dynamic_viscosity,
                                 )
                                 .norm_squared()
@@ -171,7 +170,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     folder,
                     time,
                     half_domain_size,
-                    PI,
+                    pi,
                     DYNAMIC_VISCOSITY,
                     p2g_scheme,
                     g2p_scheme,
@@ -243,7 +242,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         folder: &Path,
         time: f64,
         half_domain_size: f64,
-        PI: f64,
+        pi: f64,
         dynamic_viscosity: f64,
         p2g_scheme: P2GSchemeType,
         g2p_shceme: G2PSchemeType,
@@ -257,7 +256,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         )))?;
         writer.write_record(&["x", "y", "vx", "vy", "t_vx", "t_vy"])?;
         for (pos, n) in grid {
-            let true_vel = true_vel(time, pos.x, pos.y, half_domain_size, PI, dynamic_viscosity);
+            let true_vel = true_vel(time, pos.x, pos.y, half_domain_size, pi, dynamic_viscosity);
             writer.write_record(&[
                 pos.x.to_string(),
                 pos.y.to_string(),
@@ -278,7 +277,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 pub fn new_for_taylor_green(settings: &Settings) -> Space {
     let grid_width = settings.grid_width;
 
-    let PI = std::f64::consts::PI;
+    let pi = std::f64::consts::PI;
     let half_domain_size = 1.;
 
     let pos_x_min = 5. - half_domain_size;
@@ -299,48 +298,48 @@ pub fn new_for_taylor_green(settings: &Settings) -> Space {
                 y += rng.gen_range(-1.0..=1.0) * p_dist * 0.2;
             }
             let velocity = Vector2::new(
-                f64::sin(PI * (x - 5.) / half_domain_size)
-                    * f64::cos(PI * (y - 5.) / half_domain_size),
-                -f64::cos(PI * (x - 5.) / half_domain_size)
-                    * f64::sin(PI * (y - 5.) / half_domain_size),
+                f64::sin(pi * (x - 5.) / half_domain_size)
+                    * f64::cos(pi * (y - 5.) / half_domain_size),
+                -f64::cos(pi * (x - 5.) / half_domain_size)
+                    * f64::sin(pi * (y - 5.) / half_domain_size),
             );
 
             let c = {
-                let k = PI / half_domain_size;
+                let k = pi / half_domain_size;
                 let c11 = k
-                    * f64::cos(PI * (x - 5.) / half_domain_size)
-                    * f64::cos(PI * (y - 5.) / half_domain_size);
+                    * f64::cos(pi * (x - 5.) / half_domain_size)
+                    * f64::cos(pi * (y - 5.) / half_domain_size);
                 let c12 = -k
-                    * f64::sin(PI * (x - 5.) / half_domain_size)
-                    * f64::sin(PI * (y - 5.) / half_domain_size);
+                    * f64::sin(pi * (x - 5.) / half_domain_size)
+                    * f64::sin(pi * (y - 5.) / half_domain_size);
                 let c21 = k
-                    * f64::sin(PI * (x - 5.) / half_domain_size)
-                    * f64::sin(PI * (y - 5.) / half_domain_size);
+                    * f64::sin(pi * (x - 5.) / half_domain_size)
+                    * f64::sin(pi * (y - 5.) / half_domain_size);
                 let c22 = -k
-                    * f64::cos(PI * (x - 5.) / half_domain_size)
-                    * f64::cos(PI * (y - 5.) / half_domain_size);
+                    * f64::cos(pi * (x - 5.) / half_domain_size)
+                    * f64::cos(pi * (y - 5.) / half_domain_size);
 
                 Matrix2::new(c11, c12, c21, c22)
             };
 
-            let dvxdxx = -PI * PI / (half_domain_size * half_domain_size)
-                * f64::sin(PI * (x - 5.) / half_domain_size)
-                * f64::cos(PI * (y - 5.) / half_domain_size);
-            let dvxdxy = -PI * PI / (half_domain_size * half_domain_size)
-                * f64::cos(PI * (x - 5.) / half_domain_size)
-                * f64::sin(PI * (y - 5.) / half_domain_size);
-            let dvxdyy = -PI * PI / (half_domain_size * half_domain_size)
-                * f64::sin(PI * (x - 5.) / half_domain_size)
-                * f64::cos(PI * (y - 5.) / half_domain_size);
-            let dvydxx = PI * PI / (half_domain_size * half_domain_size)
-                * f64::cos(PI * (x - 5.) / half_domain_size)
-                * f64::sin(PI * (y - 5.) / half_domain_size);
-            let dvydxy = PI * PI / (half_domain_size * half_domain_size)
-                * f64::sin(PI * (x - 5.) / half_domain_size)
-                * f64::cos(PI * (y - 5.) / half_domain_size);
-            let dvydyy = PI * PI / (half_domain_size * half_domain_size)
-                * f64::cos(PI * (x - 5.) / half_domain_size)
-                * f64::sin(PI * (y - 5.) / half_domain_size);
+            let dvxdxx = -pi * pi / (half_domain_size * half_domain_size)
+                * f64::sin(pi * (x - 5.) / half_domain_size)
+                * f64::cos(pi * (y - 5.) / half_domain_size);
+            let dvxdxy = -pi * pi / (half_domain_size * half_domain_size)
+                * f64::cos(pi * (x - 5.) / half_domain_size)
+                * f64::sin(pi * (y - 5.) / half_domain_size);
+            let dvxdyy = -pi * pi / (half_domain_size * half_domain_size)
+                * f64::sin(pi * (x - 5.) / half_domain_size)
+                * f64::cos(pi * (y - 5.) / half_domain_size);
+            let dvydxx = pi * pi / (half_domain_size * half_domain_size)
+                * f64::cos(pi * (x - 5.) / half_domain_size)
+                * f64::sin(pi * (y - 5.) / half_domain_size);
+            let dvydxy = pi * pi / (half_domain_size * half_domain_size)
+                * f64::sin(pi * (x - 5.) / half_domain_size)
+                * f64::cos(pi * (y - 5.) / half_domain_size);
+            let dvydyy = pi * pi / (half_domain_size * half_domain_size)
+                * f64::cos(pi * (x - 5.) / half_domain_size)
+                * f64::sin(pi * (y - 5.) / half_domain_size);
 
             let x_lsmps = Matrix2xX::from_row_slice(&[
                 velocity.x, c.m11, c.m12, dvxdxx, dvxdxy, dvxdyy, velocity.y, c.m21, c.m22, dvydxx,

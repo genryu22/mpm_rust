@@ -312,7 +312,6 @@ fn weight_function(settings: &Settings) -> fn(settings: &Settings, f64, f64) -> 
         WeightType::CubicBSpline => qubic_b_spline_2d,
         WeightType::Linear => linear_2d,
         WeightType::Spike => spike,
-        _ => quadratic_b_spline_2d,
     }
 }
 
@@ -381,7 +380,7 @@ pub fn calc_cell_index_for_poiseuille(
     settings: &Settings,
     period_bounds: &Vec<PeriodicBoundary>,
     period_bound_rect: &Option<PeriodicBoundaryRect>,
-    mut node_ipos: Vector2f,
+    node_ipos: Vector2f,
 ) -> U {
     if let Some(rect) = period_bound_rect {
         let x_min_index = (rect.x_min / settings.cell_width()).round() as i64;

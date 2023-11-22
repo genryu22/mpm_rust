@@ -74,7 +74,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         // (P2GSchemeType::Compact_2_2, G2PSchemeType::Lsmps3rd),
         // (P2GSchemeType::Compact_3_2, G2PSchemeType::LSMPS),
         // (P2GSchemeType::Compact_3_2, G2PSchemeType::Lsmps3rd),
-        (P2GSchemeType::Compact_3_3, G2PSchemeType::Lsmps3rd),
+        (P2GSchemeType::Compact3_3, G2PSchemeType::Lsmps3rd),
         // (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::MLSMPM),
         // (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::LSMPS),
         // (P2GSchemeType::CompactOnlyVelocity, G2PSchemeType::Lsmps3rd),

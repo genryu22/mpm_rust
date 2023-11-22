@@ -119,14 +119,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     fn der_2_velocity(t: f64, x: f64, y: f64, nu: f64) -> Matrix2<f64> {
-        let PI = std::f64::consts::PI;
-        let U = 1.;
-        let exp_term = f64::exp(-2. * PI * PI * t / (U * U / nu));
+        let pi = std::f64::consts::PI;
+        let u = 1.;
+        let exp_term = f64::exp(-2. * pi * pi * t / (u * u / nu));
         Matrix2::new(
-            -PI * PI / U * exp_term * f64::sin(PI * (x - 5.) / U) * f64::cos(PI * (y - 5.) / U),
-            -PI * PI / U * exp_term * f64::sin(PI * (x - 5.) / U) * f64::cos(PI * (y - 5.) / U),
-            PI * PI / U * exp_term * f64::cos(PI * (x - 5.) / U) * f64::sin(PI * (y - 5.) / U),
-            PI * PI / U * exp_term * f64::cos(PI * (x - 5.) / U) * f64::sin(PI * (y - 5.) / U),
+            -pi * pi / u * exp_term * f64::sin(pi * (x - 5.) / u) * f64::cos(pi * (y - 5.) / u),
+            -pi * pi / u * exp_term * f64::sin(pi * (x - 5.) / u) * f64::cos(pi * (y - 5.) / u),
+            pi * pi / u * exp_term * f64::cos(pi * (x - 5.) / u) * f64::sin(pi * (y - 5.) / u),
+            pi * pi / u * exp_term * f64::cos(pi * (x - 5.) / u) * f64::sin(pi * (y - 5.) / u),
         )
     }
 
@@ -181,7 +181,7 @@ fn scheme_mlsmpm(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>)> {
     };
 
     parallel!(settings, particles, |p| {
-        let (density, volume) =
+        let (_density, volume) =
             calc_density_and_volume(settings, p, &grid, &period_bounds, &periodic_boundary_rect);
 
         let dudv = p.c();
@@ -229,7 +229,7 @@ fn scheme_mlsmpm(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>)> {
 fn new_for_taylor_green(settings: &Settings) -> (Vec<Particle>, Vec<Node>, PeriodicBoundaryRect) {
     let grid_width = settings.grid_width;
 
-    let PI = std::f64::consts::PI;
+    let pi = std::f64::consts::PI;
     let half_domain_size = 1.;
 
     let pos_x_min = 5. - half_domain_size;
@@ -265,9 +265,9 @@ fn new_for_taylor_green(settings: &Settings) -> (Vec<Particle>, Vec<Node>, Perio
         let (idx_x, idx_y) = (i % (grid_width + 1), i / (grid_width + 1));
         let (x, y) = (idx_x as f64 * cell_width, idx_y as f64 * cell_width);
         let velocity = Vector2::new(
-            f64::sin(PI * (x - 5.) / half_domain_size) * f64::cos(PI * (y - 5.) / half_domain_size),
-            -f64::cos(PI * (x - 5.) / half_domain_size)
-                * f64::sin(PI * (y - 5.) / half_domain_size),
+            f64::sin(pi * (x - 5.) / half_domain_size) * f64::cos(pi * (y - 5.) / half_domain_size),
+            -f64::cos(pi * (x - 5.) / half_domain_size)
+                * f64::sin(pi * (y - 5.) / half_domain_size),
         );
         grid.push(Node::new_with_vel(
             (i % (grid_width + 1), i / (grid_width + 1)),

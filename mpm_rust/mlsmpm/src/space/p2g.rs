@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use na::*;
 use rayon::prelude::*;
 
@@ -14,29 +12,29 @@ pub fn p2g(p2g_scheme: &P2GSchemeType) -> fn(settings: &Settings, space: &mut Sp
         P2GSchemeType::Lsmps4th => lsmps_4,
         P2GSchemeType::CompactLsmps => compact_2_1,
         P2GSchemeType::CompactLsmpsLinear => compact_1_1,
-        P2GSchemeType::Compact_0_1 => compact_0_1,
-        P2GSchemeType::Compact_3_1 => compact_3_1,
-        P2GSchemeType::Compact_0_2 => compact_0_2,
-        P2GSchemeType::Compact_1_2 => compact_1_2,
-        P2GSchemeType::Compact_2_2 => compact_2_2,
-        P2GSchemeType::Compact_3_2 => compact_3_2,
-        P2GSchemeType::Compact_3_3 => compact_3_3,
-        P2GSchemeType::Compact_4_3 => compact_4_3,
-        P2GSchemeType::Compact_4_4 => compact_4_4,
-        P2GSchemeType::Compact_v_0_1 => compact_v_0_1,
-        P2GSchemeType::Compact_v_1_1 => compact_v_1_1,
+        P2GSchemeType::Compact0_1 => compact_0_1,
+        P2GSchemeType::Compact3_1 => compact_3_1,
+        P2GSchemeType::Compact0_2 => compact_0_2,
+        P2GSchemeType::Compact1_2 => compact_1_2,
+        P2GSchemeType::Compact2_2 => compact_2_2,
+        P2GSchemeType::Compact3_2 => compact_3_2,
+        P2GSchemeType::Compact3_3 => compact_3_3,
+        P2GSchemeType::Compact4_3 => compact_4_3,
+        P2GSchemeType::Compact4_4 => compact_4_4,
+        P2GSchemeType::CompactV0_1 => compact_v_0_1,
+        P2GSchemeType::CompactV1_1 => compact_v_1_1,
         P2GSchemeType::CompactOnlyVelocity => compact_v_2_1,
-        P2GSchemeType::Compact_v_3_1 => compact_3_1,
-        P2GSchemeType::Compact_v_0_2 => compact_v_0_2,
-        P2GSchemeType::Compact_v_1_2 => compact_v_1_2,
-        P2GSchemeType::Compact_v_2_2 => compact_v_2_2,
-        P2GSchemeType::Compact_v_3_2 => compact_v_3_2,
-        P2GSchemeType::Compact_v_0_3 => compact_v_0_3,
-        P2GSchemeType::Compact_v_1_3 => compact_v_1_3,
-        P2GSchemeType::Compact_v_2_3 => compact_v_2_3,
-        P2GSchemeType::Compact_v_3_3 => compact_v_3_3,
-        P2GSchemeType::Compact_Laplacian_2_2 => compact_laplacian_2_2,
-        P2GSchemeType::Compact_Laplacian_3_2 => compact_laplacian_3_2,
+        P2GSchemeType::CompactV3_1 => compact_3_1,
+        P2GSchemeType::CompactV0_2 => compact_v_0_2,
+        P2GSchemeType::CompactV1_2 => compact_v_1_2,
+        P2GSchemeType::CompactV2_2 => compact_v_2_2,
+        P2GSchemeType::CompactV3_2 => compact_v_3_2,
+        P2GSchemeType::CompactV0_3 => compact_v_0_3,
+        P2GSchemeType::CompactV1_3 => compact_v_1_3,
+        P2GSchemeType::CompactV2_3 => compact_v_2_3,
+        P2GSchemeType::CompactV3_3 => compact_v_3_3,
+        P2GSchemeType::CompactLaplacian2_2 => compact_laplacian_2_2,
+        P2GSchemeType::CompactLaplacian3_2 => compact_laplacian_3_2,
     }
 }
 
@@ -153,78 +151,3 @@ mlsmpm_macro::compact_v_p2g_func!(3, 3);
 
 mlsmpm_macro::compact_p2g_laplacian_func!(2, 2);
 mlsmpm_macro::compact_p2g_laplacian_func!(3, 2);
-
-fn test(settings: &Settings, space: &mut Space) {
-    mlsmpm_macro::lsmps_poly!(2);
-    mlsmpm_macro::lsmps_scale!(2);
-    mlsmpm_macro::lsmps_params!(2);
-
-    let rs = settings.cell_width();
-    let scale = scale(rs);
-
-    let nodes = (0..space.grid.len())
-        .into_par_iter()
-        .map(|_| {
-            std::sync::Mutex::new(LsmpsParams {
-                m: SMatrix::zeros(),
-                f_vel: SMatrix::zeros(),
-                f_stress: SMatrix::zeros(),
-                f_pressure: SVector::zeros(),
-                count: 0,
-            })
-        })
-        .collect::<Vec<_>>();
-
-    parallel!(settings, space.particles, |p| {
-        for node in
-            NodeIndexIterator::new(settings, p, &space.period_bounds, &space.period_bound_rect)
-        {
-            let mut params = nodes[node.index].lock().unwrap();
-
-            let r_ij = -node.dist / rs;
-            let poly_r_ij = poly(r_ij);
-            let weight = node.weight;
-
-            params.m += weight * poly_r_ij * poly_r_ij.transpose();
-            params.f_vel += weight * poly_r_ij.kronecker(&p.v.transpose());
-            params.count += 1;
-        }
-    });
-
-    parallel!(settings, space.grid, |node| {
-        let mut node = node.lock().unwrap();
-        let index = node.index.0 + node.index.1 * (settings.grid_width + 1);
-        let params = nodes[index].lock().unwrap();
-
-        if params.count == 0 {
-            return;
-        }
-
-        if let Some(m_inverse) = (params.m).try_inverse() {
-            {
-                let res = scale * m_inverse * params.f_vel;
-                node.v = res.row(0).transpose();
-
-                {
-                    let x = node.index.0 as f64 * settings.cell_width();
-                    let y = node.index.1 as f64 * settings.cell_width();
-                    node.force =
-                        -settings.pressure_grad.unwrap()(x, y, space.steps as f64 * settings.dt)
-                            + settings.dynamic_viscosity
-                                * settings.rho_0
-                                * vector![res[(3, 0)] + res[(5, 0)], res[(3, 1)] + res[(5, 1)]];
-                }
-            }
-        } else {
-            let sing_values = params.m.singular_values();
-            println!("モーメント行列の逆行列が求まりませんでした。 max={} min={} cond={} (x, y) = ({} {}), steps={}",
-                sing_values.max(),
-                sing_values.min(),
-                sing_values.max() / sing_values.min(),
-                node.index.0 as f64 * settings.cell_width(),
-                node.index.1 as f64 * settings.cell_width(),
-                space.steps
-            );
-        }
-    });
-}

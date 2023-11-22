@@ -1,7 +1,5 @@
-use core::num;
-use std::{collections::HashMap, sync::Mutex};
+use std::sync::Mutex;
 
-use na::{Matrix3, Matrix3x2, Matrix4, Matrix4x2, Matrix6, Matrix6x2, Matrix6x3, Vector3, Vector6};
 use rayon::prelude::{
     IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
 };
@@ -71,32 +69,32 @@ impl Space {
                 | P2GSchemeType::Lsmps4th
                 | P2GSchemeType::CompactLsmps
                 | P2GSchemeType::CompactLsmpsLinear
-                | P2GSchemeType::Compact_0_1
-                | P2GSchemeType::Compact_3_1
-                | P2GSchemeType::Compact_0_2
-                | P2GSchemeType::Compact_1_2
-                | P2GSchemeType::Compact_2_2
-                | P2GSchemeType::Compact_3_2
-                | P2GSchemeType::Compact_3_3
-                | P2GSchemeType::Compact_4_3
-                | P2GSchemeType::Compact_4_4
-                | P2GSchemeType::Compact_Laplacian_2_2
-                | P2GSchemeType::Compact_Laplacian_3_2 => {
+                | P2GSchemeType::Compact0_1
+                | P2GSchemeType::Compact3_1
+                | P2GSchemeType::Compact0_2
+                | P2GSchemeType::Compact1_2
+                | P2GSchemeType::Compact2_2
+                | P2GSchemeType::Compact3_2
+                | P2GSchemeType::Compact3_3
+                | P2GSchemeType::Compact4_3
+                | P2GSchemeType::Compact4_4
+                | P2GSchemeType::CompactLaplacian2_2
+                | P2GSchemeType::CompactLaplacian3_2 => {
                     n.v_star = n.v
                         + settings.dt * (vector![0., settings.gravity] + n.force / settings.rho_0);
                 }
-                P2GSchemeType::Compact_v_0_1
-                | P2GSchemeType::Compact_v_1_1
+                P2GSchemeType::CompactV0_1
+                | P2GSchemeType::CompactV1_1
                 | P2GSchemeType::CompactOnlyVelocity
-                | P2GSchemeType::Compact_v_3_1
-                | P2GSchemeType::Compact_v_0_2
-                | P2GSchemeType::Compact_v_1_2
-                | P2GSchemeType::Compact_v_2_2
-                | P2GSchemeType::Compact_v_3_2
-                | P2GSchemeType::Compact_v_0_3
-                | P2GSchemeType::Compact_v_1_3
-                | P2GSchemeType::Compact_v_2_3
-                | P2GSchemeType::Compact_v_3_3 => {
+                | P2GSchemeType::CompactV3_1
+                | P2GSchemeType::CompactV0_2
+                | P2GSchemeType::CompactV1_2
+                | P2GSchemeType::CompactV2_2
+                | P2GSchemeType::CompactV3_2
+                | P2GSchemeType::CompactV0_3
+                | P2GSchemeType::CompactV1_3
+                | P2GSchemeType::CompactV2_3
+                | P2GSchemeType::CompactV3_3 => {
                     if n.mass <= 0. {
                         return;
                     }
