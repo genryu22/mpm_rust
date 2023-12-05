@@ -289,8 +289,16 @@ fn weight_function(settings: &Settings) -> fn(settings: &Settings, f64, f64) -> 
         quadratic_b_spline(x) * quadratic_b_spline(y)
     }
 
+    fn quadratic_b_spline_2(_: &Settings, x: f64, y: f64) -> f64 {
+        quadratic_b_spline_range(x, 2.) * quadratic_b_spline_range(y, 2.)
+    }
+
     fn qubic_b_spline_2d(_: &Settings, x: f64, y: f64) -> f64 {
         qubic_b_spline(x) * qubic_b_spline(y)
+    }
+
+    fn cubic_b_spline_1_5(_: &Settings, x: f64, y: f64) -> f64 {
+        cubic_b_spline_range(x, 1.95) * cubic_b_spline_range(y, 1.95)
     }
 
     fn linear_2d(_: &Settings, x: f64, y: f64) -> f64 {
@@ -309,7 +317,9 @@ fn weight_function(settings: &Settings) -> fn(settings: &Settings, f64, f64) -> 
 
     match settings.weight_type {
         WeightType::QuadraticBSpline => quadratic_b_spline_2d,
+        WeightType::QuadraticBSpline2 => quadratic_b_spline_2,
         WeightType::CubicBSpline => qubic_b_spline_2d,
+        WeightType::CubicBSpline1_5 => cubic_b_spline_1_5,
         WeightType::Linear => linear_2d,
         WeightType::Spike => spike,
     }
@@ -337,8 +347,32 @@ fn qubic_b_spline(x: f64) -> f64 {
     }
 }
 
+fn cubic_b_spline_range(x: f64, range: f64) -> f64 {
+    let x = x.abs() * 2. / range;
+
+    if 0. <= x && x <= 1. {
+        0.5 * x * x * x - x * x + 2. / 3.
+    } else if 1. <= x && x <= 2. {
+        (2. - x).powi(3) / 6.
+    } else {
+        0.
+    }
+}
+
 fn quadratic_b_spline(x: f64) -> f64 {
     let x = x.abs();
+
+    if 0. <= x && x <= 0.5 {
+        0.75 - x * x
+    } else if 0.5 <= x && x <= 1.5 {
+        0.5 * (x - 1.5).powi(2)
+    } else {
+        0.
+    }
+}
+
+fn quadratic_b_spline_range(x: f64, range: f64) -> f64 {
+    let x = x.abs() * 1.5 / range;
 
     if 0. <= x && x <= 0.5 {
         0.75 - x * x

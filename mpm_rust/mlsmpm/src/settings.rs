@@ -65,7 +65,9 @@ impl Default for Settings {
 #[derive(Debug)]
 pub enum WeightType {
     QuadraticBSpline,
+    QuadraticBSpline2,
     CubicBSpline,
+    CubicBSpline1_5,
     Linear,
     Spike,
 }

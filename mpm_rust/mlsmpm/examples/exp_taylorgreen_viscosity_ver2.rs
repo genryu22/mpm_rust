@@ -22,15 +22,23 @@ const RES_LIST: [usize; 6] = [50, 100, 250, 500, 1000, 2000];
 const SCHEMES: [(
     &str,
     fn(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>)>,
-); 8] = [
+); 7] = [
     ("MLSMPM", scheme_mlsmpm),
-    ("応力の発散_1", scheme_div_force_1),
-    ("応力の発散_2", scheme_div_force_2),
-    ("応力の発散_3", scheme_div_force_3),
-    ("応力の発散_4", scheme_div_force_4),
-    ("速度のラプラシアン_2", scheme_laplacian_velocity_2),
-    ("速度のラプラシアン_3", scheme_laplacian_velocity_3),
-    ("速度のラプラシアン_4", scheme_laplacian_velocity_4),
+    ("応力の発散_1_g2p(p=2)", scheme_div_force_1),
+    ("応力の発散_2_g2p(p=2)", scheme_div_force_2),
+    // ("応力の発散_3_g2p(p=2)", scheme_div_force_3),
+    // ("応力の発散_4_g2p(p=2)", scheme_div_force_4),
+    ("応力の発散_1_g2p(p=1)", scheme_div_force_1_1st),
+    ("応力の発散_2_g2p(p=1)", scheme_div_force_2_1st),
+    // ("応力の発散_3_g2p(p=1)", scheme_div_force_3_1st),
+    // ("応力の発散_4_g2p(p=1)", scheme_div_force_4_1st),
+    ("速度のラプラシアン_2_g2p(p=1)", scheme_laplacian_velocity_2),
+    (
+        "速度のラプラシアン_2_g2p(p=2)",
+        scheme_laplacian_velocity_2_g2p_2nd,
+    ),
+    // ("速度のラプラシアン_3_g2p(p=1)", scheme_laplacian_velocity_3),
+    // ("速度のラプラシアン_4_g2p(p=1)", scheme_laplacian_velocity_4),
 ];
 
 scheme_div_force!(1);
@@ -40,6 +48,12 @@ scheme_div_force!(4);
 scheme_laplacian_velocity!(2);
 scheme_laplacian_velocity!(3);
 scheme_laplacian_velocity!(4);
+
+scheme_div_force_1st!(1);
+scheme_div_force_1st!(2);
+scheme_div_force_1st!(3);
+scheme_div_force_1st!(4);
+scheme_laplacian_velocity_g2p_2nd!(2);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let folder_name = format!("exp_taylorgreen_viscosity_ver2");

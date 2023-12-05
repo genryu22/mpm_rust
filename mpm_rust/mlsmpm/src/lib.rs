@@ -144,16 +144,26 @@ pub fn g2p_lsmps_1st(
             f_vel: SMatrix::zeros(),
         };
 
-        for n in NodeIndexIterator::new(settings, p, &period_bounds, &periodic_boundary_rect) {
-            let r_ij = n.dist / rs;
-            let poly_r_ij = poly(r_ij);
-            let weight = n.weight;
+        {
+            let settings = Settings {
+                space_width: 10.,
+                grid_width: settings.grid_width,
+                weight_type: WeightType::CubicBSpline1_5,
+                effect_radius: 3,
+                ..Default::default()
+            };
 
-            params.m += weight * poly_r_ij * poly_r_ij.transpose();
+            for n in NodeIndexIterator::new(&settings, p, &period_bounds, &periodic_boundary_rect) {
+                let r_ij = n.dist / rs;
+                let poly_r_ij = poly(r_ij);
+                let weight = n.weight;
 
-            {
-                let node = &grid[n.index];
-                params.f_vel += weight * poly_r_ij.kronecker(&node.v_star.transpose());
+                params.m += weight * poly_r_ij * poly_r_ij.transpose();
+
+                {
+                    let node = &grid[n.index];
+                    params.f_vel += weight * poly_r_ij.kronecker(&node.v_star.transpose());
+                }
             }
         }
 
@@ -200,16 +210,26 @@ pub fn g2p_lsmps_2nd(
             f_vel: SMatrix::zeros(),
         };
 
-        for n in NodeIndexIterator::new(settings, p, &period_bounds, &periodic_boundary_rect) {
-            let r_ij = n.dist / rs;
-            let poly_r_ij = poly(r_ij);
-            let weight = n.weight;
+        {
+            let settings = Settings {
+                space_width: 10.,
+                grid_width: settings.grid_width,
+                weight_type: WeightType::CubicBSpline1_5,
+                effect_radius: 3,
+                ..Default::default()
+            };
 
-            params.m += weight * poly_r_ij * poly_r_ij.transpose();
+            for n in NodeIndexIterator::new(&settings, p, &period_bounds, &periodic_boundary_rect) {
+                let r_ij = n.dist / rs;
+                let poly_r_ij = poly(r_ij);
+                let weight = n.weight;
 
-            {
-                let node = &grid[n.index];
-                params.f_vel += weight * poly_r_ij.kronecker(&node.v_star.transpose());
+                params.m += weight * poly_r_ij * poly_r_ij.transpose();
+
+                {
+                    let node = &grid[n.index];
+                    params.f_vel += weight * poly_r_ij.kronecker(&node.v_star.transpose());
+                }
             }
         }
 
