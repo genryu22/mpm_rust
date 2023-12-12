@@ -298,7 +298,11 @@ fn weight_function(settings: &Settings) -> fn(settings: &Settings, f64, f64) -> 
     }
 
     fn cubic_b_spline_1_5(_: &Settings, x: f64, y: f64) -> f64 {
-        cubic_b_spline_range(x, 1.95) * cubic_b_spline_range(y, 1.95)
+        cubic_b_spline_range(x, 1.5) * cubic_b_spline_range(y, 1.5)
+    }
+
+    fn quartic(_: &Settings, x: f64, y: f64) -> f64 {
+        quartic_b_spline(x, 3.5) * quartic_b_spline(y, 3.5)
     }
 
     fn linear_2d(_: &Settings, x: f64, y: f64) -> f64 {
@@ -320,6 +324,7 @@ fn weight_function(settings: &Settings) -> fn(settings: &Settings, f64, f64) -> 
         WeightType::QuadraticBSpline2 => quadratic_b_spline_2,
         WeightType::CubicBSpline => qubic_b_spline_2d,
         WeightType::CubicBSpline1_5 => cubic_b_spline_1_5,
+        WeightType::QuarticBSpline => quartic,
         WeightType::Linear => linear_2d,
         WeightType::Spike => spike,
     }
@@ -348,15 +353,32 @@ fn qubic_b_spline(x: f64) -> f64 {
 }
 
 fn cubic_b_spline_range(x: f64, range: f64) -> f64 {
-    let x = x.abs() * 2. / range;
+    let knots = vec![-range, -range / 2., 0., range / 2., range];
 
-    if 0. <= x && x <= 1. {
-        0.5 * x * x * x - x * x + 2. / 3.
-    } else if 1. <= x && x <= 2. {
-        (2. - x).powi(3) / 6.
-    } else {
-        0.
-    }
+    b_spline_basis(0, 3, &knots, x)
+
+    // let x = x.abs() * 2. / range;
+
+    // if 0. <= x && x <= 1. {
+    //     0.5 * x * x * x - x * x + 2. / 3.
+    // } else if 1. <= x && x <= 2. {
+    //     (2. - x).powi(3) / 6.
+    // } else {
+    //     0.
+    // }
+}
+
+fn quartic_b_spline(x: f64, range: f64) -> f64 {
+    let knots = vec![
+        -range,
+        -3. * range / 5.,
+        -range / 5.,
+        range / 5.,
+        3. * range / 5.,
+        range,
+    ];
+
+    b_spline_basis(0, 4, &knots, x)
 }
 
 fn quadratic_b_spline(x: f64) -> f64 {
@@ -380,6 +402,77 @@ fn quadratic_b_spline_range(x: f64, range: f64) -> f64 {
         0.5 * (x - 1.5).powi(2)
     } else {
         0.
+    }
+}
+
+fn b_spline_basis(j: usize, k: usize, knots: &Vec<f64>, t: f64) -> f64 {
+    if knots.len() as i32 - k as i32 - 2 < 0 || j > knots.len() - 2 {
+        panic!();
+    }
+
+    if k == 0 {
+        if knots[j] <= t && t < knots[j + 1] {
+            1.
+        } else {
+            0.
+        }
+    } else {
+        fn w(j: usize, k: usize, knot: &Vec<f64>, t: f64) -> f64 {
+            if knot[j + k] == knot[j] {
+                0.
+            } else {
+                (t - knot[j]) / (knot[j + k] - knot[j])
+            }
+        }
+
+        w(j, k, knots, t) * b_spline_basis(j, k - 1, knots, t)
+            + (1. - w(j + 1, k, knots, t)) * b_spline_basis(j + 1, k - 1, knots, t)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_quadratic_b_spline() {
+        let knots = vec![-1.5, -0.5, 0.5, 1.5];
+        let quadratic = |t| b_spline_basis(0, 2, &knots, t);
+
+        let n = 10000;
+        for i in 0..n {
+            let t = -2.0 + i as f64 / n as f64 * 2.0;
+            // println!("f({})={}", t, quadratic(t));
+            assert!(f64::abs(quadratic_b_spline(t) - quadratic(t)) < 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_quadratic_b_spline_range() {
+        let range = 3.0;
+        let knots = vec![-range, -range / 3., range / 3., range];
+        let quadratic = |t| b_spline_basis(0, 2, &knots, t);
+
+        let n = 10;
+        for i in 0..=n {
+            let t = -range + i as f64 / n as f64 * 2. * range;
+            println!("f({})={}", t, quadratic(t));
+            assert!(f64::abs(quadratic_b_spline_range(t, range) - quadratic(t)) < 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_cubic_b_spline_range() {
+        let range = 3.0;
+        let knots = vec![-range, -range / 2., 0., range / 2., range];
+        let cubic = |t| b_spline_basis(0, 3, &knots, t);
+
+        let n = 10;
+        for i in 0..=n {
+            let t = -range + i as f64 / n as f64 * 2. * range;
+            println!("f({})={}", t, cubic(t));
+            assert!(f64::abs(cubic_b_spline_range(t, range) - cubic(t)) < 1e-10);
+        }
     }
 }
 
