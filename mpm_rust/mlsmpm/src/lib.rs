@@ -148,7 +148,7 @@ pub fn g2p_lsmps_1st(
             let settings = Settings {
                 space_width: 10.,
                 grid_width: settings.grid_width,
-                weight_type: WeightType::CubicBSpline1_5,
+                weight_type: WeightType::CubicBSpline,
                 effect_radius: 3,
                 ..Default::default()
             };
@@ -179,6 +179,14 @@ pub fn g2p_lsmps_1st(
             }
             p.c = res.fixed_view::<2, 2>(1, 0).transpose().into();
             p.v_lsmps = res.rows(0, res.shape().0).transpose();
+        } else {
+            let sing_values = params.m.singular_values();
+            println!(
+                "モーメント行列の逆行列が求まりませんでした。 max={} min={} cond={}",
+                sing_values.max(),
+                sing_values.min(),
+                sing_values.max() / sing_values.min()
+            );
         }
     });
 }
@@ -214,7 +222,7 @@ pub fn g2p_lsmps_2nd(
             let settings = Settings {
                 space_width: 10.,
                 grid_width: settings.grid_width,
-                weight_type: WeightType::CubicBSpline1_5,
+                weight_type: WeightType::CubicBSpline,
                 effect_radius: 3,
                 ..Default::default()
             };
@@ -245,6 +253,14 @@ pub fn g2p_lsmps_2nd(
             }
             p.c = res.fixed_view::<2, 2>(1, 0).transpose().into();
             p.v_lsmps = res.rows(0, res.shape().0).transpose();
+        } else {
+            let sing_values = params.m.singular_values();
+            println!(
+                "モーメント行列の逆行列が求まりませんでした。 max={} min={} cond={}",
+                sing_values.max(),
+                sing_values.min(),
+                sing_values.max() / sing_values.min()
+            );
         }
     });
 }

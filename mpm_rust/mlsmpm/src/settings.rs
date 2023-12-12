@@ -69,6 +69,7 @@ pub enum WeightType {
     CubicBSpline,
     CubicBSpline1_5,
     QuarticBSpline,
+    QuinticBSpline,
     Linear,
     Spike,
 }

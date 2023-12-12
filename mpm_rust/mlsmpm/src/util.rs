@@ -302,7 +302,11 @@ fn weight_function(settings: &Settings) -> fn(settings: &Settings, f64, f64) -> 
     }
 
     fn quartic(_: &Settings, x: f64, y: f64) -> f64 {
-        quartic_b_spline(x, 3.5) * quartic_b_spline(y, 3.5)
+        quartic_b_spline(x, 2.5) * quartic_b_spline(y, 2.5)
+    }
+
+    fn quintic(_: &Settings, x: f64, y: f64) -> f64 {
+        quintic_b_spline(x, 3.) * quintic_b_spline(y, 3.)
     }
 
     fn linear_2d(_: &Settings, x: f64, y: f64) -> f64 {
@@ -325,6 +329,7 @@ fn weight_function(settings: &Settings) -> fn(settings: &Settings, f64, f64) -> 
         WeightType::CubicBSpline => qubic_b_spline_2d,
         WeightType::CubicBSpline1_5 => cubic_b_spline_1_5,
         WeightType::QuarticBSpline => quartic,
+        WeightType::QuinticBSpline => quintic,
         WeightType::Linear => linear_2d,
         WeightType::Spike => spike,
     }
@@ -366,6 +371,20 @@ fn cubic_b_spline_range(x: f64, range: f64) -> f64 {
     // } else {
     //     0.
     // }
+}
+
+fn quintic_b_spline(x: f64, range: f64) -> f64 {
+    let knots = vec![
+        -range,
+        -2. * range / 3.,
+        -range / 3.,
+        0.,
+        range / 3.,
+        2. * range / 3.,
+        range,
+    ];
+
+    b_spline_basis(0, 5, &knots, x)
 }
 
 fn quartic_b_spline(x: f64, range: f64) -> f64 {
