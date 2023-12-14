@@ -148,7 +148,7 @@ pub fn g2p_lsmps_1st(
             let settings = Settings {
                 space_width: 10.,
                 grid_width: settings.grid_width,
-                weight_type: WeightType::CubicBSpline,
+                weight_type: WeightType::QuadraticBSpline,
                 effect_radius: 3,
                 ..Default::default()
             };
@@ -222,7 +222,7 @@ pub fn g2p_lsmps_2nd(
             let settings = Settings {
                 space_width: 10.,
                 grid_width: settings.grid_width,
-                weight_type: WeightType::CubicBSpline,
+                weight_type: WeightType::QuadraticBSpline,
                 effect_radius: 3,
                 ..Default::default()
             };

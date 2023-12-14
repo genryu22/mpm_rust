@@ -190,6 +190,23 @@ pub fn lsmps_params_vel(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
+pub fn lsmps_params_viscosity(input: TokenStream) -> TokenStream {
+    let input: usize = parse_one_usize(input);
+    let (_, size) = multi_index(input);
+
+    quote! {
+        struct LsmpsParams {
+            m: SMatrix<f64, #size, #size>,
+            f_vel: SMatrix<f64, #size, 2>,
+            f_grad_vel: SMatrix<f64, #size, 4>,
+            f_stress: SMatrix<f64, #size, 3>,
+            count: usize,
+        }
+    }
+    .into()
+}
+
+#[proc_macro]
 pub fn lsmps_params_empty(input: TokenStream) -> TokenStream {
     let input: usize = parse_one_usize(input);
     let (_, size) = multi_index(input);
@@ -1131,7 +1148,7 @@ pub fn scheme_div_force(input: TokenStream) -> TokenStream {
     let func_name = format_ident!("scheme_div_force_{}", p);
 
     quote! {
-        fn #func_name(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>)> {
+        fn #func_name(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>, Matrix2<f64>, Matrix2<f64>, Vector2<f64>)> {
             let (mut particles, mut grid, periodic_boundary_rect) = new_for_taylor_green(settings);
 
             mlsmpm::g2p_lsmps_2nd(
@@ -1148,7 +1165,7 @@ pub fn scheme_div_force(input: TokenStream) -> TokenStream {
         
             mlsmpm_macro::lsmps_poly!(#p);
             mlsmpm_macro::lsmps_scale!(#p);
-            mlsmpm_macro::lsmps_params!(#p);
+            mlsmpm_macro::lsmps_params_viscosity!(#p);
         
             let rs = settings.cell_width();
             let scale = scale(rs);
@@ -1160,7 +1177,7 @@ pub fn scheme_div_force(input: TokenStream) -> TokenStream {
                         m: SMatrix::zeros(),
                         f_vel: SMatrix::zeros(),
                         f_stress: SMatrix::zeros(),
-                        f_pressure: SVector::zeros(),
+                        f_grad_vel: SMatrix::zeros(),
                         count: 0,
                     }));
                 }
@@ -1191,14 +1208,30 @@ pub fn scheme_div_force(input: TokenStream) -> TokenStream {
                         viscosity_term[(1, 1)]
                     ];
                     params.f_stress += weight * poly_r_ij.kronecker(&stress.transpose());
+                    params.f_vel += weight * poly_r_ij.kronecker(&p.v().transpose());
+                    params.f_grad_vel += weight * poly_r_ij.kronecker(&vector![p.c().m11, p.c().m12, p.c().m21, p.c().m22].transpose());
                     params.count += 1;
                 }
             });
+
+            struct NodeResult {
+                viscosity_term: [f64; 2],
+                grad_velocity_i: [[f64; 2]; 2],
+                grad_velocity_d: [[f64; 2]; 2],
+                velocity: [f64; 2],
+            }
         
             let result = {
                 let mut result = Vec::with_capacity(grid.len());
                 for _ in 0..grid.len() {
-                    result.push(Mutex::new([0.; 2]));
+                    result.push(Mutex::new(
+                        NodeResult {
+                            viscosity_term: [0.; 2],
+                            grad_velocity_i: [[0.; 2]; 2],
+                            grad_velocity_d: [[0.; 2]; 2],
+                            velocity: [0.; 2]
+                        }
+                    ));
                 }
                 result
             };
@@ -1211,39 +1244,62 @@ pub fn scheme_div_force(input: TokenStream) -> TokenStream {
                 }
 
                 if let Some(m_inverse) = (params.m + SMatrix::identity() * 0.).try_inverse() {
-                    let res = scale * m_inverse * params.f_stress;
-        
-                    let node_force = SVector::<f64, 2>::new(res[(1, 0)] + res[(2, 1)], res[(1, 1)] + res[(2, 2)]);
                     let mut result = result[index].lock().unwrap();
-                    result[0] += node_force.x;
-                    result[1] += node_force.y;
+
+                    {
+                        let res = scale * m_inverse * params.f_stress;
+                        let node_force = SVector::<f64, 2>::new(res[(1, 0)] + res[(2, 1)], res[(1, 1)] + res[(2, 2)]);
+                        result.viscosity_term[0] += node_force.x;
+                        result.viscosity_term[1] += node_force.y;
+                    }
+
+                    {
+                        let res = scale * m_inverse * params.f_vel;
+                        result.velocity[0] += res[(0, 0)];
+                        result.velocity[1] += res[(0, 1)];
+                        result.grad_velocity_d[0][0] += res[(1, 0)];
+                        result.grad_velocity_d[0][1] += res[(2, 0)];
+                        result.grad_velocity_d[1][0] += res[(1, 1)];
+                        result.grad_velocity_d[1][1] += res[(2, 1)];
+                    }
+
+                    {
+                        let res = scale * m_inverse * params.f_grad_vel;
+                        result.grad_velocity_i[0][0] += res[(0, 0)];
+                        result.grad_velocity_i[0][1] += res[(0, 1)];
+                        result.grad_velocity_i[1][0] += res[(0, 2)];
+                        result.grad_velocity_i[1][1] += res[(0, 3)];
+                    }
                 }
             });
         
             grid.par_iter()
                 .enumerate()
                 .map(|(index, _)| {
+                    let result = result[index].lock().unwrap();
+
                     (
                         (index % (settings.grid_width + 1)) as f64 * settings.cell_width(),
                         (index / (settings.grid_width + 1)) as f64 * settings.cell_width(),
-                        {
-                            let result = result[index].lock().unwrap();
-                            Vector2::<f64>::new(result[0], result[1])
-                        }
+                        Vector2::<f64>::new(result.viscosity_term[0], result.viscosity_term[1]),
+                        Matrix2::<f64>::new(result.grad_velocity_i[0][0], result.grad_velocity_i[0][1], result.grad_velocity_i[1][0], result.grad_velocity_i[1][1]),
+                        Matrix2::<f64>::new(result.grad_velocity_d[0][0], result.grad_velocity_d[0][1], result.grad_velocity_d[1][0], result.grad_velocity_d[1][1]),
+                        Vector2::<f64>::new(result.velocity[0], result.velocity[1]),
                     )
                 })
-                .filter(|(x, y, _)| 4. <= *x && *x < 6. && 4. <= *y && *y < 6.)
+                .filter(|(x, y, _, _, _, _)| 4. <= *x && *x < 6. && 4. <= *y && *y < 6.)
                 .collect::<Vec<_>>()
         }
     }.into()
 }
+
 #[proc_macro]
 pub fn scheme_div_force_1st(input: TokenStream) -> TokenStream {
     let p = parse_one_usize(input);
     let func_name = format_ident!("scheme_div_force_{}_1st", p);
 
     quote! {
-        fn #func_name(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>)> {
+        fn #func_name(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>, Matrix2<f64>, Matrix2<f64>, Vector2<f64>)> {
             let (mut particles, mut grid, periodic_boundary_rect) = new_for_taylor_green(settings);
 
             mlsmpm::g2p_lsmps_1st(
@@ -1260,7 +1316,7 @@ pub fn scheme_div_force_1st(input: TokenStream) -> TokenStream {
         
             mlsmpm_macro::lsmps_poly!(#p);
             mlsmpm_macro::lsmps_scale!(#p);
-            mlsmpm_macro::lsmps_params!(#p);
+            mlsmpm_macro::lsmps_params_viscosity!(#p);
         
             let rs = settings.cell_width();
             let scale = scale(rs);
@@ -1272,7 +1328,7 @@ pub fn scheme_div_force_1st(input: TokenStream) -> TokenStream {
                         m: SMatrix::zeros(),
                         f_vel: SMatrix::zeros(),
                         f_stress: SMatrix::zeros(),
-                        f_pressure: SVector::zeros(),
+                        f_grad_vel: SMatrix::zeros(),
                         count: 0,
                     }));
                 }
@@ -1303,14 +1359,30 @@ pub fn scheme_div_force_1st(input: TokenStream) -> TokenStream {
                         viscosity_term[(1, 1)]
                     ];
                     params.f_stress += weight * poly_r_ij.kronecker(&stress.transpose());
+                    params.f_vel += weight * poly_r_ij.kronecker(&p.v().transpose());
+                    params.f_grad_vel += weight * poly_r_ij.kronecker(&vector![p.c().m11, p.c().m12, p.c().m21, p.c().m22].transpose());
                     params.count += 1;
                 }
             });
+
+            struct NodeResult {
+                viscosity_term: [f64; 2],
+                grad_velocity_i: [[f64; 2]; 2],
+                grad_velocity_d: [[f64; 2]; 2],
+                velocity: [f64; 2],
+            }
         
             let result = {
                 let mut result = Vec::with_capacity(grid.len());
                 for _ in 0..grid.len() {
-                    result.push(Mutex::new([0.; 2]));
+                    result.push(Mutex::new(
+                        NodeResult {
+                            viscosity_term: [0.; 2],
+                            grad_velocity_i: [[0.; 2]; 2],
+                            grad_velocity_d: [[0.; 2]; 2],
+                            velocity: [0.; 2]
+                        }
+                    ));
                 }
                 result
             };
@@ -1323,28 +1395,50 @@ pub fn scheme_div_force_1st(input: TokenStream) -> TokenStream {
                 }
 
                 if let Some(m_inverse) = (params.m + SMatrix::identity() * 0.).try_inverse() {
-                    let res = scale * m_inverse * params.f_stress;
-        
-                    let node_force = SVector::<f64, 2>::new(res[(1, 0)] + res[(2, 1)], res[(1, 1)] + res[(2, 2)]);
                     let mut result = result[index].lock().unwrap();
-                    result[0] += node_force.x;
-                    result[1] += node_force.y;
+
+                    {
+                        let res = scale * m_inverse * params.f_stress;
+                        let node_force = SVector::<f64, 2>::new(res[(1, 0)] + res[(2, 1)], res[(1, 1)] + res[(2, 2)]);
+                        result.viscosity_term[0] += node_force.x;
+                        result.viscosity_term[1] += node_force.y;
+                    }
+
+                    {
+                        let res = scale * m_inverse * params.f_vel;
+                        result.velocity[0] += res[(0, 0)];
+                        result.velocity[1] += res[(0, 1)];
+                        result.grad_velocity_d[0][0] += res[(1, 0)];
+                        result.grad_velocity_d[0][1] += res[(2, 0)];
+                        result.grad_velocity_d[1][0] += res[(1, 1)];
+                        result.grad_velocity_d[1][1] += res[(2, 1)];
+                    }
+
+                    {
+                        let res = scale * m_inverse * params.f_grad_vel;
+                        result.grad_velocity_i[0][0] += res[(0, 0)];
+                        result.grad_velocity_i[0][1] += res[(0, 1)];
+                        result.grad_velocity_i[1][0] += res[(0, 2)];
+                        result.grad_velocity_i[1][1] += res[(0, 3)];
+                    }
                 }
             });
         
             grid.par_iter()
                 .enumerate()
                 .map(|(index, _)| {
+                    let result = result[index].lock().unwrap();
+
                     (
                         (index % (settings.grid_width + 1)) as f64 * settings.cell_width(),
                         (index / (settings.grid_width + 1)) as f64 * settings.cell_width(),
-                        {
-                            let result = result[index].lock().unwrap();
-                            Vector2::<f64>::new(result[0], result[1])
-                        }
+                        Vector2::<f64>::new(result.viscosity_term[0], result.viscosity_term[1]),
+                        Matrix2::<f64>::new(result.grad_velocity_i[0][0], result.grad_velocity_i[0][1], result.grad_velocity_i[1][0], result.grad_velocity_i[1][1]),
+                        Matrix2::<f64>::new(result.grad_velocity_d[0][0], result.grad_velocity_d[0][1], result.grad_velocity_d[1][0], result.grad_velocity_d[1][1]),
+                        Vector2::<f64>::new(result.velocity[0], result.velocity[1]),
                     )
                 })
-                .filter(|(x, y, _)| 4. <= *x && *x < 6. && 4. <= *y && *y < 6.)
+                .filter(|(x, y, _, _, _, _)| 4. <= *x && *x < 6. && 4. <= *y && *y < 6.)
                 .collect::<Vec<_>>()
         }
     }.into()
