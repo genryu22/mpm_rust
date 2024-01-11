@@ -13,6 +13,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let g2p_list = [
         G2PSchemeType::MLSMPM,
+        G2PSchemeType::Lsmps4th,
+        G2PSchemeType::Lsmps3rd,
         G2PSchemeType::LSMPS,
         G2PSchemeType::LsmpsLinear,
     ];
@@ -28,8 +30,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 grid_width: res,
                 boundary_mirror: false,
                 vx_zero: false,
-                weight_type: WeightType::QuadraticBSpline,
-                effect_radius: 2,
+                weight_type: WeightType::QuinticBSpline,
+                effect_radius: 4,
                 g2p_scheme: g2p_scheme,
                 calc_convection_term: true,
                 ..Default::default()
@@ -87,47 +89,55 @@ fn main() -> Result<(), Box<dyn Error>> {
                         .sum::<f64>(),
             );
 
-            let linf_error_grad = particles
+            let l1_error_grad = particles
                 .iter()
                 .map(|p| {
                     let x = p.x().x;
                     let y = p.x().y;
                     (p.c() - true_vel_grad(x, y, half_domain_size, pi))
-                        .column_sum()
+                        .abs()
+                        .row_sum()
                         .max()
                 })
                 .sum::<f64>()
                 / particles
                     .iter()
                     .map(|p| (p.x().x, p.x().y))
-                    .map(|(x, y)| true_vel_grad(x, y, half_domain_size, pi).column_sum().max())
+                    .map(|(x, y)| {
+                        true_vel_grad(x, y, half_domain_size, pi)
+                            .abs()
+                            .row_sum()
+                            .max()
+                    })
                     .sum::<f64>();
 
             let l2_error_laplacian = match g2p_scheme {
-                G2PSchemeType::LSMPS => f64::sqrt(
-                    particles
-                        .iter()
-                        .map(|p| {
-                            let x = p.x().x;
-                            let y = p.x().y;
-                            let v_lsmps = p.x_lsmps().transpose();
-                            (v_lsmps
-                                .fixed_view_with_steps::<2, 2>((3, 0), (1, 0))
-                                .row_sum_tr()
-                                - der_2_velocity(x, y).column_sum())
-                            .norm_squared()
-                        })
-                        .sum::<f64>()
-                        / particles
+                G2PSchemeType::LSMPS | G2PSchemeType::Lsmps3rd | G2PSchemeType::Lsmps4th => {
+                    f64::sqrt(
+                        particles
                             .iter()
-                            .map(|p| (p.x().x, p.x().y))
-                            .map(|(x, y)| der_2_velocity(x, y).column_sum().norm_squared())
-                            .sum::<f64>(),
-                ),
+                            .map(|p| {
+                                let x = p.x().x;
+                                let y = p.x().y;
+                                let v_lsmps = p.x_lsmps().transpose();
+                                (v_lsmps
+                                    .fixed_view_with_steps::<2, 2>((3, 0), (1, 0))
+                                    .row_sum_tr()
+                                    - der_2_velocity(x, y).column_sum())
+                                .norm_squared()
+                            })
+                            .sum::<f64>()
+                            / particles
+                                .iter()
+                                .map(|p| (p.x().x, p.x().y))
+                                .map(|(x, y)| der_2_velocity(x, y).column_sum().norm_squared())
+                                .sum::<f64>(),
+                    )
+                }
                 _ => 0.,
             };
 
-            (l2_error, linf_error_grad, l2_error_laplacian)
+            (l2_error, l1_error_grad, l2_error_laplacian)
         })
     });
 

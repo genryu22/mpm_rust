@@ -631,6 +631,14 @@ pub fn lsmps_g2p_func(input: TokenStream) -> TokenStream {
                         params.f_vel += weight * poly_r_ij.kronecker(&node.v_star.transpose());
                     }
                 }
+
+                // for row in params.m.row_iter() {
+                //     for value in row.iter() {
+                //         print!("{:>6.3} ", value);
+                //     }
+                //     println!();
+                // }
+                // println!();
         
                 if let Some(m_inverted) = params.m.try_inverse() {
                     let res = scale * m_inverted * params.f_vel;
@@ -1666,4 +1674,52 @@ pub fn scheme_laplacian_velocity_g2p_2nd(input: TokenStream) -> TokenStream {
                 .collect::<Vec<_>>()
         }        
     }.into()
+}
+
+#[proc_macro]
+pub fn lsmps_g2p_moment_func(input: TokenStream) -> TokenStream {
+    let p = parse_one_usize(input);
+    let func_name = format_ident!("lsmps_{}", p);
+    let (_, size) = multi_index(p);
+
+    quote! {
+        fn #func_name(settings: &Settings) -> Vec<SMatrix<f64, #size, #size>> {
+            let (mut particles, mut grid, periodic_boundary_rect) = new_for_taylor_green(settings);
+
+            let period_bounds = vec![];
+            let periodic_boundary_rect = Some(periodic_boundary_rect);
+
+            let mut moments = vec![];
+
+            particles.iter().for_each(|p| {
+                mlsmpm_macro::lsmps_poly!(#p);
+                mlsmpm_macro::lsmps_params_g2p!(#p);
+        
+                let rs = settings.cell_width();
+        
+                let mut params = LsmpsParams {
+                    m: SMatrix::zeros(),
+                    f_vel: SMatrix::zeros(),
+                };
+        
+                for n in NodeIndexIterator::new(
+                    settings,
+                    p,
+                    &period_bounds,
+                    &periodic_boundary_rect,
+                ) {
+                    let r_ij = n.dist / rs;
+                    let poly_r_ij = poly(r_ij);
+                    let weight = n.weight;
+        
+                    params.m += weight * poly_r_ij * poly_r_ij.transpose();
+                }
+
+                moments.push(params.m);
+            });
+
+            moments
+        }
+    }
+    .into()
 }

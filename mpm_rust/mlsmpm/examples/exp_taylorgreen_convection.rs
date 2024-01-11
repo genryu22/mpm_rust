@@ -48,17 +48,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     [
-        // (
-        //     P2GSchemeType::CompactLsmpsLinear,
-        //     G2PSchemeType::LsmpsLinear,
-        // ),
-        (P2GSchemeType::Compact1_2, G2PSchemeType::LSMPS),
+        (
+            P2GSchemeType::CompactLsmpsLinear,
+            G2PSchemeType::LsmpsLinear,
+        ),
+        // (P2GSchemeType::Compact1_2, G2PSchemeType::LSMPS),
         // (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::Compact2_2, G2PSchemeType::LSMPS),
-        // (P2GSchemeType::Compact_3_1, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::Compact3_2, G2PSchemeType::LSMPS),
-        (P2GSchemeType::CompactLaplacian2_2, G2PSchemeType::LSMPS),
-        (P2GSchemeType::CompactLaplacian3_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact2_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact3_1, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::Compact3_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::CompactLaplacian2_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::CompactLaplacian3_2, G2PSchemeType::LSMPS),
     ]
     .iter()
     .for_each(|&(p2g_scheme, g2p_scheme)| {

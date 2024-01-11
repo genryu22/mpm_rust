@@ -81,8 +81,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             c: 1e1,
             boundary_mirror: false,
             vx_zero: false,
-            weight_type: WeightType::QuadraticBSpline,
-            effect_radius: 2,
+            weight_type: WeightType::CubicBSpline,
+            effect_radius: 3,
             p2g_scheme: P2GSchemeType::MLSMPM,
             g2p_scheme: G2PSchemeType::MLSMPM,
             pressure: None,
@@ -118,30 +118,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .sum::<f64>(),
             );
 
-            let grad_velocity_i_linf_error = result
+            let grad_velocity_i_l1_error = result
                 .iter()
                 .map(|(x, y, _, calculated, _, _)| {
                     (calculated - true_vel_grad(x.clone(), y.clone()))
+                        .abs()
                         .row_sum()
                         .max()
                 })
                 .sum::<f64>()
                 / result
                     .iter()
-                    .map(|(x, y, _, _, _, _)| true_vel_grad(x.clone(), y.clone()).row_sum().max())
+                    .map(|(x, y, _, _, _, _)| {
+                        true_vel_grad(x.clone(), y.clone()).abs().row_sum().max()
+                    })
                     .sum::<f64>();
 
-            let grad_velocity_d_linf_error = result
+            let grad_velocity_d_l1_error = result
                 .iter()
                 .map(|(x, y, _, _, calculated, _)| {
                     (calculated - true_vel_grad(x.clone(), y.clone()))
+                        .abs()
                         .row_sum()
                         .max()
                 })
                 .sum::<f64>()
                 / result
                     .iter()
-                    .map(|(x, y, _, _, _, _)| true_vel_grad(x.clone(), y.clone()).row_sum().max())
+                    .map(|(x, y, _, _, _, _)| {
+                        true_vel_grad(x.clone(), y.clone()).abs().row_sum().max()
+                    })
                     .sum::<f64>();
 
             let velocity_l2_error = f64::sqrt(
@@ -159,8 +165,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             (
                 viscosity_term_l2_error,
-                grad_velocity_i_linf_error,
-                grad_velocity_d_linf_error,
+                grad_velocity_i_l1_error,
+                grad_velocity_d_l1_error,
                 velocity_l2_error,
             )
         })

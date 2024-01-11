@@ -70,11 +70,12 @@ fn sin_vel_2nd_grad(x: f64) -> f64 {
     -16. * pi * pi * f64::sin(pi * x * 4.)
 }
 
-mlsmpm_macro::test_dissipation_lsmps_func!(1, 3);
-mlsmpm_macro::test_dissipation_lsmps_func!(2, 3);
-mlsmpm_macro::test_dissipation_lsmps_func!(3, 6);
-mlsmpm_macro::test_dissipation_lsmps_func!(4, 6);
-mlsmpm_macro::test_dissipation_lsmps_func!(6, 10);
+mlsmpm_macro::test_dissipation_lsmps_func!(1, 1);
+mlsmpm_macro::test_dissipation_lsmps_func!(2, 2);
+mlsmpm_macro::test_dissipation_lsmps_func!(3, 3);
+mlsmpm_macro::test_dissipation_lsmps_func!(4, 3);
+mlsmpm_macro::test_dissipation_lsmps_func!(5, 3);
+mlsmpm_macro::test_dissipation_lsmps_func!(6, 4);
 
 fn main() -> Result<(), Box<dyn Error>> {
     let folder = Path::new("exp_dissipation");
@@ -92,8 +93,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         (lsmps_p2g_2, lsmps_g2p_2, "lsmps_2"),
         (lsmps_p2g_3, lsmps_g2p_3, "lsmps_3"),
         (lsmps_p2g_4, lsmps_g2p_4, "lsmps_4"),
+        (lsmps_p2g_5, lsmps_g2p_5, "lsmps_5"),
         (lsmps_p2g_6, lsmps_g2p_6, "lsmps_6"),
-        (compact_lsmps_p2g, compact_g2p, "compact_lsmps"),
+        // (compact_lsmps_p2g, compact_g2p, "compact_lsmps"),
     ];
 
     let results = cases

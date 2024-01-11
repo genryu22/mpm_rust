@@ -48,7 +48,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     [
-        // (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
+        (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
         // (P2GSchemeType::Compact_v_0_1, G2PSchemeType::LsmpsLinear),
         (P2GSchemeType::CompactV0_2, G2PSchemeType::LSMPS),
         // (
@@ -60,8 +60,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         (P2GSchemeType::Compact2_2, G2PSchemeType::LSMPS),
         // (P2GSchemeType::Compact_3_1, G2PSchemeType::LsmpsLinear),
         (P2GSchemeType::Compact3_2, G2PSchemeType::LSMPS),
-        (P2GSchemeType::CompactLaplacian2_2, G2PSchemeType::LSMPS),
-        (P2GSchemeType::CompactLaplacian3_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::CompactLaplacian2_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::CompactLaplacian3_2, G2PSchemeType::LSMPS),
         // // // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
         // // // // (P2GSchemeType::LsmpsLinear, G2PSchemeType::LsmpsLinear),
         // (P2GSchemeType::CompactLsmps, G2PSchemeType::LSMPS),

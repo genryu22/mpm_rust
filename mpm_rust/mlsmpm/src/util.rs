@@ -309,6 +309,14 @@ fn weight_function(settings: &Settings) -> fn(settings: &Settings, f64, f64) -> 
         quintic_b_spline(x, 3.) * quintic_b_spline(y, 3.)
     }
 
+    fn hexic(_: &Settings, x: f64, y: f64) -> f64 {
+        hexic_b_spline(x, 3.5) * hexic_b_spline(y, 3.5)
+    }
+
+    fn heptic(_: &Settings, x: f64, y: f64) -> f64 {
+        heptic_b_spline(x, 4.) * heptic_b_spline(y, 4.)
+    }
+
     fn linear_2d(_: &Settings, x: f64, y: f64) -> f64 {
         linear(x) * linear(y)
     }
@@ -330,6 +338,8 @@ fn weight_function(settings: &Settings) -> fn(settings: &Settings, f64, f64) -> 
         WeightType::CubicBSpline1_5 => cubic_b_spline_1_5,
         WeightType::QuarticBSpline => quartic,
         WeightType::QuinticBSpline => quintic,
+        WeightType::HexicBSpline => hexic,
+        WeightType::HepticBSpline => heptic,
         WeightType::Linear => linear_2d,
         WeightType::Spike => spike,
     }
@@ -371,6 +381,37 @@ fn cubic_b_spline_range(x: f64, range: f64) -> f64 {
     // } else {
     //     0.
     // }
+}
+
+fn heptic_b_spline(x: f64, range: f64) -> f64 {
+    let knots = vec![
+        -range,
+        -3. * range / 4.,
+        -2. * range / 4.,
+        -1. * range / 4.,
+        0.,
+        1. * range / 4.,
+        2. * range / 4.,
+        3. * range / 4.,
+        range,
+    ];
+
+    b_spline_basis(0, 7, &knots, x)
+}
+
+fn hexic_b_spline(x: f64, range: f64) -> f64 {
+    let knots = vec![
+        -range,
+        -5. * range / 7.,
+        -3. * range / 7.,
+        -1. * range / 7.,
+        1. * range / 7.,
+        3. * range / 7.,
+        5. * range / 7.,
+        range,
+    ];
+
+    b_spline_basis(0, 6, &knots, x)
 }
 
 fn quintic_b_spline(x: f64, range: f64) -> f64 {
