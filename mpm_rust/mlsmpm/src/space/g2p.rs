@@ -26,9 +26,6 @@ fn mlsmpm(settings: &Settings, space: &mut Space) {
         {
             let node = space.grid[n.index].lock().unwrap();
             p.v += (node.v_star - settings.alpha * node.v) * n.weight;
-            if !settings.calc_convection_term {
-                p.x += node.v_star * n.weight * settings.dt;
-            }
 
             let weighted_velocity = node.v_star * n.weight;
             p.c += weighted_velocity * n.dist.transpose();
@@ -39,6 +36,10 @@ fn mlsmpm(settings: &Settings, space: &mut Space) {
 
         if settings.vx_zero {
             p.v.x = 0.;
+        }
+
+        if !settings.calc_convection_term {
+            p.x += p.v * settings.dt;
         }
 
         p.c =

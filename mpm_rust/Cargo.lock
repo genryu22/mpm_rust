@@ -3071,6 +3071,7 @@ dependencies = [
  "mlsmpm_macro",
  "nalgebra",
  "rand",
+ "rand_chacha",
  "rayon",
 ]
 

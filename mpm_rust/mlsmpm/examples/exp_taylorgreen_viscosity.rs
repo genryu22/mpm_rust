@@ -12,59 +12,60 @@ use std::{fs, sync::Mutex};
 use mlsmpm::*;
 use mlsmpm_macro::*;
 use nalgebra::*;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
 
 const DYNAMIC_VISCOSITY: f64 = 1.;
-const RES_LIST: [usize; 7] = [50, 100, 250, 500, 1000, 2000, 4000];
+const RES_LIST: [usize; 8] = [50, 100, 250, 500, 1000, 2000, 4000, 8000];
 
 const SCHEMES: [(
     &str,
-    fn(
-        settings: &Settings,
-    ) -> Vec<(
-        f64,
-        f64,
-        SVector<f64, 2>,
-        Matrix2<f64>,
-        Matrix2<f64>,
-        Vector2<f64>,
-    )>,
-); 5] = [
+    fn(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>)>,
+); 8] = [
     ("MLSMPM", scheme_mlsmpm),
-    ("応力の発散_1_g2p(p=2)", scheme_div_force_1),
-    ("応力の発散_2_g2p(p=2)", scheme_div_force_2),
+    // ("応力の発散_1_g2p(p=2)", scheme_div_force_1),
+    // ("応力の発散_2_g2p(p=2)", scheme_div_force_2),
     // ("応力の発散_3_g2p(p=2)", scheme_div_force_3),
     // ("応力の発散_4_g2p(p=2)", scheme_div_force_4),
     ("応力の発散_1_g2p(p=1)", scheme_div_force_1_1st),
     ("応力の発散_2_g2p(p=1)", scheme_div_force_2_1st),
-    // ("応力の発散_3_g2p(p=1)", scheme_div_force_3_1st),
-    // ("応力の発散_4_g2p(p=1)", scheme_div_force_4_1st),
-    // ("速度のラプラシアン_2_g2p(p=1)", scheme_laplacian_velocity_2),
+    ("応力の発散_3_g2p(p=1)", scheme_div_force_3_1st),
+    ("応力の発散_4_g2p(p=1)", scheme_div_force_4_1st),
     // (
     //     "速度のラプラシアン_2_g2p(p=2)",
     //     scheme_laplacian_velocity_2_g2p_2nd,
     // ),
-    // ("速度のラプラシアン_3_g2p(p=1)", scheme_laplacian_velocity_3),
-    // ("速度のラプラシアン_4_g2p(p=1)", scheme_laplacian_velocity_4),
+    // (
+    //     "速度のラプラシアン_3_g2p(p=2)",
+    //     scheme_laplacian_velocity_3_g2p_2nd,
+    // ),
+    // (
+    //     "速度のラプラシアン_4_g2p(p=2)",
+    //     scheme_laplacian_velocity_4_g2p_2nd,
+    // ),
+    ("速度のラプラシアン_2_g2p(p=1)", scheme_laplacian_velocity_2),
+    ("速度のラプラシアン_3_g2p(p=1)", scheme_laplacian_velocity_3),
+    ("速度のラプラシアン_4_g2p(p=1)", scheme_laplacian_velocity_4),
 ];
 
-scheme_div_force_ver2!(1);
-scheme_div_force_ver2!(2);
-scheme_div_force_ver2!(3);
-scheme_div_force_ver2!(4);
-// scheme_laplacian_velocity!(2);
-// scheme_laplacian_velocity!(3);
-// scheme_laplacian_velocity!(4);
+scheme_div_force!(1);
+scheme_div_force!(2);
+scheme_div_force!(3);
+scheme_div_force!(4);
+scheme_laplacian_velocity_g2p_2nd!(2);
+scheme_laplacian_velocity_g2p_2nd!(3);
+scheme_laplacian_velocity_g2p_2nd!(4);
 
-scheme_div_force_1st_ver2!(1);
-scheme_div_force_1st_ver2!(2);
-scheme_div_force_1st_ver2!(3);
-scheme_div_force_1st_ver2!(4);
-// scheme_laplacian_velocity_g2p_2nd!(2);
+scheme_div_force_1st!(1);
+scheme_div_force_1st!(2);
+scheme_div_force_1st!(3);
+scheme_div_force_1st!(4);
+scheme_laplacian_velocity!(2);
+scheme_laplacian_velocity!(3);
+scheme_laplacian_velocity!(4);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let folder_name = format!("exp_taylorgreen_viscosity_ver3");
+    let folder_name = format!("exp_taylorgreen_viscosity_simple");
     let folder = std::path::Path::new(&folder_name);
     if !folder.exists() {
         fs::create_dir(folder)?;
@@ -81,8 +82,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             c: 1e1,
             boundary_mirror: false,
             vx_zero: false,
-            weight_type: WeightType::CubicBSpline,
-            effect_radius: 3,
+            weight_type: WeightType::QuadraticBSpline,
+            effect_radius: 2,
             p2g_scheme: P2GSchemeType::MLSMPM,
             g2p_scheme: G2PSchemeType::MLSMPM,
             pressure: None,
@@ -91,13 +92,53 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ..Default::default()
         };
 
-        SCHEMES.map(|(_, scheme)| {
+        SCHEMES.map(|(name, scheme)| {
             let result = scheme(&settings);
 
-            let viscosity_term_l2_error = f64::sqrt(
+            {
+                let folder = folder.join("distribution");
+                if !folder.exists() {
+                    fs::create_dir(folder.clone()).unwrap();
+                }
+                let folder = folder.join(current_time.format("%Y%m%d_%Hh%Mm%Ss").to_string());
+                if !folder.exists() {
+                    fs::create_dir(folder.clone()).unwrap();
+                }
+                let folder = folder.join(name);
+                if !folder.exists() {
+                    fs::create_dir(folder.clone()).unwrap();
+                }
+
+                let file = folder.join(format!("{}.csv", res));
+                let mut writer = csv::Writer::from_path(file).unwrap();
+                writer
+                    .write_record(&["x", "y", "u", "v", "u_exact", "v_exact", "l2_error_norm"])
+                    .unwrap();
+                for (x, y, calculated) in result.iter() {
+                    let exact = viscosity_term(
+                        DYNAMIC_VISCOSITY,
+                        der_2_velocity(0., x.clone(), y.clone(), DYNAMIC_VISCOSITY),
+                    );
+
+                    writer
+                        .write_record(&[
+                            format!("{:.3}", x),
+                            format!("{:.3}", y),
+                            calculated.x.to_string(),
+                            calculated.y.to_string(),
+                            exact.x.to_string(),
+                            exact.y.to_string(),
+                            (calculated - exact).norm().to_string(),
+                        ])
+                        .unwrap();
+                }
+                writer.flush().unwrap();
+            }
+
+            let l2_error = f64::sqrt(
                 result
                     .iter()
-                    .map(|(x, y, calculated, _, _, _)| {
+                    .map(|(x, y, calculated)| {
                         (calculated
                             - viscosity_term(
                                 DYNAMIC_VISCOSITY,
@@ -108,7 +149,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .sum::<f64>()
                     / result
                         .iter()
-                        .map(|(x, y, _, _, _, _)| {
+                        .map(|(x, y, _)| {
                             viscosity_term(
                                 DYNAMIC_VISCOSITY,
                                 der_2_velocity(0., x.clone(), y.clone(), DYNAMIC_VISCOSITY),
@@ -118,62 +159,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .sum::<f64>(),
             );
 
-            let grad_velocity_i_l1_error = result
+            let linf_error = result
                 .iter()
-                .map(|(x, y, _, calculated, _, _)| {
-                    (calculated - true_vel_grad(x.clone(), y.clone()))
-                        .abs()
-                        .row_sum()
-                        .max()
+                .map(|(x, y, calculated)| {
+                    (calculated
+                        - viscosity_term(
+                            DYNAMIC_VISCOSITY,
+                            der_2_velocity(0., x.clone(), y.clone(), DYNAMIC_VISCOSITY),
+                        ))
+                    .norm()
                 })
-                .sum::<f64>()
+                .fold(0.0 / 0.0, f64::max)
                 / result
                     .iter()
-                    .map(|(x, y, _, _, _, _)| {
-                        true_vel_grad(x.clone(), y.clone()).abs().row_sum().max()
+                    .map(|(x, y, _)| {
+                        viscosity_term(
+                            DYNAMIC_VISCOSITY,
+                            der_2_velocity(0., x.clone(), y.clone(), DYNAMIC_VISCOSITY),
+                        )
+                        .norm()
                     })
-                    .sum::<f64>();
+                    .fold(0.0 / 0.0, f64::max);
 
-            let grad_velocity_d_l1_error = result
-                .iter()
-                .map(|(x, y, _, _, calculated, _)| {
-                    (calculated - true_vel_grad(x.clone(), y.clone()))
-                        .abs()
-                        .row_sum()
-                        .max()
-                })
-                .sum::<f64>()
-                / result
-                    .iter()
-                    .map(|(x, y, _, _, _, _)| {
-                        true_vel_grad(x.clone(), y.clone()).abs().row_sum().max()
-                    })
-                    .sum::<f64>();
-
-            let velocity_l2_error = f64::sqrt(
-                result
-                    .iter()
-                    .map(|(x, y, _, _, _, calculated)| {
-                        (calculated - true_vel(x.clone(), y.clone())).norm_squared()
-                    })
-                    .sum::<f64>()
-                    / result
-                        .iter()
-                        .map(|(x, y, _, _, _, _)| true_vel(x.clone(), y.clone()).norm_squared())
-                        .sum::<f64>(),
-            );
-
-            (
-                viscosity_term_l2_error,
-                grad_velocity_i_l1_error,
-                grad_velocity_d_l1_error,
-                velocity_l2_error,
-            )
+            (l2_error, linf_error)
         })
     });
 
     {
-        let folder = folder.join("viscosity_term");
+        let folder = folder.join("l2");
         if !folder.exists() {
             fs::create_dir(folder.clone())?;
         }
@@ -184,9 +197,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             writer.write_record(
                 &([
                     vec![RES_LIST[i].to_string()],
-                    result[i]
-                        .map(|(l2_error, _, _, _)| l2_error.to_string())
-                        .to_vec(),
+                    result[i].map(|(l2_error, _)| l2_error.to_string()).to_vec(),
                 ]
                 .concat()),
             )?;
@@ -195,7 +206,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     {
-        let folder = folder.join("grad_velocity_i");
+        let folder = folder.join("linf");
         if !folder.exists() {
             fs::create_dir(folder.clone())?;
         }
@@ -207,51 +218,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &([
                     vec![RES_LIST[i].to_string()],
                     result[i]
-                        .map(|(_, linf_error, _, _)| linf_error.to_string())
-                        .to_vec(),
-                ]
-                .concat()),
-            )?;
-        }
-        writer.flush()?;
-    }
-
-    {
-        let folder = folder.join("grad_velocity_d");
-        if !folder.exists() {
-            fs::create_dir(folder.clone())?;
-        }
-        let file = folder.join(format!("{}.csv", current_time.format("%Y%m%d_%Hh%Mm%Ss")));
-        let mut writer = csv::Writer::from_path(file)?;
-        writer.write_record(&([vec!["res"], SCHEMES.map(|(name, _)| name).to_vec()].concat()))?;
-        for i in 0..RES_LIST.len() {
-            writer.write_record(
-                &([
-                    vec![RES_LIST[i].to_string()],
-                    result[i]
-                        .map(|(_, _, linf_error, _)| linf_error.to_string())
-                        .to_vec(),
-                ]
-                .concat()),
-            )?;
-        }
-        writer.flush()?;
-    }
-
-    {
-        let folder = folder.join("velocity");
-        if !folder.exists() {
-            fs::create_dir(folder.clone())?;
-        }
-        let file = folder.join(format!("{}.csv", current_time.format("%Y%m%d_%Hh%Mm%Ss")));
-        let mut writer = csv::Writer::from_path(file)?;
-        writer.write_record(&([vec!["res"], SCHEMES.map(|(name, _)| name).to_vec()].concat()))?;
-        for i in 0..RES_LIST.len() {
-            writer.write_record(
-                &([
-                    vec![RES_LIST[i].to_string()],
-                    result[i]
-                        .map(|(_, _, _, l2_error)| l2_error.to_string())
+                        .map(|(_, linferror)| linferror.to_string())
                         .to_vec(),
                 ]
                 .concat()),
@@ -276,40 +243,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         dynamic_viscosity * der_2_v.column_sum()
     }
 
-    fn true_vel_grad(x: f64, y: f64) -> Matrix2<f64> {
-        let pi = std::f64::consts::PI;
-        let u = 1.;
-        let k = pi / u;
-        let c11 = k * f64::cos(pi * (x - 5.) / u) * f64::cos(pi * (y - 5.) / u);
-        let c12 = -k * f64::sin(pi * (x - 5.) / u) * f64::sin(pi * (y - 5.) / u);
-        let c21 = k * f64::sin(pi * (x - 5.) / u) * f64::sin(pi * (y - 5.) / u);
-        let c22 = -k * f64::cos(pi * (x - 5.) / u) * f64::cos(pi * (y - 5.) / u);
-
-        Matrix2::new(c11, c12, c21, c22)
-    }
-
-    fn true_vel(x: f64, y: f64) -> Vector2<f64> {
-        let pi = std::f64::consts::PI;
-        let u = 1.;
-        Vector2::new(
-            f64::sin(pi * (x - 5.) / u) * f64::cos(pi * (y - 5.) / u),
-            -f64::cos(pi * (x - 5.) / u) * f64::sin(pi * (y - 5.) / u),
-        )
-    }
-
     Ok(())
 }
 
-fn scheme_mlsmpm(
-    settings: &Settings,
-) -> Vec<(
-    f64,
-    f64,
-    SVector<f64, 2>,
-    Matrix2<f64>,
-    Matrix2<f64>,
-    Vector2<f64>,
-)> {
+fn scheme_mlsmpm(settings: &Settings) -> Vec<(f64, f64, SVector<f64, 2>)> {
     let (mut particles, mut grid, periodic_boundary_rect) = new_for_taylor_green(settings);
 
     mlsmpm::g2p_lsmps_1st(
@@ -380,12 +317,8 @@ fn scheme_mlsmpm(
         .into_iter()
         .enumerate()
         .map(|(i, force)| {
-            let node = grid[i].lock().unwrap();
             let force = force.lock().unwrap();
-            let viscosity_term = Vector2::<f64>::new(force[0], force[1]) / node.mass;
-            let velocity = node.v;
-
-            (viscosity_term, velocity)
+            Vector2::<f64>::new(force[0], force[1]) / grid[i].lock().unwrap().mass
         })
         .collect::<Vec<_>>();
 
@@ -395,13 +328,10 @@ fn scheme_mlsmpm(
             (
                 (index % (settings.grid_width + 1)) as f64 * settings.cell_width(),
                 (index / (settings.grid_width + 1)) as f64 * settings.cell_width(),
-                result[index].0,
-                Matrix2::zeros(),
-                Matrix2::zeros(),
-                result[index].1,
+                result[index],
             )
         })
-        .filter(|(x, y, _, _, _, _)| 4. <= *x && *x < 6. && 4. <= *y && *y < 6.)
+        .filter(|(x, y, _)| 4. <= *x && *x < 6. && 4. <= *y && *y < 6.)
         .collect::<Vec<_>>()
 }
 
@@ -418,15 +348,15 @@ fn new_for_taylor_green(settings: &Settings) -> (Vec<Particle>, Vec<Node>, Perio
 
     let mut particles = Vec::<Particle>::with_capacity(num_x * num_x);
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(2);
 
     for i_y in 0..num_x {
         for i_x in 0..num_x {
             let mut x = p_dist * (i_x as f64 + 0.5) as f64 + pos_x_min;
             let mut y = p_dist * (i_y as f64 + 0.5) as f64 + pos_x_min;
             if true {
-                x += rng.gen_range(-1.0..=1.0) * p_dist * 0.2;
-                y += rng.gen_range(-1.0..=1.0) * p_dist * 0.2;
+                x += rng.gen_range(-1.0..=1.0) * p_dist * 0.05;
+                y += rng.gen_range(-1.0..=1.0) * p_dist * 0.05;
             }
 
             let p = Particle::new_with_mass(
