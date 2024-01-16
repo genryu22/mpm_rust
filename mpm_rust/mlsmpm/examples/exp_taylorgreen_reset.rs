@@ -2,12 +2,12 @@ use std::{error::Error, fs, io::Write, path::Path};
 
 use mlsmpm::*;
 use nalgebra::Matrix2xX;
-use rand::{seq::SliceRandom, Rng};
+use rand::{seq::SliceRandom, Rng, SeedableRng};
 
 fn main() -> Result<(), Box<dyn Error>> {
     const DYNAMIC_VISCOSITY: f64 = 1e-3;
-    const DT: f64 = 1e-4;
-    let res_list = [50, 100, 250, 500, 1000, 2000, 4000];
+    const DT: f64 = 5e-4;
+    let res_list = [50, 100, 250, 500, 1000, 2000];
 
     for r in res_list.iter().rev() {
         let cell_width = 10. / *r as f64;
@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         fs::create_dir(folder)?;
     }
 
-    let time = 1e-4;
+    let time = 1e-1;
 
     let pi = std::f64::consts::PI;
     let half_domain_size = 1.;
@@ -49,17 +49,17 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     [
         (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
-        // (P2GSchemeType::Compact_v_0_1, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::CompactV0_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::CompactV0_1, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::CompactV0_2, G2PSchemeType::LSMPS),
         // (
         //     P2GSchemeType::CompactLsmpsLinear,
         //     G2PSchemeType::LsmpsLinear,
         // ),
-        (P2GSchemeType::Compact1_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact1_2, G2PSchemeType::LSMPS),
         // (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::Compact2_2, G2PSchemeType::LSMPS),
-        // (P2GSchemeType::Compact_3_1, G2PSchemeType::LsmpsLinear),
-        (P2GSchemeType::Compact3_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact2_2, G2PSchemeType::LSMPS),
+        // (P2GSchemeType::Compact3_1, G2PSchemeType::LsmpsLinear),
+        // (P2GSchemeType::Compact3_2, G2PSchemeType::LSMPS),
         // (P2GSchemeType::CompactLaplacian2_2, G2PSchemeType::LSMPS),
         // (P2GSchemeType::CompactLaplacian3_2, G2PSchemeType::LSMPS),
         // // // (P2GSchemeType::MLSMPM, G2PSchemeType::LsmpsLinear),
@@ -146,7 +146,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                         Vector2::new(p_dx, p_dy)
                     }),
-                    reset_particle_position: true,
+                    reset_particle_position: false,
                     ..Default::default()
                 };
 
@@ -195,6 +195,32 @@ fn main() -> Result<(), Box<dyn Error>> {
                             .sum::<f64>(),
                 );
 
+                let linf_error = particles
+                    .iter()
+                    .map(|p| {
+                        let x = p.x().x;
+                        let y = p.x().y;
+                        (p.v()
+                            - true_vel(
+                                time,
+                                x,
+                                y,
+                                half_domain_size,
+                                pi,
+                                settings.dynamic_viscosity,
+                            ))
+                        .norm()
+                    })
+                    .fold(0.0 / 0.0, f64::max)
+                    / particles
+                        .iter()
+                        .map(|p| (p.x().x, p.x().y))
+                        .map(|(x, y)| {
+                            true_vel(time, x, y, half_domain_size, pi, settings.dynamic_viscosity)
+                                .norm()
+                        })
+                        .fold(0.0 / 0.0, f64::max);
+
                 write_final_result(
                     folder,
                     time,
@@ -225,7 +251,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 )
                 .unwrap();
 
-                (settings.cell_width() / 2., l2_error)
+                (settings.cell_width() / 2., l2_error, linf_error)
                 // })
             })
             .collect::<Vec<_>>();
@@ -253,14 +279,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         folder: &Path,
         p2g_scheme: P2GSchemeType,
         g2p_scheme: G2PSchemeType,
-        results: Vec<(f64, f64)>,
+        results: Vec<(f64, f64, f64)>,
     ) -> Result<(), Box<dyn Error>> {
         let mut writer = csv::Writer::from_path(
             folder.join(format!("errors_{:?}_{:?}.csv", p2g_scheme, g2p_scheme)),
         )?;
-        writer.write_record(&["res", "l2_error"])?;
-        for (res, l2_error) in results {
-            writer.write_record(&[res.to_string(), l2_error.to_string()])?;
+        writer.write_record(&["res", "l2_error", "linf_error"])?;
+        for (res, l2_error, linf_error) in results {
+            writer.write_record(&[
+                res.to_string(),
+                l2_error.to_string(),
+                linf_error.to_string(),
+            ])?;
         }
         writer.flush()?;
 
@@ -316,7 +346,7 @@ pub fn new_for_taylor_green(settings: &Settings) -> Space {
 
     let mut particles = Vec::<Particle>::with_capacity(num_x * num_x);
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(2);
 
     for i_y in 0..num_x {
         for i_x in 0..num_x {
