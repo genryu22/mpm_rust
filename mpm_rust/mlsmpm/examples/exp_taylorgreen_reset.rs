@@ -6,7 +6,7 @@ use rand::{seq::SliceRandom, Rng, SeedableRng};
 
 fn main() -> Result<(), Box<dyn Error>> {
     const DYNAMIC_VISCOSITY: f64 = 1e-3;
-    const DT: f64 = 5e-4;
+    const DT: f64 = 5e-5;
     let res_list = [50, 100, 250, 500, 1000, 2000];
 
     for r in res_list.iter().rev() {
@@ -49,6 +49,21 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     [
         (P2GSchemeType::MLSMPM, G2PSchemeType::MLSMPM),
+        (P2GSchemeType::CompactLsmpsLinear, G2PSchemeType::LsmpsFlip1),
+        // (P2GSchemeType::CompactLsmps, G2PSchemeType::LsmpsFlip1),
+        // (P2GSchemeType::Compact3_1, G2PSchemeType::LsmpsFlip1),
+        // (P2GSchemeType::Compact1_2, G2PSchemeType::LsmpsFlip2),
+        // (P2GSchemeType::Compact2_2, G2PSchemeType::LsmpsFlip2),
+        // (P2GSchemeType::Compact3_2, G2PSchemeType::LsmpsFlip2),
+        // (
+        //     P2GSchemeType::CompactLaplacian2_2,
+        //     G2PSchemeType::LsmpsFlip2,
+        // ),
+        // (
+        //     P2GSchemeType::CompactLaplacian3_2,
+        //     G2PSchemeType::LsmpsFlip2,
+        // ),
+        // (P2GSchemeType::CompactV0_2, G2PSchemeType::LsmpsFlip2),
         // (P2GSchemeType::CompactV0_1, G2PSchemeType::LsmpsLinear),
         // (P2GSchemeType::CompactV0_2, G2PSchemeType::LSMPS),
         // (

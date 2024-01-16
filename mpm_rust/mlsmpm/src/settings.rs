@@ -120,6 +120,8 @@ pub enum G2PSchemeType {
     LsmpsLinear,
     LsmpsLinearMacro,
     CompactLsmps,
+    LsmpsFlip1,
+    LsmpsFlip2,
 }
 
 impl Settings {

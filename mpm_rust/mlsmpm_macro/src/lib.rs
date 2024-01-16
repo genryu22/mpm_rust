@@ -245,6 +245,21 @@ pub fn lsmps_params_g2p(input: TokenStream) -> TokenStream {
     .into()
 }
 
+#[proc_macro]
+pub fn lsmps_flip_params_g2p(input: TokenStream) -> TokenStream {
+    let input: usize = parse_one_usize(input);
+    let (_, size) = multi_index(input);
+
+    quote! {
+        struct LsmpsParams {
+            m: SMatrix<f64, #size, #size>,
+            f_vel: SMatrix<f64, #size, 2>,
+            f_accel: SMatrix<f64, #size, 2>,
+        }
+    }
+    .into()
+}
+
 fn parse_one_usize(input: TokenStream) -> usize {
     let input: Expr = syn::parse(input).unwrap();
     let p = match input {
@@ -644,6 +659,72 @@ pub fn lsmps_g2p_func(input: TokenStream) -> TokenStream {
                     }
                     p.c = res.fixed_view::<2, 2>(1, 0).transpose().into();
                     p.v_lsmps = res.rows(0, res.shape().0).transpose();
+                }
+            });
+        }
+    }
+    .into()
+}
+
+#[proc_macro]
+pub fn lsmps_flip_g2p_func(input: TokenStream) -> TokenStream {
+    let p = parse_one_usize(input);
+    let func_name = format_ident!("lsmps_flip_{}", p);
+    quote! {
+        fn #func_name(settings: &Settings, space: &mut Space) {
+            parallel!(settings, space.particles, |p| {
+                mlsmpm_macro::lsmps_poly!(#p);
+                mlsmpm_macro::lsmps_scale!(#p);
+                mlsmpm_macro::lsmps_flip_params_g2p!(#p);
+
+                let rs = settings.cell_width();
+                let scale = scale(rs);
+        
+                let mut params = LsmpsParams {
+                    m: SMatrix::zeros(),
+                    f_vel: SMatrix::zeros(),
+                    f_accel: SMatrix::zeros(),
+                };
+        
+                for n in NodeIndexIterator::new(
+                    settings,
+                    p,
+                    &space.period_bounds,
+                    &space.period_bound_rect,
+                ) {
+                    let r_ij = n.dist / rs;
+                    let poly_r_ij = poly(r_ij);
+                    let weight = n.weight;
+        
+                    params.m += weight * poly_r_ij * poly_r_ij.transpose();
+
+                    {
+                        let node = space.grid[n.index].lock().unwrap();
+                        params.f_accel += weight * poly_r_ij.kronecker(&(node.v_star - node.v).transpose());
+                        params.f_vel += weight * poly_r_ij.kronecker(&node.v_star.transpose());
+                    }
+                }
+        
+                if let Some(m_inverted) = params.m.try_inverse() {
+                    let res = scale * m_inverted * params.f_accel;
+
+                    p.v = p.v + res.fixed_view::<1, 2>(0, 0).transpose();
+        
+                    if settings.vx_zero {
+                        p.v.x = 0.;
+                    }
+                    if !settings.calc_convection_term {
+                        p.x += p.v * settings.dt;
+                    }
+
+                    if p.v_lsmps.shape().1 > 0 {
+                        p.c = p.c + res.fixed_view::<2, 2>(1, 0).transpose();
+                        p.v_lsmps = p.v_lsmps.columns(0, res.shape().0) + res.rows(0, res.shape().0).transpose();
+                    } else {
+                        let res = scale * m_inverted * params.f_vel;
+                        p.c = res.fixed_view::<2, 2>(1, 0).transpose().into();
+                        p.v_lsmps = res.rows(0, res.shape().0).transpose();
+                    }
                 }
             });
         }

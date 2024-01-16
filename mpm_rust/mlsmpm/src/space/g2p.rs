@@ -13,6 +13,8 @@ pub fn g2p(g2p_scheme: &G2PSchemeType) -> fn(settings: &Settings, space: &mut Sp
         G2PSchemeType::CompactLsmps => compact_lsmps,
         G2PSchemeType::Lsmps3rd => lsmps_3,
         G2PSchemeType::Lsmps4th => lsmps_4,
+        G2PSchemeType::LsmpsFlip1 => lsmps_flip_1,
+        G2PSchemeType::LsmpsFlip2 => lsmps_flip_2,
     }
 }
 
@@ -54,6 +56,9 @@ mlsmpm_macro::lsmps_g2p_func!(1);
 mlsmpm_macro::lsmps_g2p_func!(2);
 mlsmpm_macro::lsmps_g2p_func!(3);
 mlsmpm_macro::lsmps_g2p_func!(4);
+
+mlsmpm_macro::lsmps_flip_g2p_func!(1);
+mlsmpm_macro::lsmps_flip_g2p_func!(2);
 
 fn compact_lsmps(settings: &Settings, space: &mut Space) {
     parallel!(settings, space.particles, |p| {
