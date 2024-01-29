@@ -197,7 +197,7 @@ fn mlsmpm_g2p(particles: &mut Vec<Particle>, grid: &Vec<Node>, cell_width: f64, 
     });
 }
 
-fn compact_lsmps_p2g(
+fn _compact_lsmps_p2g(
     particles: &Vec<Particle>,
     grid: &mut Vec<Node>,
     cell_width: f64,
@@ -328,7 +328,12 @@ fn compact_lsmps_p2g(
     }
 }
 
-fn compact_g2p(particles: &mut Vec<Particle>, grid: &Vec<Node>, cell_width: f64, grid_size: usize) {
+fn _compact_g2p(
+    particles: &mut Vec<Particle>,
+    grid: &Vec<Node>,
+    cell_width: f64,
+    grid_size: usize,
+) {
     fn factorial(num: usize) -> f64 {
         match num {
             0 | 1 => 1.,
