@@ -1,5 +1,0 @@
-{
-	"rust-analyzer.linkedProjects": [
-		"${workspaceFolder}/mpm_rust/Cargo.toml"
-	],
-}
