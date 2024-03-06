@@ -25,6 +25,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         );
     }
 
+    let folder_name = "exp_taylorgreen_convection";
+    let folder = Path::new(&folder_name);
+    if !folder.exists() {
+        fs::create_dir(folder)?;
+    }
+
     let current_time = chrono::Local::now();
     let folder_name = format!(
         "exp_taylorgreen_convection/{:}",
