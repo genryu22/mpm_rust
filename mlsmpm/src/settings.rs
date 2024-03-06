@@ -2,15 +2,14 @@ use crate::*;
 
 #[derive(Debug)]
 pub struct Settings {
-    pub dt: f64,
-    pub gravity: f64,
-    pub dynamic_viscosity: f64,
-    pub alpha: f64,
-    pub affine: bool,
-    pub space_width: f64,
-    pub grid_width: U,
-
-    pub rho_0: f64,
+    pub dt: f64,                // 時間刻み幅
+    pub gravity: f64,           // 重力加速度[m/s^2]
+    pub dynamic_viscosity: f64, // 動粘性係数[m^2/s]
+    pub alpha: f64,             // FLIPの比率 0 で0％ 1で100%
+    pub affine: bool,           // APICを用いるかどうか
+    pub space_width: f64,       // 空間の一辺の大きさ[m]
+    pub grid_width: U,          // セルの個数
+    pub rho_0: f64,             // 初期粒子密度 [kg/m^2]
 
     pub c: f64,
     pub eos_power: f64,
